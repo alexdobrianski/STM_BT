@@ -2151,17 +2151,19 @@ void Reset_device(void)
                          //    1 = Device enters an Idle mode when a SLEEP instruction is executed
                          //    0 = Device enters Sleep mode when a SLEEP instruction is executed
                          // bit 6-4 IRCF<2:0>: Internal Oscillator Frequency Select bits
-                         //    111 = 8 MHz (INTOSC drives clock directly)
-                         //    110 = 4 MHz
-                         //    101 = 2 MHz
-                         //    100 = 1 MHz(3)
-                         //    011 = 500 kHz
-                         //    010 = 250 kHz
-                         //    001 = 125 kHz
+                         //    111 = 8 MHz (INTOSC drives clock directly)/16 MHz (HFINTOSC drives clock directly)
+                         //    110 = 4 MHz / 8 MHz
+                         //    101 = 2 MHz / 4 MHz
+                         //    100 = 1 MHz(3) / 2 MHz
+                         //    011 = 500 kHz / 1 MHz(3)
+                         //    010 = 250 kHz / 500 kHz
+                         //    001 = 125 kHz / 250 kHz
                          //    000 = 31 kHz (from either INTOSC/256 or INTRC directly)(2)
                          // bit 3 OSTS: Oscillator Start-up Time-out Status bit(1)
-                         //    1 = Oscillator Start-up Timer (OST) time-out has expired; primary oscillator is running
+                         //    1 = Oscillator Start-up Timer (OST) time-out has expired; primary oscillator is running/
+                         //        / Device is running from the clock defined by FOSC<2:0> of the CONFIG1 register
                          //    0 = Oscillator Start-up Timer (OST) time-out is running; primary oscillator is not ready
+                         //        / Device is running from the internal oscillator (HFINTOSC or LFINTOSC)
                          // bit 2 IOFS: INTOSC Frequency Stable bit
                          //    1 = INTOSC frequency is stable
                          //    0 = INTOSC frequency is not stable
