@@ -354,7 +354,7 @@ SEND_I_ADDR:
             DELAY_1_I2C;
             bitclr(I2CTRIS,I2C_SCL);     // SDA = X SCL = 0  set SCL low
 SEND_I_FIRST_BIT:
-#ifdef      _18F2321
+#ifdef      _18F2321_18F25K20
             #asm
               RLCF bWork,1,1
             #endasm
@@ -501,7 +501,7 @@ READ_I_BEGIN:
             Carry = 0;
             if (bittest(I2CPORT,I2C_SDA))
                 Carry = 1;
-#ifdef      _18F2321
+#ifdef      _18F2321_18F25K20
             #asm
               RLCF bWork,1,1
             #endasm

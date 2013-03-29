@@ -12,11 +12,11 @@ dir_inc=
 dir_lib=
 dir_lkr=
 [CAT_FILTERS]
-filter_src=*.c;*.asm
-filter_inc=*.h;*.inc
-filter_obj=*.o
-filter_lib=*.lib
-filter_lkr=*.lkr
+filter_src=*.C;*.ASM
+filter_inc=*.H;*.INC
+filter_obj=*.O
+filter_lib=*.LIB
+filter_lkr=*.LKR
 [CAT_SUBFOLDERS]
 subfolder_src=
 subfolder_inc=
@@ -72,7 +72,7 @@ suite_guid={12421EB7-4F43-A0D4-830A-F8D0EEA8E231}
 suite_state=
 [TOOL_SETTINGS]
 TS{58963C7E-B41F-4859-8C9A-C4F34364F0B4}=/e+;/l+;/x-;/p;/c+
-TS{42A20E31-236E-47FB-851A-FD464985044B}=/o;/m|$.map;/l;/k
+TS{42A20E31-236E-47FB-851A-FD464985044B}=/o;/l;/k
 TS{C1E40F78-5DA3-1A91-7292-022A0372504D}=-CC;-fINHX32;-p;-I;-a;-L;-Q;-V;-FM
 [INSTRUMENTED_TRACE]
 enable=0

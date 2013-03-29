@@ -273,7 +273,7 @@ void enable_uart(void)//bit want_ints)
 #else // 88,884,2321
     TX9 = 0;
     RX9 = 0;
-//#ifdef _18F2321
+//#ifdef _18F2321_18F25K20
 //    SPBRGH = 0;
 //    BRG16 = 0;
 //#endif
@@ -362,9 +362,9 @@ void enable_I2C(void)
       IEC1bits.MI2C1IE = 1; // enable interupt on master
 #else // end of PIC24
 
-#ifdef _18F2321
+#ifdef _18F2321_18F25K20
  #ifndef I2C_ONLY_MASTER
-    SSPCON1 =0b00111110; // TBD in _18F2321 master I2C implemented 
+    SSPCON1 =0b00111110; // TBD in _18F2321_18F25K20 master I2C implemented 
  #else
     SSPCON1 =0b00011000;
     SSPCON2 =0b00000000;
@@ -469,7 +469,7 @@ void SendSSByte(unsigned char bByte)
   #ifdef __PIC24H__
          bByte<<=1;
   #else
-   #ifdef      _18F2321
+   #ifdef      _18F2321_18F25K20
             #asm
               RLCF bByte,1,1
             #endasm

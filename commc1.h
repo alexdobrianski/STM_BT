@@ -79,14 +79,14 @@ void interrupt_at_high_vector(void)
 #define INTERRUPT interrupt
 #pragma codeLevel 1
 #pragma optimize 1
- #ifdef _18F2321
+ #ifdef _18F2321_18F25K20 
  #else 
 #include "inline.h"
  #endif
 #pragma origin 4
 #pragma rambank RAM_BANK_0
 /////////////////////////////////////////////BANK 0//////////////////////
-#ifdef _18F2321  // comaptability mode == branch on 0ffset 8 and no priority
+#ifdef _18F2321_18F25K20  // comaptability mode == branch on 0ffset 8 and no priority
 #pragma origin 8
 #endif
 
@@ -103,7 +103,7 @@ INTERRUPT int_server( void)
 #else
     int_save_registers ;   // W, STATUS (and PCLATH)
    
- #ifdef _18F2321
+ #ifdef _18F2321_18F25K20
    unsigned long sv_FSR = FSR_REGISTER;
  #else
    unsigned char sv_FSR = FSR_REGISTER;  // save FSR if required
@@ -867,7 +867,7 @@ CONTINUE_WITH_ISR:;
         //bitset(TIMER0_CONTROL_REG,5);
 #ifndef __PIC24H__
         T0SE = 1;
-   #ifdef _18F2321
+   #ifdef _18F2321_18F25K20
        TMR0ON = 0;
    #endif
         I2C.Timer0Fired = 1;
@@ -1534,7 +1534,7 @@ TMR2_COUNT_DONE:
 #endif
         }
     }
- #ifdef _18F2321 
+ #ifdef _18F2321_18F25K20 
  //#define USE_INT1 1
  #endif
  #ifdef __PIC24H__

@@ -189,9 +189,20 @@ see www.adobri.com for communication protocol spec
 //#define __DEBUG
 //#define SHOW_RX_TX
 //#define SHOW_RX
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+// define blinking LED on pin 9 (RA7)
+/////////////////////////////////////////////////////////////////////////////////////////////////////
 #define DEBUG_LED
 #ifdef DEBUG_LED
+///////////////////////////////////////////////////////////////
+//   for a blinking LED behive like CUBESAT/CRAFT
+//   it is waiting for connection, wait for pkt, and when pkt is Ok it send back to earth reply packet, and blinks
+///////////////////////////////////////////////////////////////
 //#define DEBUG_LED_CALL_EARTH
+///////////////////////////////////////////////////////////////
+//   for a blinking LED behive like Ground Station, it is constantly sends pktm if received pkt, then it blinks
+///////////////////////////////////////////////////////////////
 #define DEBUG_LED_CALL_LUNA
 #endif
 
@@ -349,11 +360,12 @@ unsigned char FqTXCount;
 unsigned char FqTX;
 unsigned char TXSendOverFQ;
 UWORD Time4Packet;
-#ifdef _18F2321
+#ifdef _18F2321_18F25K20
 UWORD TIMER0 @ 0xFD6;
 UWORD TIMER1 @ 0xFCE;
 UWORD TIMER3 @ 0xFB2;
 #endif
+
 UWORD Tmr1High; // to count for a 536 sec with presision of 0.000000125s== 1/4mks == 37.5m
                 // UWORD in TMR1 counts till 0.008192 s = 8.192ms
 
@@ -1187,7 +1199,7 @@ SET_WAIT:
 #ifndef __PIC24H__
             T0SE = 0;
 #endif
-#ifdef _18F2321
+#ifdef _18F2321_18F25K20
             T08BIT = 1; // set timer 0 as a byte counter
             TMR0ON = 1;
 #endif
@@ -1979,6 +1991,10 @@ SEND_PKT_DIAL:
 void Reset_device(void)
 {
     
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//
+////////////////////////////////////////////////////////////////////////////////////////////////////
 #ifdef __PIC24H__
     // Configure Oscillator to operate the device at 40Mhz
     // Fosc= Fin*M/(N1*N2), Fcy=Fosc/2
@@ -2122,7 +2138,11 @@ void Reset_device(void)
      mRtccOn();
 
 #else  // ends PIC24 
-#ifdef _18F2321
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//  for both diveses individual differences will bi inside ifdef
+//
+////////////////////////////////////////////////////////////////////////////////////////////////////
+#ifdef _18F2321_18F25K20
     unsigned int iCount;
     unsigned int iCount2;
 // this is will be better at the begining of a program
@@ -2178,13 +2198,12 @@ void Reset_device(void)
 // Rx_MISO+SSDATA_OUT   RA4/T0CKI/C1OUT | 6     23| RB2/INT2/AN8          BT_RX
 //   SSCS       RA5/AN4/SS/HLVDIN/C2OUT | 7     22| RB1/INT1/AN10         BT_TX
 //                                  VSS | 8     21| RB0/INT0/FLT0/AN12    Rx_IRQ
-//                        OSC1/CLKI/RA7 | 9     20| VDD
+// dbg blinking LED       OSC1/CLKI/RA7 | 9     20| VDD
 // BT_POWER               OSC2/CLKO/RA6 |10     19| VSS
 //                     RC0/T1OSO/T13CKI |11     18| RC7/RX/DT             Serial RX
 //                       RC1/T1OSI/CCP2 |12     17| RC6/TX/CK             Serial TX
 //                             RC2/CCP1 |13     16| RC5/SDO
-// I2C clock                RC3/SCK/SCL |14     15| RC4/SDI/SDA           I2C data
-
+//                          RC3/SCK/SCL |14     15| RC4/SDI/SDA           
 
 
     //BT pin assignment
@@ -2321,8 +2340,11 @@ void Reset_device(void)
      T3CON = 0b10000000;
 
 
-#else // done _18F2321 // begins 16f884
-
+#else // done _18F2321_18F25K20 // begins 16f884
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//
+////////////////////////////////////////////////////////////////////////////////////////////////////
 #ifdef _16F884
 
 // this is will be better at the begining of a program
@@ -2435,8 +2457,11 @@ void Reset_device(void)
     INT0_ENBL = 0; // disable external interrupt for GYRO 1
                           
 #endif  // ifdef _16F884
-#endif // #ifdef _18F2321
-
+#endif // #ifdef _18F2321_18F25K20
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // common part:
     //RBIF = 0;
     //RBIE = 1;
@@ -2451,7 +2476,7 @@ void Reset_device(void)
                  // 0 = Disables all interrupts
     enable_I2C();
     // timer0 prescaler
-#ifdef _18F2321
+#ifdef _18F2321_18F25K20
     T0CON = 6; //prescaler 1 tick = 16mks => 1ms = 63 tic 2ms = 125 value 0xff00 mean 4ms value 0xf424 = 1s
 #endif    
     TIMER0_INT_FLG = 0; // clean timer0 interrupt
@@ -2460,11 +2485,12 @@ void Reset_device(void)
     TMR1IE = 0; // diasable timer0 interrupt
     INT0_EDG = 0; // high -> low == interrupt
     INT0_FLG = 0; // clean extrnal interrupt RB0 pin 6
-#ifdef _18F2321
+#ifdef _18F2321_18F25K20
     INT1IF = 0;
     INTEDG1 = 0;    
     
 #endif
+
     //INT0IE = 1; // enable external interrupt
 #endif
 }
@@ -2633,7 +2659,7 @@ FIND_NONPRT:
                bByte1 = PTR_FSR;
                if (iShift == 2)
                {
-#ifdef      _18F2321
+#ifdef      _18F2321_18F25K20
                    #asm
                    RLNCF bByte1,1,1
                    RLNCF bByte1,1,1
@@ -2646,7 +2672,7 @@ FIND_NONPRT:
                }
                else if (iShift == 4)
                {
-#ifdef      _18F2321
+#ifdef      _18F2321_18F25K20
                    #asm
                    SWAPF bByte1,1,1
                    #endasm
@@ -2659,7 +2685,7 @@ FIND_NONPRT:
                }
                else if (iShift == 6)
                {
-#ifdef      _18F2321
+#ifdef      _18F2321_18F25K20
                    #asm
                    SWAPF bByte1,1,1
                    RLNCF bByte1,1,1

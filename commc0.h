@@ -3,9 +3,16 @@
 ///////////////////////////////////////////////////////////////////////
 // begin of COPY 0
 ///////////////////////////////////////////////////////////////////////
+#ifdef _18F2321
+#define _18F2321_18F25K20
+#endif
+
+#ifdef _18F25K20
+#define _18F2321_18F25K20
+#endif
+
 
 // preprocessing different MASKS for different units
-
 #if (MY_UNIT == '1')
     #define UNIT_MASK   0b00000010
     #define UNIT_MASK_H 0b11111110
@@ -260,25 +267,31 @@
 
 // to be compatible with VS2010
 #ifdef WIN32
-#ifdef _16F88
-#endif
-#ifdef _16F884
-#endif
+    #ifdef _16F88
+    #endif
+    #ifdef _16F884
+    #endif
 
-#ifdef _18F2321
-//#include "18F2321.H"
-#endif
+    #ifdef _18F2321
+    //#include "18F2321.H"
+    #endif
 #endif
 // on small processors it is 1 byte
 #define WORD unsigned char
 #define UWORD unsigned char
 // different processors different includes and different RAM BANKS
+//////////////////////////////////////////////////////////////////////////////////////////
+//
+//
+//////////////////////////////////////////////////////////////////////////////////////////
 #ifdef _16F88
 #include "int16CXX.H"
 #define RAM_BANK_0 0
 #define RAM_BANK_1 1
 #define RAM_BANK_2 2
 #define RAM_BANK_3 3
+#define RAM_BANK_4 2
+#define RAM_BANK_5 3
 #define TIMER0_CONTROL_REG OPTION_REG
 #define TIMER0_BYTE TMR0
 #define TIMER0_INT_ENBL TMR0IE
@@ -301,13 +314,19 @@
 #endif
 #define _TRMT TRMT
 #endif
-
+//////////////////////////////////////////////////////////////////////////////////////////
+//
+//
+//////////////////////////////////////////////////////////////////////////////////////////
 #ifdef _16F884
 #include "int16CXX.H"
 #define RAM_BANK_0 0
 #define RAM_BANK_1 1
 #define RAM_BANK_2 2
 #define RAM_BANK_3 3
+#define RAM_BANK_4 2
+#define RAM_BANK_5 3
+
 #define TIMER0_CONTROL_REG OPTION_REG
 #define TIMER0_BYTE TMR0
 #define TIMER0_INT_ENBL T0IE
@@ -328,7 +347,10 @@
 #undef _Q_PROCESS
 #define _TRMT TRMT
 #endif
-
+//////////////////////////////////////////////////////////////////////////////////////////
+//
+//
+//////////////////////////////////////////////////////////////////////////////////////////
 #ifdef _18F25K20
 #undef _Q_PROCESS
 #ifdef __18CXX
@@ -394,7 +416,7 @@
 unsigned char *ptr_FSR;
 #define PTR_FSR (*ptr_FSR)
 #else
-//#include "18f2321.h"
+//#include "18f25fk20.h"
 #include "int18XXX.H"
 char PORTE    @ 0xF84;
 #define FSR_REGISTER FSR0
@@ -402,8 +424,10 @@ char PORTE    @ 0xF84;
 #endif
 #define RAM_BANK_0 0
 #define RAM_BANK_1 1
-#define RAM_BANK_2 0
-#define RAM_BANK_3 1
+#define RAM_BANK_2 2
+#define RAM_BANK_3 3
+#define RAM_BANK_4 4
+#define RAM_BANK_5 5
 #define TIMER0_CONTROL_REG T0CON
 #define TIMER0_BYTE TMR0L
 #define TIMER0_INT_ENBL TMR0IE
@@ -418,9 +442,10 @@ char PORTE    @ 0xF84;
 #define I2C_SCL 3
 #define _TRMT TRMT
 #endif
-
-
-
+//////////////////////////////////////////////////////////////////////////////////////////
+//
+//
+//////////////////////////////////////////////////////////////////////////////////////////
 #ifdef _18F2321
 #undef _Q_PROCESS
 #ifdef __18CXX
@@ -496,6 +521,8 @@ char PORTE    @ 0xF84;
 #define RAM_BANK_1 1
 #define RAM_BANK_2 0
 #define RAM_BANK_3 1
+#define RAM_BANK_4 0
+#define RAM_BANK_5 1
 #define TIMER0_CONTROL_REG T0CON
 #define TIMER0_BYTE TMR0L
 #define TIMER0_INT_ENBL TMR0IE
@@ -512,7 +539,10 @@ char PORTE    @ 0xF84;
 #undef UWORD  
 #define UWORD unsigned long
 #endif
-
+//////////////////////////////////////////////////////////////////////////////////////////
+//
+//
+//////////////////////////////////////////////////////////////////////////////////////////
 #ifdef __PIC24H__
 #undef WORD
 #ifdef HI_TECH_C
@@ -524,6 +554,10 @@ char PORTE    @ 0xF84;
  #ifdef __PIC24HJ64GP502__
  #include "p24HJ64GP502.h"
   #endif
+#ifdef __PIC24HJ64GP504__
+ #include "p24HJ64GP504.h"
+  #endif
+
 #include "rtcc.h"
 
 #include "pps.h"
@@ -606,6 +640,11 @@ unsigned char *ptr_FSR;
     #define WORD unsigned int
     #endif
 #endif
+//////////////////////////////////////////////////////////////////////////////////////////
+//
+//
+//////////////////////////////////////////////////////////////////////////////////////////
+
 
 #ifdef SSPORT
 #define CS_LOW  bclr(SSPORT,SSCS); // set low Chip Select
@@ -618,7 +657,7 @@ unsigned char *ptr_FSR;
 
 
 
-#ifdef _18F2321
+#ifdef _18F2321_18F25K20
 //#undef _OPTIMIZED_
 //#define DELAY_I2C 14
 //#define DELAY_1_I2C W = DELAY_I2C; while(--W);
@@ -645,30 +684,6 @@ unsigned char *ptr_FSR;
 #define FAST_DELAY 98
 #define SLOW_DELAY 98 
    #else
-      #ifdef _18F25K20
-//#undef _OPTIMIZED_
-//#define DELAY_I2C 14
-//#define DELAY_1_I2C W = DELAY_I2C; while(--W);
-#define DELAY_START_I2C nop();nop();nop();
-#define DELAY_1_I2C nop();nop();nop();
-
-// on 18F232l in Fosc=32MHz Fcy= 8MIPS BRG=0x05 for 800kHz I2C operation
-// on 18F232l in Fosc=32MHz Fcy= 8MIPS BRG=0x09 for 800kHz I2C operation
-//#define FAST_DELAY 0x5
-//#define SLOW_DELAY 0x9
-
-// on 18F232l in Fosc=32MHz Fcy= 8MIPS BRG=0x1f for 250kHz I2C operation
-#define FAST_DELAY 0x1f
-#define SLOW_DELAY 0x1f
-
-// on 18F232l in Fosc=32MHz Fcy = 8MIPS BRG=0x12 for 400kHz I2C operation
-//#define FAST_DELAY 0x13
-//#define SLOW_DELAY 0x13
-
-
-      //nop();nop();nop();nop();nop();nop();nop();nop();nop();
-
-      #else
 // on 16LF88 in Fosc=8MHz Fcy= 2MIPS 3 nop() = 666kHz
 #define DELAY_START_I2C nop();nop();nop();
 #define DELAY_1_I2C nop();nop();nop();
@@ -677,7 +692,6 @@ unsigned char *ptr_FSR;
 // on 16LF884 in Fosc=8MHz Fcy= 2MIPS BRG=0x0a for 181kHz I2C operation
 #define FAST_DELAY 0x6
 #define SLOW_DELAY 0xa 
-      #endif
    #endif
 #endif
 
@@ -743,9 +757,10 @@ unsigned char *ptr_FSR;
 //         000 = LP oscillator
 #pragma config reg2 = 0
 #endif
-
-
-/////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+//
+//
+//////////////////////////////////////////////////////////////////////////////////////////
 #ifdef _16F884
 /////////////////////////////////////////////////////////////////////////////////////////
 // this line for debug and may be normal operations
@@ -810,7 +825,10 @@ unsigned char *ptr_FSR;
 // 0000 0111 0000 0000
 #endif
 
-////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////
+//
+//
+//////////////////////////////////////////////////////////////////////////////////////////
 #ifdef _18F2321
 #ifdef __18CXX
 #include "p18f2321.h"
@@ -1007,6 +1025,210 @@ unsigned char *ptr_FSR;
 #pragma config[0xd] = 0x40
 #endif
 #endif
+//////////////////////////////////////////////////////////////////////////////////////////
+//
+//
+//////////////////////////////////////////////////////////////////////////////////////////
+#ifdef _18F25K20
+#ifdef __18CXX
+#include "p18f2321.h"
+#define rambank varlocate
+#endif
+///////////////////////////////////////////////////////////////////////////////////////////
+// this line for debug and may be normal operations
+// on pin 15 (RA6) no oscilator output  
+//#pragma config PWRTE=on, WDTE=off, FOSC=4, BODEN=off
+//#define DEBUG_OSC_PIN15 1
+
+// this line for pin 15 (RA6) oscilator output 2MHz
+//#pragma config PWRTE=off, WDTE=off, FOSC=5, BODEN=off
+//#pragma config |= 0x2f20
+// for debuging by pickit 3
+//#pragma config |= 0x27
+// CONFIG1H: CONFIGURATION REGISTER 1 HIGH (BYTE ADDRESS 300001h)
+// bit 7 IESO: Internal/External Oscillator Switchover bit
+//              1 = Oscillator Switchover mode enabled
+//              0 = Oscillator Switchover mode disabled
+// bit 6 FCMEN: Fail-Safe Clock Monitor Enable bit
+//              1 = Fail-Safe Clock Monitor enabled
+//              0 = Fail-Safe Clock Monitor disabled
+// bit 5-4 Unimplemented: Read as ‘0’
+// bit 3-0 FOSC<3:0>: Oscillator Selection bits
+//          11xx = External RC oscillator, CLKO function on RA6
+//          101x = External RC oscillator, CLKO function on RA6
+//          1001 = Internal oscillator block, CLKO function on RA6, port function on RA7
+//          1000 = Internal oscillator block, port function on RA6 and RA7
+//          0111 = External RC oscillator, port function on RA6
+//          0110 = HS oscillator, PLL enabled (Clock Frequency = 4 x FOSC1)
+//          0101 = EC oscillator, port function on RA6
+//          0100 = EC oscillator, CLKO function on RA6
+//          0011 = External RC oscillator, CLKO function on RA6
+//          0010 = HS oscillator
+//          0001 = XT oscillator
+//          0000 = LP oscillator
+// 0000 1000
+#ifdef __18CXX
+#pragma config OSC=INTIO2
+#else
+#pragma config[1] = 0x08
+#endif
+// CONFIG2L: CONFIGURATION REGISTER 2 LOW (BYTE ADDRESS 300002h)
+//  bit 7-5 Unimplemented: Read as ‘0’
+//  bit 4-3 BORV<1:0>: Brown-out Reset Voltage bits(1)
+//             11 = Minimum setting 00 = Maximum setting
+// bit 2-1 BOREN<1:0>: Brown-out Reset Enable bits(2)
+//               11 = Brown-out Reset enabled in hardware only (SBOREN is disabled)
+//               10 = Brown-out Reset enabled in hardware only and disabled in Sleep mode(SBOREN is disabled)
+//               01 = Brown-out Reset enabled and controlled by software (SBOREN is enabled)
+//               00 = Brown-out Reset disabled in hardware and software
+// bit 0 PWRTEN: Power-up Timer Enable bit(2)
+//               1 = PWRT disabled 0 = PWRT enabled
+//
+// 0001 1000
+#ifdef __18CXX
+#pragma config BOR=OFF
+#else
+#pragma config[2] = 0x18
+#endif
+// CONFIG2H: CONFIGURATION REGISTER 2 HIGH (BYTE ADDRESS 300003h)
+// bit 7-5 Unimplemented: Read as ‘0’
+// bit 4-1 WDTPS<3:0>: Watchdog Timer Postscale Select bits
+//            1111 = 1:32,768  1110 = 1:16,384   1101 = 1:8,192 1100 = 1:4,096
+//            1011 = 1:2,048   1010 = 1:1,024    1001 = 1:512   1000 = 1:256
+//            0111 = 1:128     0110 = 1:64       0101 = 1:32    0100 = 1:16
+//            0011 = 1:8       0010 = 1:4        0001 = 1:2     0000 = 1:1
+// bit 0 WDTEN: Watchdog Timer Enable bit 1 = WDT enabled 0 = WDT disabled (control is placed on the SWDTEN bit)
+// 0000 0000
+#ifdef __18CXX
+#pragma config WDT=OFF
+#else
+#pragma config[3] = 0x00
+#endif
+//  CONFIG3H: CONFIGURATION REGISTER 3 HIGH (BYTE ADDRESS 300005h)
+// bit 7 MCLRE: MCLR Pin Enable bit
+//               (1) = MCLR pin enabled; RE3 input pin disabled (0) = RE3 input pin enabled; MCLR disabled
+// bit 6-3 Unimplemented: Read as ‘0’
+// bit 2 LPT1OSC: Low-Power Timer1 Oscillator Enable bit 
+//                 1 = Timer1 configured for low-power operation
+//                 0 = Timer1 configured for higher power operation
+// bit 1 PBADEN: PORTB A/D Enable bit (Affects ADCON1 Reset state. ADCON1 controls PORTB<4:0> pin configuration.)
+//                 1 = PORTB<4:0> pins are configured as analog input channels on Reset
+//                 0 = PORTB<4:0> pins are configured as digital I/O on Reset
+// bit 0 CCP2MX: CCP2 MUX bit 
+//                 1 = CCP2 input/output is multiplexed with RC1 
+//                 0 = CCP2 input/output is multiplexed with RB3
+// 1000 0001
+
+
+#ifdef __18CXX
+   //#pragma config MCLRE=ON, CCP2MX=ON
+   #pragma config MCLRE=ON
+#else
+   #pragma config[5] = 0x81
+#endif
+// CONFIG4L: CONFIGURATION REGISTER 4 LOW (BYTE ADDRESS 300006h)
+// bit 7 DEBUG: Background Debugger Enable bit
+//                1 = Background debugger disabled, RB6 and RB7 configured as general purpose I/O pins
+//                0 = Background debugger enabled, RB6 and RB7 are dedicated to in-circuit debug
+// bit 6 XINST: Extended Instruction Set Enable bit
+//                1 = Instruction set extension and Indexed Addressing mode enabled
+//                0 = Instruction set extension and Indexed Addressing mode disabled (Legacy mode)
+// bit 5-4 BBSIZ<1:0>: Boot Block Size Select bits
+//         PIC18F4221/4321 Devices:
+//                    1x = 1024 Words
+//                    01 = 512 Words
+//                    00 = 256 Words
+//         PIC18F2221/2321 Devices:
+//                    1x = 512 Words
+//                    x1 = 512 Words
+//                    00 = 256 Words
+// bit 3 Reserved: Maintain as ‘0’
+// bit 2 LVP: Single-Supply ICSP™ Enable bit (1) = Single-Supply ICSP enabled (0) = Single-Supply ICSP disabled
+// bit 1 Unimplemented: Read as ‘0’
+// bit 0 STVREN: Stack Full/Underflow Reset Enable bit 
+//                     1 = Stack full/underflow will cause Reset
+//                     0 = Stack full/underflow will not cause Reset
+// 0100 0100
+#ifdef __DEBUG
+    #ifdef __18CXX
+        #pragma config XINST=ON, LVP=ON
+    #else
+        #pragma config[6] = 0x00
+    #endif
+#else
+    #ifdef __18CXX
+        #pragma config XINST=ON, LVP=ON
+    #else
+        #pragma config[6] = 0x80
+    #endif
+#endif
+// CONFIG5L: CONFIGURATION REGISTER 5 LOW (BYTE ADDRESS 300008h)
+// bit 7-2 Unimplemented: Read as ‘0’
+// bit 1 CP1: Code Protection bit (1) = Block 1 not code-protected (0) = Block 1 code-protected(1)
+// bit 0 CP0: Code Protection bit (1) = Block 0 not code-protected (0) = Block 0 code-protected(1)
+// 0000 0011
+#ifdef __18CXX
+#pragma config CP0=OFF, CP1=OFF
+#else
+#pragma config[8] = 0x03
+#endif
+// CONFIG5H: CONFIGURATION REGISTER 5 HIGH (BYTE ADDRESS 300009h)
+// bit 7 CPD: Data EEPROM Code Protection bit (1) = Data EEPROM not code-protected (0) = Data EEPROM code-protected
+// bit 6 CPB: Boot Block Code Protection bit (1) = Boot block not code-protected (0) = Boot block code-protected(1)
+// bit 5-0 Unimplemented: Read as ‘0’
+// 1100 0000
+#ifdef __18CXX
+#pragma config CPD=OFF, CPB=OFF
+#else
+#pragma config[9] = 0xc0
+#endif
+// CONFIG6L: CONFIGURATION REGISTER 6 LOW (BYTE ADDRESS 30000Ah)
+// bit 7-2 Unimplemented: Read as ‘0’
+// bit 1 WRT1: Write Protection bit (1) = Block 1 not write-protected (0) = Block 1 write-protected
+// bit 0 WRT0: Write Protection bit (1) = Block 0 not write-protected (0) = Block 0 write-protected
+// 00000 0011
+#ifdef __18CXX
+#pragma config WRT1=OFF, WRT0=OFF
+#else
+#pragma config[0xa] = 0x03
+#endif
+// CONFIG6H: CONFIGURATION REGISTER 6 HIGH (BYTE ADDRESS 30000Bh)
+// bit 7 WRTD: Data EEPROM Write Protection bit (1) = Data EEPROM not write-protected (0) = Data EEPROM write-protected
+// bit 6 WRTB: Boot Block Write Protection bit (1) = Boot block not write-protected (0) = Boot block write-protected(2)
+// bit 5 WRTC: Configuration Register Write Protection bit (1) = Configuration registers (300000-3000FFh) not write-protected (0) = Configuration registers (300000-3000FFh) write-protected
+// bit 4-0 Unimplemented: Read as ‘0’
+// 1110 0000
+#ifdef __18CXX
+#pragma config WRTD=OFF, WRTB=OFF, WRTC=OFF
+#else
+#pragma config[0xb] = 0xe3
+#endif
+//
+// CONFIG7L: CONFIGURATION REGISTER 7 LOW (BYTE ADDRESS 30000Ch)
+// bit 7-2 Unimplemented: Read as ‘0’
+// bit 1 EBTR1: Table Read Protection bit (1) = Block 1 not protected from table reads executed in other blocks (0) = Block 1 protected from table reads executed in other blocks
+// bit 0 EBTR0: Table Read Protection bit (1) = Block 0 not protected from table reads executed in other blocks (0) = Block 0 protected from table reads executed in other blocks
+// 0000 0011
+#ifdef __18CXX
+#pragma config EBTR1=OFF, EBTR0=OFF
+#else
+#pragma config[0xc] = 0x03
+#endif
+// CONFIG7H: CONFIGURATION REGISTER 7 HIGH (BYTE ADDRESS 30000Dh)
+// bit 7 Unimplemented: Read as ‘0’
+// bit 6 EBTRB: Boot Block Table Read Protection bit (1) = Boot block not protected from table reads executed in other blocks (0) = Boot block protected from table reads executed in other blocks(1)
+// bit 5-0 Unimplemented: Read as ‘0’
+// 0100 0000
+#ifdef __18CXX
+#pragma config EBTRB=OFF
+#else
+#pragma config[0xd] = 0x40
+#endif
+#endif
+//////////////////////////////////////////////////////////////////////////////////////////
+//
+//
+//////////////////////////////////////////////////////////////////////////////////////////
 #ifdef __PIC24HJ64GP502__
    // configuration
    _FBS( RBS_NO_RAM & BSS_NO_BOOT_CODE & BWRP_WRPROTECT_OFF);
@@ -1131,7 +1353,138 @@ unsigned char *ptr_FSR;
    _FUID3('O');
    
 #endif
+//////////////////////////////////////////////////////////////////////////////////////////
+//
+//
+//////////////////////////////////////////////////////////////////////////////////////////
+#ifdef __PIC24HJ64GP504__
+   // configuration
+   _FBS( RBS_NO_RAM & BSS_NO_BOOT_CODE & BWRP_WRPROTECT_OFF);
+   // Boot Segment RAM Code Protection Size
+   //   11        = No Boot RAM defined
+   //   10        = Boot RAM is 128 bytes
+   //   01        = Boot RAM is 256 bytes
+   //   00        = Boot RAM is 1024 bytes
+   // Boot Segment Program Flash Code Protection Size
+   //       X11   = No Boot program Flash segment 
+   //            Boot space is 1K Instruction Words (except interrupt vectors)
+   //       110   = Standard security; boot program Flash segment ends at 0x0007FE
+   //       010   = High security; boot program Flash segment ends at 0x0007FE 
+   //            Boot space is 4K Instruction Words (except interrupt vectors)
+   //       101   = Standard security; boot program Flash segment, ends at 0x001FFE
+   //       001   = High security; boot program Flash segment ends at 0x001FFE
+   //            Boot space is 8K Instruction Words (except interrupt vectors)
+   //       100   = Standard security; boot program Flash segment ends at 0x003FFE
+   //       000   = High security; boot program Flash segment ends at 0x003FFE
+   // Boot Segment Program Flash Write Protection 
+   //          1  = Boot segment can be written 
+   //          0  = Boot segment is write-protected
+   _FSS(RSS_NO_RAM & SSS_NO_FLASH & SWRP_WRPROTECT_OFF); 
+   // Secure Segment RAM Code Protection
+   //   11        = No Secure RAM defined
+   //   10        = Secure RAM is 256 Bytes less BS RAM
+   //   01        = Secure RAM is 2048 Bytes less BS RAM
+   //   00        = Secure RAM is 4096 Bytes less BS RAM
+   // Secure Segment Program Flash Code Protection Size (Secure segment is not implemented on 32K devices)
+   //       X11   = No Secure program flash segment 
+   //            Secure space is 4K IW less BS
+   //       110   = Standard security; secure program flash segment startsat End of BS, ends at 0x001FFE
+   //       010   = High security; secure program flash segment starts at End of BS, ends at 0x001FFE
+   //            Secure space is 8K IW less BS
+   //       101   = Standard security; secure program flash segment starts at End of BS, ends at 0x003FFE
+   //       001   = High security; secure program flash segment starts at End of BS, ends at 0x003FFE
+   //            Secure space is 16K IW less BS
+   //       100   = Standard security; secure program flash segment starts at End of BS, ends at 007FFEh
+   //       000   = High security; secure program flash segment starts at End of BS, ends at 0x007FFE
+   // Secure Segment Program Flash Write-Protect bit
+   //          1  = Secure Segment can bet written
+   //          0  = Secure Segment is write-protected
+   _FGS(GSS_OFF & GCP_OFF & GWRP_OFF);
+   // General Segment Code-Protect bit
+   //        11   = User program memory is not code-protected
+   //        10   = Standard security
+   //        0x   = High security
+   // General Segment Write-Protect bit
+   //          1  = User program memory is not write-protected
+   //          0  = User program memory is write-protected
+   _FOSCSEL(FNOSC_FRCPLL);
+// & IESO_ON);
+   // Two-speed Oscillator Start-up Enable bit
+   //   1         = Start-up device with FRC, then automatically switch to the user-selected oscillator source when ready
+   //   0         = Start-up device with user-selected oscillator source			
+   // Initial Oscillator Source Selection bits
+   //        111  = Internal Fast RC (FRC) oscillator with postscaler
+   //        110  = Internal Fast RC (FRC) oscillator with divide-by-16
+   //        101  = LPRC oscillator
+   //        100  = Secondary (LP) oscillator
+   //        011  = Primary (XT, HS, EC) oscillator with PLL
+   //        010  = Primary (XT, HS, EC) oscillator
+   //        001  = Internal Fast RC (FRC) oscillator with PLL
+   //        000  = FRC oscillator
+   _FOSC(FCKSM_CSECME & IOL1WAY_OFF & OSCIOFNC_ON & POSCMD_NONE);
+   // Clock Switching Mode bits
+   //   1x        = Clock switching is disabled, Fail-Safe Clock Monitor is disabled
+   //   01        = Clock switching is enabled, Fail-Safe Clock Monitor is disabled
+   //   00        = Clock switching is enabled, Fail-Safe Clock Monitor is enabled
+   // Peripheral pin select configuration
+   //     1       = Allow only one reconfiguration
+   //     0       = Allow multiple reconfigurations
+   // OSC2 Pin Function bit (except in XT and HS modes)
+   //        1    = OSC2 is clock output
+   //        0    = OSC2 is general purpose digital I/O pin
+   // Primary Oscillator Mode Select bits
+   //         11  = Primary oscillator disabled
+   //         10  = HS Crystal Oscillator mode
+   //         01  = XT Crystal Oscillator mode
+   //         00  = EC (External Clock) mode
+   _FWDT(FWDTEN_OFF);
+   // Watchdog Timer Enable bit
+   //   1         = Watchdog Timer always enabled (LPRC oscillator cannot be disabled. Clearing the SWDTEN bit in the RCON register has no effect.)
+   //   0         = Watchdog Timer enabled/disabled by user software (LPRC can be disabled by clearing the SWDTEN bit in the RCON register)
+   // Watchdog Timer Window Enable bit
+   //    1        = Watchdog Timer in Non-Window mode
+   //    0        = Watchdog Timer in Window mode
+   // Watchdog Timer Prescaler bit
+   //      1       = 1:128
+   //      0       = 1:32
+   // Watchdog Timer Postscaler bits
+   //       1111   = 1:32,768
+   //       1110   = 1:16,384
+   //       0001   = 1:2
+   //       0000   = 1:1
+   _FPOR(ALTI2C_OFF & FPWRT_PWR1);
+   // Alternate I2C™ pins
+   //      1       = I2C mapped to SDA1/SCL1 pins
+   //      0       = I2C mapped to ASDA1/ASCL1 pins
+   // Power-on Reset Timer Value Select bits
+   //       111    = PWRT = 128 ms
+   //       110    = PWRT = 64 ms
+   //       101    = PWRT = 32 ms
+   //       100    = PWRT = 16 ms
+   //       011    = PWRT = 8 ms
+   //       010    = PWRT = 4 ms
+   //       001    = PWRT = 2 ms
+   //       000    = PWRT = Disabled
+   _FICD(ICS_PGD1 & JTAGEN_OFF)
+   // JTAG Enable bit
+   //     1        = JTAG enabled
+   //     0        = JTAG disabled
+   // ICD Communication Channel Select bits
+   //         11   = Communicate on PGEC1 and PGED1
+   //         10   = Communicate on PGEC2 and PGED2
+   //         01   = Communicate on PGEC3 and PGED3
+   //         00   = Reserved, do not use
 
+   _FUID0('M');
+   _FUID1('A');
+   _FUID2('I');
+   _FUID3('N');
+   
+#endif
+//////////////////////////////////////////////////////////////////////////////////////////
+//
+//
+//////////////////////////////////////////////////////////////////////////////////////////
 
 #define Clock_8MHz
       
@@ -1189,7 +1542,7 @@ unsigned char setTMR1DAY;
 #pragma rambank RAM_BANK_0
 /////////////////////////////////////BANK 0///////////////////////
 #ifndef BUFFER_LEN
- #ifdef _18F2321
+ #ifdef _18F2321_18F25K20
    #define BUFFER_LEN 18
    #define OUT_BUFFER_LEN 18
  #else
