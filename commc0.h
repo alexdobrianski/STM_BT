@@ -546,22 +546,20 @@ char PORTE    @ 0xF84;
 #ifdef __PIC24H__
 #undef WORD
 #ifdef HI_TECH_C
-#include "htc.h"
-#include "pic24HJ64GP502.h"
+   #include "htc.h"
+   #include "pic24HJ64GP502.h"
 #else // end of HI_TECH
+   #include "p24hxxxx.h"
+   #ifdef __PIC24HJ64GP502__
+      #include "p24HJ64GP502.h"
+   #endif
+   #ifdef __PIC24HJ64GP504__
+      #include "p24HJ64GP504.h"
+   #endif
+   #include "rtcc.h"
 
-#include "p24hxxxx.h"
- #ifdef __PIC24HJ64GP502__
- #include "p24HJ64GP502.h"
-  #endif
-#ifdef __PIC24HJ64GP504__
- #include "p24HJ64GP504.h"
-  #endif
-
-#include "rtcc.h"
-
-#include "pps.h"
-#include "string.h"
+   #include "pps.h"
+   #include "string.h"
 #endif
 // bugs in C30 compiler!! this can create unpredictable code
 #define VOLATILE volatile 

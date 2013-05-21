@@ -3,13 +3,15 @@
 /////////////////////////////////////////////////////////////////////
 // begin COPY 3
 /////////////////////////////////////////////////////////////////////
+    //if (!Main.getCMD) // outside of the include was if == unit in "stream" relay mode
+    //{
         // getCMD == 0
-        // stream echo to next unit
+        // in stream was ESC char and now needs to echo that char to loop
         if (Main.ESCNextByte)
             Main.ESCNextByte = 0;
         else
         {  
-            // if this is addressed to this unit then process it
+            // if this is addressed to this unit then process it and switch "stream" -> "command" mode
             if (bByte == UnitADR)
             {
                 Main.getCMD = 1; //next will be: <CMD>
@@ -19,14 +21,14 @@
                 I2C.LastWasUnitAddr = 1;
                 return;
             }
-            else if (bByte == ESC_SYMB)   // echo next simbol too
+            else if (bByte == ESC_SYMB)   // ESC char - needs to echo next simbol to loop
                 Main.ESCNextByte = 1;
         }
-      
+        // relay char to the loop, bcs now it is "stream" mode      
         putch(bByte); //ok
 SKIP_ECHO_BYTE: ;
     }
-    else    // now unit in command mode
+    else    // now unit in command mode == processing all data
     {
         // getCMD == 1 
         // stream addressing this unit
@@ -58,6 +60,14 @@ SKIP_ECHO_BYTE: ;
             }
             I2C.LastWasUnitAddr = 0;
         }
+//////////////////////////////////////////////////////////////////////////////////
+//  I2C command processing:
+//     "<"<I2CAddr><DATA>@ or "<"<I2C addr><data><unit> 
+//     "<"<I2Caddr><data>">"L@   or "<"<I2Caddr><data>">"L<unit> 
+//         where L is a length data to read
+//     ">"<I2C addr>L@  or ">"<I2C addr>L<unit> 
+//         where L is a length bytes to read
+//////////////////////////////////////////////////////////////////////////////////
         if (Main.PrepI2C) // stream addressing I2C 
         {
 I2C_PROCESS:
@@ -162,6 +172,97 @@ DONE_DONE_I2C:
             Main.DoneWithCMD = 1; // long command ends
             return;
         }  // end if a adressing I2C stream
+//////////////////////////////////////////////////////////////////////////////
+// FLASH command processing
+// set by external comman like F
+//        F<length-of-packet><CMD><data>
+//            send and receive responce from FLASH
+//        F<length-of-packet><CMD><data>@<length-to-read>
+//            in last case <length-of-packet> must include simbol '@'
+//////////////////////////////////////////////////////////////////////////////
+#ifdef SSPORT
+        if (DataB3.FlashWrite)
+        {
+            if (DataB3.FlashWriteLen)
+            {
+                DataB3.FlashWriteLen = 0;
+                CountWrite = bByte;
+                DataB3.FlashRead = 0;
+                CS_LOW;
+            }
+            else
+            {
+                if (DataB3.FlashRead)
+                {
+                    DataB3.FlashRead = 0;
+                    if (!Main.ComNotI2C)
+                    {
+                        //do 
+                        //{
+                        //    InsertI2C(GetSSByte()); // read byte from FLASh will goes to I2C < 10 bytes
+                        //} while(--bByte);
+                        //InsertI2C('@');
+                    }
+                    else
+                    {
+                        Main.SendWithEsc = 1;
+                        do 
+                        {
+                            putchWithESC(GetSSByte()); // read byte from FLASh will goes to Com
+                                                       // if size bigger then 13 bytes it can be delay (putchWithESC waits out queue avalable space)
+                        } while(--bByte);
+                        Main.SendWithEsc = 0;
+                        if (UnitFrom)
+                            putch(UnitFrom);
+                    }
+                    goto DONE_WITH_FLASH;
+                }
+                else if (CountWrite == 1) // this will be last byte to write or it can be symb=@ request to read
+                {
+                    if (bByte == '@') // without CS_HIGH will be next read
+                    {
+                        DataB3.FlashRead = 1;
+                        if (!Main.ComNotI2C) // CMD comes from I2C - reply from read should goes back to I2C
+                        {
+                            //InsertI2C('<');
+                            //InsertI2C(UnitFrom);
+                            //if (SendCMD)
+                            //    InsertI2C(SendCMD);
+                        }
+                        else     // CMD comes from Com == relay (read) must go back to comm
+                        {
+                            if (UnitFrom)
+                            {
+                                putch(UnitFrom);
+                                if (SendCMD)
+                                    putch(SendCMD);
+                            }
+                        }
+                        return;
+                    }
+                }
+                SendSSByte(bByte);
+                //SendSSByteFAST(bByte); //for testing only
+                if (--CountWrite)
+                    return;
+DONE_WITH_FLASH:
+                DataB3.FlashWrite = 0;
+                CS_HIGH;
+                if (!Main.ComNotI2C) // CMD comes from I2C - reply from read should goes back to I2C
+                {
+                     // initiate send using I2C
+                     //InitI2cMaster();
+                }
+                else
+                {
+                    //if (UnitFrom)
+                    //    putch(UnitFrom);
+                }
+                Main.DoneWithCMD = 1; // long command flash manipulation done 
+            }
+            return;
+        }
+#endif // SSPORT
 /////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////

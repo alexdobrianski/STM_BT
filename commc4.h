@@ -96,6 +96,23 @@
             I2C.WaitQuToEmp =  1;
             I2C.NextI2CRead = 1;
         }
+#ifdef SSPORT
+        else if (bByte == 'F') // manipulation with FLASH memory: read/write/erase/any flash command
+        {
+            Main.DoneWithCMD = 0; // long command
+            DataB3.FlashWrite = 1;
+            DataB3.FlashWriteLen = 1;
+            // send something to FLASH
+            // F<length-of-packet><CMD><data>
+            // send and receive responce from FLASH
+            // F<length-of-packet><CMD><data>@<length-to-read>
+            // in last case <length-of-packet> must include simbol '@'
+            // F\x01\x06              == write enable (flash command 06)
+            // F\x05\x03\x00\x12\x34@\x04 == read 4 bytes from a address 0x001234
+            // F\x01\x06F\x0c\x02\x00\x11\x22\x00\x00\x00\x00\x00\x00\x00\x00 == write 8 bytes to address 0x001122
+            // F\x01\x06F\x04\x20\x00\x04\x00 == erase sector (4K) starting from address 0x000400
+        }
+#endif
 /////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////

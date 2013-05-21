@@ -1081,111 +1081,12 @@ void ProcessCMD(unsigned char bByte)
           return;
     }
 CONTINUE_NOT_AT:
-#ifdef SSPORT
-        if (DataB3.FlashWrite)
-        {
-            if (DataB3.FlashWriteLen)
-            {
-                DataB3.FlashWriteLen = 0;
-                CountWrite = bByte;
-                DataB3.FlashRead = 0;
-                CS_LOW;
-            }
-            else
-            {
-                if (DataB3.FlashRead)
-                {
-                    DataB3.FlashRead = 0;
-                    if (!Main.ComNotI2C)
-                    {
-                        //do 
-                        //{
-                        //    InsertI2C(GetSSByte()); // read byte from FLASh will goes to I2C < 10 bytes
-                        //} while(--bByte);
-                        //InsertI2C('@');
-                    }
-                    else
-                    {
-                        Main.SendWithEsc = 1;
-                        do 
-                        {
-                            putchWithESC(GetSSByte()); // read byte from FLASh will goes to Com
-                                                       // if size bigger then 13 bytes it can be delay (putchWithESC waits out queue avalable space)
-                        } while(--bByte);
-                        Main.SendWithEsc = 0;
-                        if (UnitFrom)
-                            putch(UnitFrom);
-                    }
-                    goto DONE_WITH_FLASH;
-                }
-                else if (CountWrite == 1) // this will be last byte to write or it can be symb=@ request to read
-                {
-                    if (bByte == '@') // without CS_HIGH will be next read
-                    {
-                        DataB3.FlashRead = 1;
-                        if (!Main.ComNotI2C) // CMD comes from I2C - reply from read should goes back to I2C
-                        {
-                            //InsertI2C('<');
-                            //InsertI2C(UnitFrom);
-                            //if (SendCMD)
-                            //    InsertI2C(SendCMD);
-                        }
-                        else     // CMD comes from Com == relay (read) must go back to comm
-                        {
-                            if (UnitFrom)
-                            {
-                                putch(UnitFrom);
-                                if (SendCMD)
-                                    putch(SendCMD);
-                            }
-                        }
-                        return;
-                    }
-                }
-                SendSSByte(bByte);
-                //SendSSByteFAST(bByte); //for testing only
-                if (--CountWrite)
-                    return;
-DONE_WITH_FLASH:
-                DataB3.FlashWrite = 0;
-                CS_HIGH;
-                if (!Main.ComNotI2C) // CMD comes from I2C - reply from read should goes back to I2C
-                {
-                     // initiate send using I2C
-                     //InitI2cMaster();
-                }
-                else
-                {
-                    //if (UnitFrom)
-                    //    putch(UnitFrom);
-                }
-                Main.DoneWithCMD = 1; // long command flash manipulation done 
-            }
-            return;
-        }
-#endif
 
 #include "commc4.h"
 
 
 // additional code:
 //
-#ifdef SSPORT
-        else if (bByte == 'F') // manipulation with FLASH memory: read/write/erase/any flash command
-        {
-            Main.DoneWithCMD = 0; // long command
-            DataB3.FlashWrite = 1;
-            DataB3.FlashWriteLen = 1;
-            // send something to FLASH
-            // F<length-of-packet><CMD><data>
-            // send and receive responce from FLASH
-            // F<length-of-packet><CMD><data>@<length-to-read>
-            // in last case <length-of-packet> must include simbol '@'
-            // F\x01\x06              == write enable (flash command 06)
-            // F\x05\x03\x00\x12\x34@\x04 == read 4 bytes from a address 0x001234
-            // F\x01\x06F\x0c\x02\x00\x11\x22\x00\x00\x00\x00\x00\x00\x00\x00 == write 8 bytes to address 0x001122
-            // F\x01\x06F\x04\x20\x00\x04\x00 == erase sector (4K) starting from address 0x000400
-        }
 /*        else if (bByte == 'w') // wait time btw steps
         {
             Main.DoneWithCMD = 0; // long command
@@ -1205,7 +1106,6 @@ SET_WAIT:
 #endif
 
         }*/
-#endif
         else if (bByte == 'a')
         {
             ATCMDStatus = 1;
