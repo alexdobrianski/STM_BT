@@ -271,6 +271,7 @@ void enable_uart(void)//bit want_ints)
 #endif // second uart
 
 #else // 88,884,2321
+
     TX9 = 0;
     RX9 = 0;
 //#ifdef _18F2321_18F25K20

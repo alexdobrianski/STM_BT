@@ -650,7 +650,7 @@ unsigned char *ptr_FSR;
 #endif 
 
 
-//#define _NOT_SIMULATOR 1
+#define _NOT_SIMULATOR 1
 #define _OPTIMIZED_ 1
 
 
@@ -1097,7 +1097,7 @@ unsigned char *ptr_FSR;
 //        0010 = HS oscillator
 //        0001 = XT oscillator
 //        0000 = LP oscillator
-//   0000 1000
+//   0000 0110
 #ifdef __18CXX
 #pragma config OSC=INTIO2
 #else
@@ -1120,11 +1120,11 @@ unsigned char *ptr_FSR;
 // bit 0 PWRTEN: Power-up Timer Enable bit(2)
 //            1 = PWRT disabled 
 //            0 = PWRT enabled 
-//    0001 1001
+//    0001 1000
 #ifdef __18CXX
 #pragma config BOR=OFF
 #else
-#pragma config[2] = 0x19
+#pragma config[2] = 0x10
 #endif
 // CONFIG2H: CONFIGURATION REGISTER 2 HIGH (BYTE ADDRESS 300003h)
 // bit 7-5      Unimplemented: Read as ‘0’

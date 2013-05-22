@@ -744,6 +744,7 @@ void main()
     RBIF = 0;
 #endif
 
+//    PLLEN = 1;
     ShowMessage();
 #ifdef DEBUG_LED_CALL_EARTH
                 DataB0.Timer3SwitchRX = 0;
@@ -793,15 +794,31 @@ void main()
 
 #define SPBRG_9600 51
 #define SPBRG_19200 25
+
+#define SPBRG_19200_8MHZ 25
+#define SPBRG_19200_16MHZ 51
 #define SPBRG_19200_32MHZ 103
+#define SPBRG_19200_64MHZ 207
+
+#define SPBRG_38400_8MHZ 13
+#define SPBRG_38400_16MHZ 25
 #define SPBRG_38400_32MHZ 51
+#define SPBRG_38400_64MHZ 103
+
 #define SPBRG_38400 12
+
 #define SPBRG_57600 8
+#define SPBRG_57600_16MHZ 16
 #define SPBRG_57600_32MHZ 34
+#define SPBRG_57600_64MHZ 68
 #define SPBRG_57600_40MIPS 172
+
+#define SPBRG_115200_16MHZ 8
+#define SPBRG_115200_32MHZ 16
+#define SPBRG_115200_64MHZ 34
 #define SPBRG_115200_40MIPS 85
 // for pic18f2321
-#define SPBRG_SPEED SPBRG_57600_32MHZ
+#define SPBRG_SPEED SPBRG_57600_64MHZ
 //#define SPBRG_SPEED SPBRG_38400_32MHZ
 //#define SPBRG_SPEED SPBRG_19200_32MHZ
 // for pic24hj64gp502
@@ -2046,7 +2063,8 @@ void Reset_device(void)
     unsigned int iCount;
     unsigned int iCount2;
 // this is will be better at the begining of a program
-    OSCCON = 0b01110000; //OSCILLATOR CONTROL REGISTER (ADDRESS 8Fh)
+    // 18F2321
+    //OSCCON = 0b01110000; //OSCILLATOR CONTROL REGISTER (ADDRESS 8Fh)
                          // bit 7 IDLEN: Idle Enable bit
                          //    1 = Device enters an Idle mode when a SLEEP instruction is executed
                          //    0 = Device enters Sleep mode when a SLEEP instruction is executed
@@ -2071,23 +2089,59 @@ void Reset_device(void)
                          //    1x = Internal oscillator block
                          //    01 = Secondary (Timer1) oscillator
                          //    00 = Primary oscillato
-//#ifdef _NOT_SIMULATOR
-//    while((OSCCON&0b0000100) == 0); //Wait for frequency to stabilize
-//#endif
+
+   // 18F25K20
+   OSCCON = 0b01110000; //OSCILLATOR CONTROL REGISTER (ADDRESS 8Fh)
+                         //bit 7 IDLEN: Idle Enable bit
+                         //   1         = Device enters Idle mode on SLEEP instruction
+                         //   0         = Device enters Sleep mode on SLEEP instruction
+                         //bit 6-4 IRCF<2:0>: Internal Oscillator Frequency Select bits
+                         //    111      = 16 MHz (HFINTOSC drives clock directly)
+                         //    110      = 8 MHz 
+                         //    101      = 4 MHz 
+                         //    100      = 2 MHz
+                         //    011      = 1 MHz(3) - default after reset
+                         //    010      = 500 kHz
+                         //    001      = 250 kHz
+                         //    000      = 31 kHz (from either HFINTOSC/512 or LFINTOSC directly)(2)
+                         //bit 3 OSTS: Oscillator Start-up Time-out Status bit(1)
+                         //       1     = Device is running from the clock defined by FOSC<2:0> of the CONFIG1 register
+                         //       0     = Device is running from the internal oscillator (HFINTOSC or LFINTOSC)
+                         //bit 2 IOFS: HFINTOSC Frequency Stable bit 
+                         //        1    = HFINTOSC frequency is stable
+                         //        0    = HFINTOSC frequency is not stable
+                         //bit 1-0 SCS<1:0>: System Clock Select bits
+                         //         1x  = Internal oscillator block
+                         //         01  = Secondary (Timer1) oscillator
+                         //         00  = Primary clock (determined by CONFIG1H[FOSC<3:0>]).
+
+// OSCTUNE: OSCILLATOR TUNING REGISTER
+// PLLEN: Frequency Multiplier PLL for HFINTOSC Enable bit(1)
+//     1 = PLL enabled for HFINTOSC (8 MHz and 16 MHz only)
+//     0 = PLL disabled
+// that will multiply 16MHz * 4 = 64MHz
+
     PLLEN = 1;
 #ifdef _NOT_SIMULATOR
     while((OSCCON&0b0000100) == 0); //Wait for frequency to stabilize
 #endif
-    iCount2 = 0x0002;
-    do
+
+    // delay ??? for what reason ???
+
+    if (PLLEN)
     {
-        iCount = 0xffff;
+        iCount2 = 0x0004;
         do
         {
+            iCount = 0xffff;
+            do
+            {
+            }
+            while(--iCount);
         }
-        while(--iCount);
+        while(--iCount2);
     }
-    while(--iCount2);
+
 	ADCON0 = 0b00000000;
     ADCON1 = 0b00001111;
 
