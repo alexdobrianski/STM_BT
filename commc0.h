@@ -1667,6 +1667,10 @@ struct BQueue
 };
 VOLATILE struct AQueue AInQu;
 VOLATILE struct BQueue AOutQu;
+#ifdef USE_COM2
+VOLATILE struct AQueue AInQuCom2;
+VOLATILE struct BQueue AOutQuCom2;
+#endif
 
 #define MAX_ADR '9'
 #define MIN_ADR '1'
@@ -1685,6 +1689,9 @@ unsigned PrepI2C:1;
 unsigned SetFromAddr:1;
 unsigned SetSendCMD:1;
 unsigned SendWithEsc:1;
+#ifdef USE_COM2
+unsigned SendCom2WithEsc:1;
+#endif
 unsigned CommLoopOK:1;
 
 unsigned DoneWithCMD:1;

@@ -64,6 +64,7 @@ SEND_BYTE_TO_QU:
     }
 }
 #ifdef USE_COM2
+#ifdef __PIC24H__
 void putchCom2(unsigned char simbol)
 {
     if (AOutQuCom2.iQueueSize == 0)  // if this is a com and queue is empty then needs to directly send byte(s) 
@@ -130,8 +131,9 @@ void PutsCom2(const char * s)
 		s++;
 	}
 }
+#endif // __PIC24H_
+#endif // USE_COM2
 
-#endif
 
 void putchI2C(unsigned char simbol)
 {

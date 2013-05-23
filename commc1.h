@@ -496,13 +496,15 @@ MAIN_EXIT:;
 #endif
 
 
+
 #ifdef USE_COM2
+#ifdef __PIC24H__
    ///////////////////////////////////////////////////////////////////////////////////////////////////////
    IF_RCIFCOM2 //if (RCIF)
    {
+
        unsigned int work1;
        unsigned int work2;
-       //RCIF = 0;  // cleaned by reading RCREG
        RCIFCOM2 = 0;  // on pic24 needs to clean interrupt manualy
        if (U2STAbits.URXDA)
        {
@@ -510,39 +512,18 @@ MAIN_EXIT:;
            {
                work1 = RCSTACOM2;
                work2 = RCREGCOM2;
-               
-/*               if (bittest(work1,3)) //PERR)
+               if (AInQuCom2.iQueueSize < BUFFER_LEN)
                {
-                   bitclr(RCSTACOM2,3);
-                   goto RC_24_ERRORCOM2;
+                   AInQuCom2.Queue[AInQuCom2.iEntry] = work2;
+                   if (++AInQuCom2.iEntry >= BUFFER_LEN)
+                       AInQuCom2.iEntry = 0;
+                   AInQuCom2.iQueueSize++;
                }
-               if (bittest(work1,2)) //FERR)
-               {
-                   bitclr(RCSTACOM2,2);
-                   goto RC_24_ERRORCOM2;
-               }
-               if (bittest(work1,1)) //OERR)
-               {
-                   bitclr(RCSTACOM2,1);
-                   goto RC_24_ERRORCOM2;
-               }
-               goto NO_RC_ERRORCOM2;
-*/
-RC_24_ERRORCOM2:
-//               continue; // can be another bytes
-NO_RC_ERRORCOM2:
-               //if (AInQu.iQueueSize < BUFFER_LEN)
-               //{
-               //    AInQu.Queue[AInQu.iEntry] = work2;
-               //    if (++AInQu.iEntry >= BUFFER_LEN)
-               //        AInQu.iEntry = 0;
-               //    AInQu.iQueueSize++;
-               //}
            }
         }
    }
    /////////////////////////////////////////////////////////////////////////////////////////////////
-// UART errors
+// UART2 errors
    IF_RCERRORCOM2
    {
        unsigned int work1;
@@ -573,7 +554,6 @@ NO_RC_ERRORCOM2:
        {
            if (AOutQuCom2.iQueueSize)
            {
-               //if (!BlockComm) // com and I2C shared same output queue - in case of I2C nothing goes to com
                {
                    TXREGCOM2 = AOutQuCom2.Queue[AOutQuCom2.iExit];
                    if (++AOutQuCom2.iExit >= OUT_BUFFER_LEN)
@@ -591,12 +571,13 @@ NO_RC_ERRORCOM2:
                else // transmit buffer has something in it (also for pic24 in a bufer there is a data)
                {
                       TXIECOM2 = 0;         // avoid reentry of interrupt
-                  //I2C.SendComOneByte = 0;
                }
            }
        }
    }
-#endif
+#endif //__PIC24H__
+#endif // USE_COM2
+
    ///////////////////////////////////////////////////////////////////////////////////
    IF_RCIF //if (RCIF)
    {

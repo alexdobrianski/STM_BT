@@ -100,8 +100,8 @@
         else if (bByte == 'F') // manipulation with FLASH memory: read/write/erase/any flash command
         {
             Main.DoneWithCMD = 0; // long command
-            DataB3.FlashWrite = 1;
-            DataB3.FlashWriteLen = 1;
+            DataB3.FlashCmd = 1;
+            DataB3.FlashCmdLen = 1;
             // send something to FLASH
             // F<length-of-packet><CMD><data>
             // send and receive responce from FLASH

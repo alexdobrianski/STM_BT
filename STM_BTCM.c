@@ -412,8 +412,8 @@ unsigned SetBitsCmd:1;
 #pragma rambank RAM_BANK_3
 /////////////////////////////////////////////BANK 3//////////////////////
 struct _DataB3{
-unsigned FlashWrite:1;
-unsigned FlashWriteLen:1;
+unsigned FlashCmd:1;
+unsigned FlashCmdLen:1;
 unsigned FlashRead:1;
 } DataB3;
 unsigned char CountWrite;
@@ -686,8 +686,8 @@ void main()
         DataB0.SetBitsCmd = 0;
         
 #endif
-        DataB3.FlashWrite = 0;
-        DataB3.FlashWriteLen = 0;
+        DataB3.FlashCmd = 0;
+        DataB3.FlashCmdLen = 0;
         DataB3.FlashRead = 0;
 
         Time4Packet = TIME_FOR_PACKET;

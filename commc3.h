@@ -181,11 +181,11 @@ DONE_DONE_I2C:
 //            in last case <length-of-packet> must include simbol '@'
 //////////////////////////////////////////////////////////////////////////////
 #ifdef SSPORT
-        if (DataB3.FlashWrite)
+        if (DataB3.FlashCmd)
         {
-            if (DataB3.FlashWriteLen)
+            if (DataB3.FlashCmdLen)
             {
-                DataB3.FlashWriteLen = 0;
+                DataB3.FlashCmdLen = 0;
                 CountWrite = bByte;
                 DataB3.FlashRead = 0;
                 CS_LOW;
@@ -246,7 +246,7 @@ DONE_DONE_I2C:
                 if (--CountWrite)
                     return;
 DONE_WITH_FLASH:
-                DataB3.FlashWrite = 0;
+                DataB3.FlashCmd = 0;
                 CS_HIGH;
                 if (!Main.ComNotI2C) // CMD comes from I2C - reply from read should goes back to I2C
                 {
