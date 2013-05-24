@@ -113,6 +113,7 @@ PUT_CHAR:
             if (AOutI2CQu.iQueueSize < 14) // packet can be long
                 return;
 END_I2C_MSG_WAIT:              // TBD this loop has to have limitation - bus can be dead
+#ifdef USE_OLD_CMD_EQ
             if (I2C.NextI2CRead) // something expected ?
             {
                 if (I2C.RetransI2CCom)
@@ -121,6 +122,7 @@ END_I2C_MSG_WAIT:              // TBD this loop has to have limitation - bus can
                     InsertI2C(LenI2CRead | 0x80);
                 }
             }
+#endif
 #ifdef I2C_INT_SUPPORT ////////////////////////////////////////////////////////
             InitI2cMaster();
 WAIT_I2C_DONE:
@@ -183,7 +185,7 @@ DONE_DONE_I2C:
 #ifdef SSPORT
         if (DataB3.FlashCmd)
         {
-            if (DataB3.FlashCmdLen)
+            if (DataB3.FlashCmdLen) // store length of a flash command
             {
                 DataB3.FlashCmdLen = 0;
                 CountWrite = bByte;

@@ -495,10 +495,8 @@ MAIN_EXIT:;
    }
 #endif
 
-
-
-#ifdef USE_COM2
 #ifdef __PIC24H__
+#ifdef USE_COM2
    ///////////////////////////////////////////////////////////////////////////////////////////////////////
    IF_RCIFCOM2 //if (RCIF)
    {
@@ -575,9 +573,8 @@ MAIN_EXIT:;
            }
        }
    }
-#endif //__PIC24H__
 #endif // USE_COM2
-
+#endif //__PIC24H__
    ///////////////////////////////////////////////////////////////////////////////////
    IF_RCIF //if (RCIF)
    {
@@ -618,7 +615,9 @@ RC_ERROR:
 #endif
 RC_24_ERROR:
                Main.getCMD = 0;
+#ifdef USE_OLD_CMD_EQ
                I2C.RetransComI2C = 0;
+#endif
                //Main.PrepI2C = 0;
                continue; // can be another bytes
 NO_RC_ERROR:

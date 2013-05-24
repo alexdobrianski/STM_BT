@@ -1731,12 +1731,15 @@ unsigned WaitQuToEmp:1;
 unsigned NextI2CRead:1;
 unsigned SetI2CYesNo:1;
 unsigned EchoWhenI2C:1;
-unsigned RetransI2CCom:1;
-unsigned RetransI2CComSet:1;
+
 //} I2C_B3;
 //struct _I2CB4{
+#ifdef USE_OLD_CMD_EQ
+unsigned RetransI2CCom:1;
+unsigned RetransI2CComSet:1;
 unsigned RetransComI2C:1;
 unsigned RetransComI2CSet:1;
+#endif
 VOLATILE unsigned I2CGettingPKG:1;
 unsigned I2CReplyExpected:1;
 unsigned RetransI2ComCSet:1;

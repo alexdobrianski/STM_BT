@@ -454,12 +454,12 @@ void SendSSByte(unsigned char bByte)
 #ifdef __PIC24H__
         // nobody uses portA ??? make sure!!!
         // otherwise it must be 3 commands instead of one:
-        // bclr(SSPORT,SSCLOCK);
-        // nop();
-        // bclr(SSPORT,SSDATA_IN);
+         bclr(SSPORT,SSCLOCK);
+         nop();
+         bclr(SSPORT,SSDATA_IN);
 
         // SSCLOCK RA0(pin2), SSDATA_IN RA1(pin3), SSDATA_OUT RA2(pin9), SSCS RA3(pin10)
-        PORTA = 0b00000000;
+        //PORTA = 0b00000000;
 #else
         bclr(SSPORT,SSCLOCK);
         bclr(SSPORT,SSDATA_IN);
@@ -570,6 +570,10 @@ void SendSSByteFAST(unsigned char bByte)
     bclr(SSPORT,SSCLOCK);  // 23 commands
 #endif
 }
+#ifndef SSPORT_READ
+#define SSPORT_READ  SSPORT
+#define SSDATA_OUT_READ SSDATA_OUT
+#endif
 
 unsigned char GetSSByte(void)
 {
@@ -585,7 +589,7 @@ unsigned char GetSSByte(void)
         bset(SSPORT,SSCLOCK);
         //nop();
         //bitclr(bWork2,0); // bWork2 is unsigned == zero in low bit garanteed check assembler code to confirm
-        if (btest(SSPORT,SSDATA_OUT))
+        if (btest(SSPORT_READ,SSDATA_OUT_READ))
             bitset(bWork2,0);
         bclr(SSPORT,SSCLOCK);
     }

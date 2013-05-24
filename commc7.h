@@ -52,6 +52,7 @@
             continue;
         if (AInI2CQu.iQueueSize) // if something comes from I2C (slave received or some I2c device responded on read command)
         {
+#ifdef USE_OLD_CMD_EQ
             if (RetransmitLen) // from I2C comes command =<LEN> - needs to retransmit everything to previously set device
             {                  //                          (set done by =5CC)
                 if (!I2C.RetransComI2CSet)
@@ -77,6 +78,7 @@ REPEAT_OP1:
                     goto REPEAT_OP1;
                 continue;
             }
+#endif
             if (CallBkI2C())// 0 = do not process byte; 1 = process;
             {
                 bitclr(bWork,0);
