@@ -603,6 +603,24 @@ unsigned char GetSSByte(void)
     //bset(SSPORT,SSCS); // set high Chip Select
 }
 #pragma updateBank 1
+#ifdef FLASH_POWER_DOWN
+void CsLow(void)
+{
+    
+    bclr(SSPORT,SSCS); // set low Chip Select
+    SendSSByte(0xab);  // power save mode off
+    bset(SSPORT,SSCS); // set high Chip Select
+    //                    3mks needs to wait
+}
+void CsHigh(void)
+{
+     bset(SSPORT,SSCS); // set high Chip Select
+     nop();nop();
+     bclr(SSPORT,SSCS); // set low Chip Select
+     SendSSByte(0xb9);  // set power save mode
+     bset(SSPORT,SSCS); // set high Chip Select
+}
+#endif
 #endif
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////

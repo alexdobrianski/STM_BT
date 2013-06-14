@@ -645,8 +645,15 @@ unsigned char *ptr_FSR;
 
 
 #ifdef SSPORT
+#ifdef FLASH_POWER_DOWN
+void CsLow(void);
+void CsHigh(void);
+#define CS_LOW  CsLow(); // set low Chip Select
+#define CS_HIGH CsHigh(); // set high Chip Select
+#else
 #define CS_LOW  bclr(SSPORT,SSCS); // set low Chip Select
 #define CS_HIGH bset(SSPORT,SSCS); // set high Chip Select
+#endif
 #endif 
 
 
