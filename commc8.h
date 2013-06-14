@@ -138,7 +138,7 @@ void enable_uart(void)//bit want_ints)
     U2MODE = 0b000100010011000;
 #else
     U2MODE = 0b000100010001000;
-#endif
+#endif                             
              //0                // bit 15 UARTEN: UARTx Enable bit(1)
                                 //         1 = UARTx is enabled; all UARTx pins are controlled by UARTx as defined by UEN<1:0>
                                 //         0 = UARTx is disabled; all UARTx pins are controlled by port latches; UARTx power consumption minimal
@@ -186,10 +186,15 @@ void enable_uart(void)//bit want_ints)
     //   boud rate formula: BRGH = 0
     // BoudRate = Fcy/ (16 * (UxBRG + 1))
     //                      BRGH = 1
-    // BoudRate = Fcy/ (4 * (UxBRG + 1)
+    // BoudRate = Fcy/ (4 * (UxBRG + 1))
+    // (4 * (UxBRG + 1)) = Fcy/BoudRate
+    // (UxBRG + 1) = Fcy/(4*BoudRate)
+    // UxBRG = Fcy/(4*BoudRate) - 1;
+    // 
     // for example on Fcy = 10.13375 MHz = 10133750 and U2BRG = 263 BoudRate = 9596
     // #define SPBRG_9600_10MIPS 262
     // #define SPBRG_57600_10MIPS 43
+//    
 
     U2STAbits.UTXBRK = 0;
     U2STAbits.UTXISEL1 = 0;     // 11 = Reserved

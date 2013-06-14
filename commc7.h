@@ -1,6 +1,3 @@
-////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////
 // begin COPY 7
 ///////////////////////////////////////////////////////////////////////   
 // STREAM two types:
@@ -101,6 +98,8 @@ REPEAT_OP1:
             //}
             if (CallBkComm()) // 0 = do not process byte; 1 = process;
             {
+#ifdef NEW_CMD_PROC
+#else
                  // place where has to be checked realy message mode : if CallBkComm desided to process data then needs to monitor
                  // input message for not related to unit device
                  bWork = AInQu.Queue[AInQu.iExit]; // next char
@@ -183,6 +182,7 @@ REPEAT_OP1:
                  {
                      Monitor(bWork,MY_UNIT);
                  }
+#endif
 PROCESS_IN_CMD:
 
                  ProcessCMD(getch());
@@ -191,8 +191,16 @@ NO_PROCESS_IN_CMD:;
         }
         else  // nothing in both queue can sleep till interrupt
         {
+            if (AInI2CQu.iQueueSize == 0)
+            {
+                //if (I2C_B1.I2CMasterDone) // no communication over I2C
+#ifdef __PIC24H__
+                CLKDIVbits.DOZEN = 1; // switch clock from 40MOP=>1.25MOP
+#else
+#endif
+            }
         }
-    }
+   }
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////

@@ -621,7 +621,150 @@ RC_24_ERROR:
                //Main.PrepI2C = 0;
                continue; // can be another bytes
 NO_RC_ERROR:
-               if (RetrUnit) // relay data over unit during processing commands streaming from I2C
+#ifdef NEW_CMD_PROC
+               // optimized version
+               
+               if (Main.prepSkip)     // was skip = retransmit byte - top priority
+               {
+                   Main.prepSkip = 0;
+                   Main.prepZeroLen = 0;
+                   goto RELAY_SYMB; // ===> retransmit
+               }
+               else if (RetrUnit) // relay data to next unit during processing streaming == stream to another unit retransmit directly without entering queue
+               {
+                   if (work2 == ESC_SYMB) // do relay but account that is was ESC char 
+                   {
+                       Main.prepZeroLen = 0;
+                       Main.prepSkip = 1;//====> retransmit
+RELAY_SYMB:
+                       // exact copy from putchar == it is big!!! but it can be called recursivly!!
+                       ///////////////////////////////////////////////////////////////////////////////////////
+                       // direct output to com1
+                       ///////////////////////////////////////////////////////////////////////////////////////
+                       if (AOutQu.iQueueSize == 0)  // if this is a com and queue is empty then needs to directly send byte(s) 
+                       {                            // on 16LH88,16F884,18F2321 = two bytes on pic24 = 4 bytes
+                           // at that point Uart interrupt is disabled
+                           if (_TRMT)            // indicator that tramsmit shift register is empty (on pic24 it is also mean that buffer is empty too)
+                           {
+                               TXEN = 1;
+                               I2C.SendComOneByte = 0;
+                               TXREG = work2; // this will clean TXIF on 88,884 and 2321
+                           }
+                           else // case when something has allready send directly
+                           {
+#ifdef __PIC24H__
+                               TXIF = 0; // for pic24 needs to clean uart interrupt in software
+                               if (!U1STAbits.UTXBF) // on pic24 this bit is empy when at least there is one space in Tx buffer
+                                   TXREG = work2;   // full up TX buffer to full capacity, also cleans TXIF
+                               else
+                                   goto SEND_BYTE_TO_QU; // placing simbol into queue will also enable uart interrupt
+#else
+                               if (!I2C.SendComOneByte)      // one byte was send already 
+                               {
+                                   TXREG = work2;           // this will clean TXIF 
+                                   I2C.SendComOneByte = 1;
+                               }
+                               else                     // two bytes was send on 88,884,2321 and up to 4 was send on pic24
+                               {
+                                   goto SEND_BYTE_TO_QU; // placing simbol into queue will also enable uart interrupt
+                               }
+#endif
+                           }
+                       }
+                       else
+                       {
+                           if (AOutQu.iQueueSize < OUT_BUFFER_LEN)
+                           {
+SEND_BYTE_TO_QU:
+                               AOutQu.Queue[AOutQu.iEntry] = work2; // add bytes to a queue
+                               if (++AOutQu.iEntry >= OUT_BUFFER_LEN)
+                                   AOutQu.iEntry = 0;
+                               AOutQu.iQueueSize++; // this is unar operation == it does not interfere with interrupt service decrement
+                               //if (!Main.PrepI2C)      // and allow transmit interrupt
+                               TXIE = 1;  // placed simbol will be pushed out of the queue by interrupt
+                           } 
+                       }
+                       goto END_INPUT_COM;
+                       /////////////////////////////////////////////////////////////////////////////////////////////
+                       //   end of direct output to com1
+                       /////////////////////////////////////////////////////////////////////////////////////////////
+                   }
+                   else if (work2 == RetrUnit) // relay done
+                   {
+                       if (Main.prepZeroLen) // packets with 0 length does not exsists
+                           goto RELAY_SYMB; // ===> retransmit
+                       RetrUnit = 0;
+                       goto RELAY_SYMB; // ===> retransmit
+                   }
+                   else if (work2 == MY_UNIT)
+                   {
+                       RetrUnit = 0;
+                       goto SET_MY_UNIT;
+                   }
+                   else if (work2 <= MAX_ADR)
+                   {            
+                       if (work2 >= MIN_ADR) // msg to relay
+                           goto TO_ANOTHER_UNIT;
+                   }
+                   
+                   Main.prepZeroLen = 0;
+                   goto RELAY_SYMB; // ===> retransmit
+               }
+               else if (Main.getCMD)
+               {
+                   if (Main.CheckESC)
+                   {
+                      Main.CheckESC = 0;  // =======> process message => insert in queue
+                   }
+                   else if (work2 == ESC_SYMB)
+                   {
+                        Main.CheckESC = 1;
+                   }
+                   else if (work2 == MY_UNIT)
+                      ; // =======> process message => insert in queue
+                   else if (work2 <= MAX_ADR)
+                   {            
+                       if (work2 >= MIN_ADR) // msg to relay
+                          // retransmit to another unit has a priority - current status freazed
+                           goto TO_ANOTHER_UNIT;
+                   }         
+                   ;  // =======> process message => insert in queue
+               }
+               else // not a command mode == stream mode 
+               if (work2 == ESC_SYMB) // do relay
+               {
+                   Main.prepZeroLen = 0;
+                   Main.prepSkip = 1;//====> retransmit
+                   goto RELAY_SYMB; // ===> retransmit
+               }
+               else if (work2 == MY_UNIT) // message addresed to a unit
+               {
+SET_MY_UNIT:
+                   Main.getCMD =1; // byte eated
+                   I2C.LastWasUnitAddr = 1;
+                   Main.CheckESC = 0;
+                   Main.ESCNextByte = 0;
+                   goto END_INPUT_COM;
+               }
+               else
+               {
+                   if (work2 <= MAX_ADR)
+                   {            
+                       if (work2 >= MIN_ADR) // msg to relay to another untis
+                       {
+TO_ANOTHER_UNIT:          
+                           RetrUnit = work2;
+                           Main.prepZeroLen = 1;
+                           Main.prepSkip = 0;
+                       }
+                   }
+                   goto RELAY_SYMB; // ===> retransmit
+               }
+//////////////////////////////////////////////////////////////////
+// end of optimized version
+//////////////////////////////////////////////////////////////////
+#else
+               if (RetrUnit) // relay data to next unit during processing streaming == stream to another unit retransmit directly without entering queue
                {
                    if (Main.prepStream)
                    {
@@ -630,14 +773,17 @@ NO_RC_ERROR:
                        {
                            Main.prepSkip = 0;
                            Main.prepZeroLen = 0;
-                           goto RELAY_SYMB;
+                           goto RELAY_SYMB; // ===> retransmit
                        }
                        else if (work2 == ESC_SYMB) // do relay
                        {
                            Main.prepZeroLen = 0;
-                           Main.prepSkip = 1;
+                           Main.prepSkip = 1;//====> retransmit
 RELAY_SYMB:
-                           // exact copy from putchar == shit it is big!!! but it can be called recursivly!!
+                           // exact copy from putchar == it is big!!! but it can be called recursivly!!
+                           ///////////////////////////////////////////////////////////////////////////////////////
+                           // direct output to com1
+                           ///////////////////////////////////////////////////////////////////////////////////////
                            if (AOutQu.iQueueSize == 0)  // if this is a com and queue is empty then needs to directly send byte(s) 
                            {                            // on 16LH88,16F884,18F2321 = two bytes on pic24 = 4 bytes
                                // at that point Uart interrupt is disabled
@@ -683,11 +829,14 @@ SEND_BYTE_TO_QU:
                                } 
                            }
                            goto END_INPUT_COM;
+                           /////////////////////////////////////////////////////////////////////////////////////////////
+                           //   end of direct output to com1
+                           /////////////////////////////////////////////////////////////////////////////////////////////
                        }
                        else if (work2 == RetrUnit) // relay done
                        {
                            if (Main.prepZeroLen) // packets with 0 length does not exsists
-                               goto RELAY_SYMB;
+                               goto RELAY_SYMB; // ===> retransmit
                            RetrUnit = 0;
                            Main.prepStream = 1;
 #ifdef ALLOW_RELAY_TO_NEW
@@ -696,15 +845,17 @@ SEND_BYTE_TO_QU:
 #else
                            AllowMask = 0xff; // it is possible to send msg to any unit over COM
 #endif
-                           goto RELAY_SYMB;
+                           goto RELAY_SYMB; // ===> retransmit
                        }
 #ifdef ALLOW_RELAY_TO_NEW
 #endif
                        Main.prepZeroLen = 0;
-                       goto RELAY_SYMB;
+                       goto RELAY_SYMB; // ===> retransmit
                    }
+                   // ===> process simbol
                }
-
+#endif
+INSERT_TO_COM_Q:
                if (AInQu.iQueueSize < BUFFER_LEN)
                {
                    AInQu.Queue[AInQu.iEntry] = work2;
@@ -1574,6 +1725,8 @@ MAIN_EXIT:
 // temp vars will be on bank 1 together with I2C queue
 #pragma rambank RAM_BANK_1
 ////////////////////////////////////BANK 1////////////////////////////////////
+#ifdef NEW_CMD_PROC
+#else
 unsigned char Monitor(unsigned char bWork, unsigned char CheckUnit)
 {
     if (Main.prepSkip)
@@ -1604,7 +1757,7 @@ unsigned char Monitor(unsigned char bWork, unsigned char CheckUnit)
         Main.prepZeroLen = 0;
     return 0;
 }
-
+#endif
 //////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////

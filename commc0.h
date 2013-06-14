@@ -1708,7 +1708,9 @@ VOLATILE unsigned ExtInterrupt2:1;
 VOLATILE unsigned InDoneNoSleep:1;
 VOLATILE unsigned ExtFirst:1;
 #endif
-
+#ifdef NEW_CMD_PROC
+VOLATILE unsigned CheckESC:1;
+#endif
 } Main;
 VOLATILE unsigned char RetrUnit;
 VOLATILE unsigned char AllowMask;
@@ -1794,6 +1796,41 @@ rtccTimeDate RtccTimeDateVal;
 //bit ReTransToI2C;
 unsigned char eeprom_read(unsigned char addr);
 void eeprom_write(unsigned char addr, unsigned char value);
+
+
+
+#define SPBRG_4800_40MIPS 2064
+
+#define SPBRG_9600 51
+#define SPBRG_9600_40MIPS 1040
+
+#define SPBRG_19200 25
+
+#define SPBRG_19200_8MHZ 25
+#define SPBRG_19200_16MHZ 51
+#define SPBRG_19200_32MHZ 103
+#define SPBRG_19200_64MHZ 207
+#define SPBRG_19200_40MIPS 519
+
+#define SPBRG_38400_8MHZ 13
+#define SPBRG_38400_16MHZ 25
+#define SPBRG_38400_32MHZ 51
+#define SPBRG_38400_64MHZ 103
+#define SPBRG_38400_40MIPS 259
+
+#define SPBRG_38400 12
+
+#define SPBRG_57600 8
+#define SPBRG_57600_16MHZ 16
+#define SPBRG_57600_32MHZ 34
+#define SPBRG_57600_64MHZ 68
+#define SPBRG_57600_40MIPS 172
+
+#define SPBRG_115200_16MHZ 8
+#define SPBRG_115200_32MHZ 16
+#define SPBRG_115200_64MHZ 34
+#define SPBRG_115200_40MIPS 85
+
 
 
 //////////////////////////////////////////////////////////////////

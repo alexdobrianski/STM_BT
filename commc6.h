@@ -31,6 +31,9 @@
         Main.ESCNextByte = 0;
         Main.PrepI2C = 0;
         Main.DoneWithCMD = 1;
+#ifdef NEW_CMD_PROC
+        Main.CheckESC = 1;
+#endif
         RetransmitLen = 0;
         //Main.SendWithEsc = 0;
         //Main.CommLoopOK = 0;

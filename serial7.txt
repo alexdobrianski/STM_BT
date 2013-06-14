@@ -1,0 +1,11 @@
+wait 1 sec
+"5~#5#1#2#a51aaaaaaaaaaab13aaaaaab3"
+"5~1aaaaaaaaaaab13aaaaaab3"
+"5~1aaaaaaaaaaab3aaaaaab3"
+"5~51aaa#1#2#3#4#5#6#7aaaaaaaab13aaa#1#2#3#4#5#6aaab3"
+"5~1aa#2#3#1aaaaaaaaab13aaaaaab3"
+"55~11aa#2#3#1aaaaaaaaab33aaaaaab"
+"5~51a#aaaaaaaaaab13aaaaaab3"
+0x0d 
+0x0a 
+"2~2"

@@ -5,6 +5,8 @@
 /////////////////////////////////////////////////////////////////////
     //if (!Main.getCMD) // outside of the include was if == unit in "stream" relay mode
     //{
+#ifdef NEW_CMD_PROC
+#else
         // getCMD == 0
         // in stream was ESC char and now needs to echo that char to loop
         if (Main.ESCNextByte)
@@ -26,6 +28,7 @@
         }
         // relay char to the loop, bcs now it is "stream" mode      
         putch(bByte); //ok
+#endif
 SKIP_ECHO_BYTE: ;
     }
     else    // now unit in command mode == processing all data
@@ -197,15 +200,15 @@ DONE_DONE_I2C:
                 if (DataB3.FlashRead)
                 {
                     DataB3.FlashRead = 0;
-                    if (!Main.ComNotI2C)
-                    {
-                        //do 
-                        //{
-                        //    InsertI2C(GetSSByte()); // read byte from FLASh will goes to I2C < 10 bytes
-                        //} while(--bByte);
-                        //InsertI2C('@');
-                    }
-                    else
+                    //if (!Main.ComNotI2C)
+                    //{
+                    //    //do 
+                    //    //{
+                    //    //    InsertI2C(GetSSByte()); // read byte from FLASh will goes to I2C < 10 bytes
+                    //    //} while(--bByte);
+                    //    //InsertI2C('@');
+                    //}
+                    //else
                     {
                         Main.SendWithEsc = 1;
                         do 
@@ -224,14 +227,14 @@ DONE_DONE_I2C:
                     if (bByte == '@') // without CS_HIGH will be next read
                     {
                         DataB3.FlashRead = 1;
-                        if (!Main.ComNotI2C) // CMD comes from I2C - reply from read should goes back to I2C
-                        {
-                            //InsertI2C('<');
-                            //InsertI2C(UnitFrom);
-                            //if (SendCMD)
-                            //    InsertI2C(SendCMD);
-                        }
-                        else     // CMD comes from Com == relay (read) must go back to comm
+                        //if (!Main.ComNotI2C) // CMD comes from I2C - reply from read should goes back to I2C
+                        //{
+                        //    //InsertI2C('<');
+                        //    //InsertI2C(UnitFrom);
+                        //    //if (SendCMD)
+                        //    //    InsertI2C(SendCMD);
+                        //}
+                        //else     // CMD comes from Com == relay (read) must go back to comm
                         {
                             if (UnitFrom)
                             {

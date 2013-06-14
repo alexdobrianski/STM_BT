@@ -63,6 +63,7 @@ SEND_BYTE_TO_QU:
         } 
     }
 }
+
 #ifdef USE_COM2
 #ifdef __PIC24H__
 void putchCom2(unsigned char simbol)
@@ -131,9 +132,18 @@ void PutsCom2(const char * s)
 		s++;
 	}
 }
+unsigned char getchCom2(void)
+{
+    unsigned char bRet = AInQuCom2.Queue[AInQuCom2.iExit];
+    if (++AInQuCom2.iExit >= BUFFER_LEN)
+        AInQuCom2.iExit = 0;
+    AInQuCom2.iQueueSize --;
+    return bRet;
+}
+
+
 #endif // __PIC24H_
 #endif // USE_COM2
-
 
 void putchI2C(unsigned char simbol)
 {
