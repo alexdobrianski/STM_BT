@@ -50,6 +50,8 @@
 
 #define IF_SLAVEI2C void __attribute__((interrupt, no_auto_psv)) _SI2C1Interrupt(void)
 
+#define IF_RTTC void __attribute__((interrupt, no_auto_psv)) _RTCCInterrupt(void)
+
 #endif // C30 ends
 #else // end of C30 support
 #define IF_SSPIF if (SSPIF)
@@ -990,7 +992,12 @@ SPEED_TX:
        }
 CONTINUE_WITH_ISR:;
    }
-   
+#ifdef RTTC_INT
+   IF_RTTC
+   {
+nop();
+   }
+#endif   
     /////////////////////////////////////////////////////////////////////////////////////////////
     IF_TIMER0_INT_FLG //if (TIMER0_INT_FLG) // can be transfer byte using TMR0
     {
@@ -1378,6 +1385,7 @@ TMR0_DONE:
     IF_TMR1IF //if (TMR1IF)  // update clock
     {
         TMR1IF = 0;
+         
 #ifdef BT_TIMER1
         if (DataB0.Timer1Meausre)
         {
