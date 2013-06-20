@@ -1,5 +1,5 @@
 /***********************************************************************
-    2011-2013 (C) Alex Dobrianski BT communication module 2.4 GHz
+    2011 (C) Alex Dobrianski BT communication module 2.4 GHz
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -206,8 +206,6 @@ see www.adobri.com for communication protocol spec
 #define DEBUG_LED_CALL_LUNA
 #endif
 
-// CMD switch processed in interrupt
-#define NEW_CMD_PROC 1
 
 // needs to spec processor - C and ASM code is different
 #ifdef __18CXX
@@ -476,39 +474,7 @@ unsigned char Config01;
 //   <pktC> reply on that paket can be ignored (it has to be spesified length of a reply message)
 //   this will allow selected TCP/IP messages to be skipped from unnnessery tranfer
 //   for support of a "frozen" session
-///////////////////////////////////////////////////////////////////////////
-// another idea for implementation
-// ARSz=<len><data> - send packet to BT CubeSat
-//                               on receive <data> executed on BT CubeSat
-///////////////////////////////////////////////////////////
-// ATSY=<OFFSET><LEN> (OFFSET == HEX,DWORD, LEN = HEX,DWORD>
-// ATSy=<OFFSET><LEN> (OFFSET == HEX,DWORD, LEN = HEX,DWORD>
-// after connect that starts sync FLASH memory: ATSY - upload
-//                                              ATSy - download
-// responce "OK" mean data uploaded or downloaded successfully
-//                                              ATsY upload
-//                                              ATsy download
-// responce "<OFFSET><LEN><DATA>"
-// 
-///////////////////////////////////////////////////////////////////////////
-// sync clock timers
-//                                                  1   4   
-//    Craft/Cubesat Main Ctrl                      2~=#5?2
-//                                                      5?<Tdelta><TBefore><Tupload><Tafter>5 Tdelta =1 TBefore= TUpload= Tafter=4
-//                                    1           2     3                    4
-//   BT(mode ATDTE)                   ~=#5? over FQ1                         burst  1,2,3,4 stored at OFFSET 000200 up to 1 page when page owerloaded it is eraced
-//
-//
-//
-//   BT(mode ATDTL>    1      2                                                 3             4  stored at offset 000400 up to one page when page overloaded it is eraced
-//                    5~=#5?  burst                                             5?... over FQ1
-//                                                                                            5?....
 /////////////////////////////////////////////////////////////////////////// 
-// Web  Ctrl
-// send    1. "5~=#5?5"
-// collect 2. 5?<Tdelta><TBefore><Tupload><Tafter>5 from CubeSat MainCtrl
-// collect 3. ATsy=000200 000100
-// read    4. ++++F .... (OFFSET=000400 len=000200
 #define MODE_CALL_EARTH 1
 #define MODE_CALL_LUNA_I2C 2
 #define MODE_CALL_LUNA_COM 4
@@ -826,7 +792,37 @@ void main()
 
 
 
+#define SPBRG_9600 51
+#define SPBRG_19200 25
+
+#define SPBRG_19200_8MHZ 25
+#define SPBRG_19200_16MHZ 51
+#define SPBRG_19200_32MHZ 103
+#define SPBRG_19200_64MHZ 207
+
+#define SPBRG_38400_8MHZ 13
+#define SPBRG_38400_16MHZ 25
+#define SPBRG_38400_32MHZ 51
+#define SPBRG_38400_64MHZ 103
+
+#define SPBRG_38400 12
+
+#define SPBRG_57600 8
+#define SPBRG_57600_16MHZ 16
+#define SPBRG_57600_32MHZ 34
+#define SPBRG_57600_64MHZ 68
+#define SPBRG_57600_40MIPS 172
+
+#define SPBRG_115200_16MHZ 8
+#define SPBRG_115200_32MHZ 16
+#define SPBRG_115200_64MHZ 34
+#define SPBRG_115200_40MIPS 85
+// for pic18f2321
 #define SPBRG_SPEED SPBRG_57600_64MHZ
+//#define SPBRG_SPEED SPBRG_38400_32MHZ
+//#define SPBRG_SPEED SPBRG_19200_32MHZ
+// for pic24hj64gp502
+//#define SPBRG_SPEED SPBRG_57600_40MIPS
 
 #include "commc2.h"
 

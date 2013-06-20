@@ -992,7 +992,7 @@ SPEED_TX:
        }
 CONTINUE_WITH_ISR:;
    }
-#ifdef RTTC_INT
+#ifdef RTCC_INT
    IF_RTTC
    {
 nop();
