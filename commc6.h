@@ -35,6 +35,7 @@
         Main.CheckESC = 1;
 #endif
         RetransmitLen = 0;
+        Main.RetransmitTo = 0;
         //Main.SendWithEsc = 0;
         //Main.CommLoopOK = 0;
 
@@ -80,6 +81,17 @@
         Main.prepSkip = 0;
         Main.prepZeroLen = 0;
         UnitFrom = 0;
+#ifdef SYNC_CLOCK_TIMER
+#ifdef __PIC24H__
+        FSR_REGISTER = &Ttilad;
+        for (bWork = 0; bWork < 5*sizeof(Ttilad);bWork++)
+        {
+             PTR_FSR = 0;
+        }
+#else  // not __PIC24H__
+#endif // __PIC24H__
+#endif // SYNC_CLOCK_TIMER
+
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////

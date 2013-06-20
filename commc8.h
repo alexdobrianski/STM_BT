@@ -415,6 +415,7 @@ void enable_I2C(void)
 void EnableTMR1(void)
 {
 #ifdef __PIC24H__
+
 #else
     TMR1L =0;
     TMR1H = 0;
@@ -594,8 +595,25 @@ unsigned char GetSSByte(void)
         bset(SSPORT,SSCLOCK);
         //nop();
         //bitclr(bWork2,0); // bWork2 is unsigned == zero in low bit garanteed check assembler code to confirm
+#undef SSDATA_OUT2
+#ifdef SSDATA_OUT2
+        if (btest(SSPORT_READ,SSDATA_OUT))
+        {
+            if (btest(SSPORT_READ,SSDATA_OUT2))
+                goto FLASH_MAJORITY;
+            else if (btest(SSPORT_READ,SSDATA_OUT3))
+                goto FLASH_MAJORITY;
+        }
+        else if (btest(SSPORT_READ,SSDATA_OUT2))
+                 if (btest(SSPORT_READ,SSDATA_OUT3))
+                 {
+FLASH_MAJORITY:
+                     bitset(bWork2,0);
+                 }
+#else
         if (btest(SSPORT_READ,SSDATA_OUT_READ))
             bitset(bWork2,0);
+#endif
         bclr(SSPORT,SSCLOCK);
     }
     while (--bWork);

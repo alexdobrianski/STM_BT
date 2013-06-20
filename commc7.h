@@ -1,3 +1,6 @@
+////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
 // begin COPY 7
 ///////////////////////////////////////////////////////////////////////   
 // STREAM two types:
@@ -146,7 +149,7 @@ REPEAT_OP1:
                                   goto PROCESS_IN_CMD;
                               }
                               AllowMask &= AllowOldMask;
-#else
+#else // NOT ALLOW_RELAY_TO_NEW
                               if (bWork == MY_UNIT) // unit matches
                               {
                                   Main.prepCmd = 1;
@@ -156,7 +159,7 @@ REPEAT_OP1:
                                   goto PROCESS_IN_CMD;
                               }
                               AllowMask =  0;
-#endif
+#endif // end ALLOW_RELAY_TO_NEW
                               // now needs to stream everything exsisting from input comm queue to output comm queue
                               putch(bWork);
                               getch();
@@ -182,9 +185,8 @@ REPEAT_OP1:
                  {
                      Monitor(bWork,MY_UNIT);
                  }
-#endif
+#endif // end NEW_CMD_PROC
 PROCESS_IN_CMD:
-
                  ProcessCMD(getch());
 NO_PROCESS_IN_CMD:;
             }

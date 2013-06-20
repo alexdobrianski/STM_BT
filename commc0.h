@@ -1689,6 +1689,7 @@ unsigned char UnitFrom;
 unsigned char SendCMD;
 unsigned char RetransmitLen;
 struct _MainB2{
+unsigned RetransmitTo:1;
 unsigned getCMD:1;
 unsigned getHbit:1;
 unsigned ESCNextByte:1;

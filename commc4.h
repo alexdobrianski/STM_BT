@@ -31,8 +31,41 @@
             SendCMD = bByte;
             Main.SetSendCMD = 0;
             I2C.SetI2CYesNo = 1;
+            Main.DoneWithCMD = 1; // long command "=XC" done
+            if (bByte == '*')  // "=X*" and all data transfers to X till end of the packet
+            {
+                 //if (UnitFrom) // is it unit specified assuming that this is a 
+                 {
+                     putch(UnitFrom);putch(UnitFrom); // twice to avoid lost bytes
+                     Main.RetransmitTo = 1;
+                     return;
+                 }
+            }
+#ifdef SYNC_CLOCK_TIMER
+            if (bByte == '?')
+            {
+#ifdef __PIC24H__
+                Tmr4Count =TMR4;  // it is possible to count delays from interrupt to recorded time
+                Tmr4CountH = TMR5HLD;
+                TAfter.Timer = (((unsigned long)Tmr4CountH)<<16) | ((unsigned long)Tmr4Count);
+                TAfter.Second = Tmr4CountOld;
+                RtccReadTimeDate(&TAfter.Rtcc);
+                putch(UnitFrom);putch(UnitFrom);
+                FSR_REGISTER = &Tdelta;
+                Main.SendWithEsc = 1;
+                for (bWork = 0; bWork < 4*sizeof(Ttilad);bWork++)
+                {
+                    putchWithESC(PTR_FSR);FSR_REGISTER++;
+                }
+                Main.SendWithEsc = 0;
+#else  // not __PIC24H__
+#endif // __PIC24H__
+                return;
+            }
+#endif
+
 #ifdef RESPONCE_ON_EQ
-			if (UnitFrom) // basicall that is ACK
+			if (UnitFrom) // basically that is ACK
             {
             	putch(UnitFrom);
                 if (SendCMD)
@@ -41,7 +74,6 @@
                 putch(UnitFrom);
             }
 #endif
-            Main.DoneWithCMD = 1; // long command "=XC" done
             return;
         }
 #ifdef USE_OLD_CMD_EQ
@@ -73,7 +105,8 @@
             Main.DoneWithCMD = 1; // long command =XCI done
         }
 #endif
-        else if (bByte == '=') // new version "=XC" where X - unit to responce and C - one byte command to responce 
+        else if (bByte == '=') // new version   "=XC" where X - unit to responce and C - one byte command to responce 
+                               // if command is "=X*" than all packet till end has to be send over com to device X with closing packet byte (X at the end)
                                // old verion
                                // <unit>=XCI<unit> from unit = X, CMD to send =C (space = no CMD) I = expect retransmit over I2C
         {                      //  '=5CC' == to unit=5 with CMD=C over Type=C (Com) (operation SET)
@@ -94,6 +127,9 @@
         else if (bByte == '~') // reseved test message from itself
         {
             Main.CommLoopOK = 1;
+#ifdef SYNC_CLOCK_TIMER
+            memcpy(&Tdelta,&Ttilad,sizeof(Tdelta));
+#endif
         }
         else if (bByte == '<') // "<"<I2CAddr><DATA>@ or "<"<I2C addr><data><unit> 
         {                      // "<"<I2Caddr><data>">"L@   or "<"<I2Caddr><data>">"L<unit> 
