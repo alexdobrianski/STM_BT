@@ -128,8 +128,13 @@
         {
             Main.CommLoopOK = 1;
 #ifdef SYNC_CLOCK_TIMER
+#ifdef __PIC24H__
             memcpy(&Tdelta,&Ttilad,sizeof(Tdelta));
-#endif
+#else
+#ifdef      _18F2321_18F25K20
+#endif 
+#endif // __PIC24H__
+#endif // SYNC_CLOCK_TIMER
         }
         else if (bByte == '<') // "<"<I2CAddr><DATA>@ or "<"<I2C addr><data><unit> 
         {                      // "<"<I2Caddr><data>">"L@   or "<"<I2Caddr><data>">"L<unit> 

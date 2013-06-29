@@ -1447,7 +1447,7 @@ TMR0_DONE:
 #ifdef SHOW_RX_TX
    #ifdef SHOW_RX
    #else
-                       bitset(PORTA,7);
+                       DEBUG_LED_ON;
    #endif
 #endif
 
@@ -1457,7 +1457,7 @@ TMR0_DONE:
 #ifdef SHOW_RX_TX
    #ifdef SHOW_RX
    #else
-                       bitclr(PORTA,7);
+                      DEBUG_LED_OFF;
    #endif
 #endif
 
@@ -1621,7 +1621,7 @@ TMR2_COUNT_DONE:
                                }
                         }
 #ifdef DEBUG_LED
-                        bitclr(PORTA,7);
+                       DEBUG_LED_OFF;
    #ifdef DEBUG_LED_CALL_LUNA
                         if (ATCMD & MODE_CONNECT)
                         {

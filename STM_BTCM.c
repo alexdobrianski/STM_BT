@@ -195,6 +195,8 @@ see www.adobri.com for communication protocol spec
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 #define DEBUG_LED
 #ifdef DEBUG_LED
+#define DEBUG_LED_OFF bitclr(PORTC,3)
+#define DEBUG_LED_ON bitset(PORTC,3)
 ///////////////////////////////////////////////////////////////
 //   for a blinking LED behive like CUBESAT/CRAFT
 //   it is waiting for connection, wait for pkt, and when pkt is Ok it send back to earth reply packet, and blinks
@@ -222,6 +224,16 @@ see www.adobri.com for communication protocol spec
 #define _18F25K20 1
 #endif
 #endif
+
+// will be responce on command "=<unit><cmd>"
+#define RESPONCE_ON_EQ
+
+// CMD switch processed in interrupt
+#define NEW_CMD_PROC 1
+
+// sync clock / timeral  support
+#define SYNC_CLOCK_TIMER  
+
 
 ////////////////////////////////////////////
 // listing in C30
@@ -294,6 +306,12 @@ see www.adobri.com for communication protocol spec
 #define SSDATA_IN 3
 #define SSDATA_OUT 4
 #define SSCS       5
+
+// this is for Cubesat version - 3 FLASH memory processing
+//#define SSPORT2  PORTC
+//#define SSDATA_OUT2 0
+//#define SSDATA_OUT3 1
+
 #endif
 #endif
 //
@@ -304,7 +322,6 @@ see www.adobri.com for communication protocol spec
 #define Tx_MOSI    3	// RA3 pin 5  // SPI Slave Data Input
 #define Rx_MISO    4	// RA4 pin 6  // SPI Slave Data Output, with tri-state option
 #define Rx_IRQ     0    // RB0 pin 21 // Maskable interrupt pin. Active low
-#define BT_POWER   RA6   // RA6 pin 10 power for BT
 #define PORT_AMPL PORTB
 #define BT_TX      1   // RB1 pin 22 BT in transmit mode
 #define BT_RX      2   // RB2 pin 23 BT in receive mode
@@ -607,26 +624,6 @@ unsigned char getch(void);
 void main()
 {
     unsigned char bWork;
-#ifdef BT_TIMER1
-#else
-    if (POR_) // this is can be sync of a timer from MCLR
-    {
-        if (TimerB1.SetSyncTime)
-        {
-#ifdef __PIC24H__
-            TMR2 = 0;
-#else
-            TMR1H = 0;
-            TMR1L = 0; // must be delay in 2MHz clock
-#endif
-            TMR130 = setTMR130;
-            TMR1SEC = setTMR1SEC;
-            TMR1MIN = setTMR1MIN;
-            TMR1HOUR = setTMR1HOUR;
-            TMR1DAY = setTMR1DAY;
-        }
-    }
-#endif
 
     Reset_device();
     // needs to check what is it:
@@ -730,7 +727,7 @@ void main()
 #endif
 
 #ifdef DEBUG_LED
-    bitclr(PORTA,7);
+    DEBUG_LED_OFF;
 #endif
 
 #ifndef __PIC24H__
@@ -792,31 +789,7 @@ void main()
 
 
 
-#define SPBRG_9600 51
-#define SPBRG_19200 25
 
-#define SPBRG_19200_8MHZ 25
-#define SPBRG_19200_16MHZ 51
-#define SPBRG_19200_32MHZ 103
-#define SPBRG_19200_64MHZ 207
-
-#define SPBRG_38400_8MHZ 13
-#define SPBRG_38400_16MHZ 25
-#define SPBRG_38400_32MHZ 51
-#define SPBRG_38400_64MHZ 103
-
-#define SPBRG_38400 12
-
-#define SPBRG_57600 8
-#define SPBRG_57600_16MHZ 16
-#define SPBRG_57600_32MHZ 34
-#define SPBRG_57600_64MHZ 68
-#define SPBRG_57600_40MIPS 172
-
-#define SPBRG_115200_16MHZ 8
-#define SPBRG_115200_32MHZ 16
-#define SPBRG_115200_64MHZ 34
-#define SPBRG_115200_40MIPS 85
 // for pic18f2321
 #define SPBRG_SPEED SPBRG_57600_64MHZ
 //#define SPBRG_SPEED SPBRG_38400_32MHZ
@@ -863,23 +836,6 @@ void ProcessCMD(unsigned char bByte)
 
 
 // additional code proceessed as Cmd :
-// table for translation 2 bytes into 1 byte hex (each 0xX)
-// 0 = #0 = space
-// 1 = #1 = a = A
-// 2 = #2 = b = B
-// 3 = #3 = c = C
-// 4 = #4 = d
-// 5 = #5 = e
-// 6 = #6 = f
-// 7 = #7 = g
-// 8 = #8 = h
-// 9 = #9 = i
-// A = j
-// B = k
-// C = l
-// D = m
-// E = n
-// F = o
 
     if (ATCMDStatus)
     {
@@ -1104,25 +1060,7 @@ CONTINUE_NOT_AT:
 
 // additional code:
 //
-/*        else if (bByte == 'w') // wait time btw steps
-        {
-            Main.DoneWithCMD = 0; // long command
-SET_WAIT:
-            I2C.Timer0Fired = 0;
-            DataB0.Timer0Waiting = 1;
-            TIMER0_BYTE = ByteTimer;
-            TIMER0_INT_FLG = 0; // clean timer0 interrupt
-            TIMER0_INT_ENBL = 1;  // enable timer0 interrupt
-            //bitclr(TIMER0_CONTROL_REG,5); 
-#ifndef __PIC24H__
-            T0SE = 0;
-#endif
-#ifdef _18F2321_18F25K20
-            T08BIT = 1; // set timer 0 as a byte counter
-            TMR0ON = 1;
-#endif
 
-        }*/
         else if (bByte == 'a')
         {
             ATCMDStatus = 1;
@@ -1430,23 +1368,6 @@ unsigned char CallBkMain(void) // 0 = do continue; 1 = process queues
 {
     unsigned char bWork;
 
-    //if (DataB0.Timer0Waiting)
-    //{
-    //    if (I2C.Timer0Fired)
-    //        DataB0.Timer0Waiting = 0;
-    //    else
-    //        return 0;
-    //}
-    //else if (DataB1.GetGyroWait)
-    //{
-    //    if (I2C.Timer0Fired)
-    //    {
-    //        DataB1.GetGyroWait = 0;
-    //        //DataB1.GyroGetStatus = 1;
-    //    }
-    //    return 1;
-    //}
-    //else 
 
     if (INT0_ENBL)
     {             
@@ -1764,9 +1685,9 @@ NEXT_TRANSMIT:
 #ifdef SHOW_RX_TX
    #ifdef SHOW_RX
                     if (FqRXCount ==0)
-                       bitset(PORTA,7);
+                       DEBUG_LED_ON;
                     else
-                       bitclr(PORTA,7);
+                       DEBUG_LED_OFF;
    #endif
 #endif
                 }
@@ -2154,12 +2075,12 @@ void Reset_device(void)
 // Rx_MISO+SSDATA_OUT   RA4/T0CKI/C1OUT | 6     23| RB2/INT2/AN8          BT_RX
 //   SSCS       RA5/AN4/SS/HLVDIN/C2OUT | 7     22| RB1/INT1/AN10         BT_TX
 //                                  VSS | 8     21| RB0/INT0/FLT0/AN12    Rx_IRQ
-// dbg blinking LED       OSC1/CLKI/RA7 | 9     20| VDD
-// BT_POWER               OSC2/CLKO/RA6 |10     19| VSS
-//                     RC0/T1OSO/T13CKI |11     18| RC7/RX/DT             Serial RX
-//                       RC1/T1OSI/CCP2 |12     17| RC6/TX/CK             Serial TX
+//     crystal            OSC1/CLKI/RA7 | 9     20| VDD
+//     crystal            OSC2/CLKO/RA6 |10     19| VSS
+// SSDATA_OUT2         RC0/T1OSO/T13CKI |11     18| RC7/RX/DT             Serial RX
+// SSDATA_OUT3           RC1/T1OSI/CCP2 |12     17| RC6/TX/CK             Serial TX
 //                             RC2/CCP1 |13     16| RC5/SDO
-//                          RC3/SCK/SCL |14     15| RC4/SDI/SDA           
+// dbg blinking LED         RC3/SCK/SCL |14     15| RC4/SDI/SDA           
 
 
     //BT pin assignment
@@ -2171,26 +2092,25 @@ void Reset_device(void)
     // #define Tx_MOSI    RA3	// RA3 pin 5  // SPI Slave Data Input -> Out
     // #define Rx_MISO    RA4	// RA4 pin 6  // SPI Slave Data Output, with tri-state option -> In
     // #define Rx_IRQ     RB0    // RB0 pin 21 // Maskable interrupt pin. Active low -> in
-    // #define BT_POWER   RA6   // RA6 pin 10 power for BT
-    // #define BT_TX      RB1   // RB1 pin 22 BT in transmit mode
     // #define BT_RX      RB2   // RB2 pin 23 BT in receive mode
 
 
     // SPI output in FLASH mem terminoligy:
     // SSCLOCK RA2(pin4), SSDATA_IN RA3(pin5), SSDATA_OUT RA4(pin6), SSCS RA5(pin7)
     //          0            0                        IN                  1
-    TRISA = 0b00010000;  //0 = Output, 1 = Input 
-    PORTA = 0b01101110; // high=, Tx_CSN, Tx_SCK/SSCLOCK, Tx_MOSI/SSDATA_IN, , SSCS,BT_POWER low=Tx_CE
+    // RA6 & RA7 == IN Crystal osc
+    TRISA = 0b11010000;  //0 = Output, 1 = Input 
+    PORTA = 0b00101110; // high=, Tx_CSN, Tx_SCK/SSCLOCK, Tx_MOSI/SSDATA_IN, , SSCS, low=Tx_CE
     // RB0 - external INT Pin 21
     TRISB = 0b00000001;  //0 = Output, 1 = Input 
     PORTB = 0b00000000;  // nothing happened with amplifiers BT_TX,BT_RX=low
 
     // RC7 - Serial RX  Pin 18
 	// RC6 - Serial TX Pin 17
-    // I2C:
-    // RC3 - SCL = I2C clock Pin 14
-    // RC4 - SDA = I2C data Pin 15
-    TRISC = 0b10011000;  //0 = Output, 1 = Input 
+    // debug LED RC3 pin 14
+    // SSDATA_OUT2 = IN RC0 pin 11
+    // SSDATA_OUT3 = IN RC1 pin 12
+    TRISC = 0b10010011;  //0 = Output, 1 = Input 
     PORTC = 0b01000000;
      
     //RBPU_ = 0;
@@ -2770,7 +2690,7 @@ void ProcessBTdata(void)
 
     ilen = MyPacket->BTpacketLen;//ptrMy[6];
 #ifdef DEBUG_LED
-    bitset(PORTA,7);
+    DEBUG_LED_ON;
 #endif
     if (MyPacket->BTpacket == PCKT_DIAL)// (ptrMy[5] & PCKT_DIAL) // receved packet = dial call
     {
