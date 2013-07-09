@@ -11,6 +11,14 @@
 #define _18F2321_18F25K20
 #endif
 
+#ifdef _16F884
+#define _16F884_16F724
+#endif
+
+#ifdef _16F724
+#define _16F884_16F724
+#endif
+
 
 // preprocessing different MASKS for different units
 #if (MY_UNIT == '1')
@@ -347,6 +355,42 @@
 #undef _Q_PROCESS
 #define _TRMT TRMT
 #endif
+
+//////////////////////////////////////////////////////////////////////////////////////////
+//
+//
+//////////////////////////////////////////////////////////////////////////////////////////
+#ifdef _16F724
+#include "int16CXX.H"
+#define RAM_BANK_0 0
+#define RAM_BANK_1 1
+#define RAM_BANK_2 2
+#define RAM_BANK_3 3
+#define RAM_BANK_4 2
+#define RAM_BANK_5 3
+
+#define TIMER0_CONTROL_REG OPTION_REG
+#define TIMER0_BYTE TMR0
+#define TIMER0_INT_ENBL T0IE
+#define TIMER0_INT_FLG  T0IF
+#define FSR_REGISTER FSR
+#define PTR_FSR INDF
+#define INT0_EDG INTEDG
+#define INT0_FLG INTF
+#define INT0_ENBL INTE
+#define I2CPORT PORTB
+#define I2CTRIS TRISB
+#define I2C_SDA 1
+#define I2C_SCL 4
+#ifdef I2C_INT_SUPPORT
+//#warning "No I2C wirmware support for PIC16F884 device"
+//#undef I2C_INT_SUPPORT
+#endif
+#undef _Q_PROCESS
+#define _TRMT TRMT
+#endif
+
+
 //////////////////////////////////////////////////////////////////////////////////////////
 //
 //
@@ -767,6 +811,74 @@ void CsHigh(void);
 //
 //////////////////////////////////////////////////////////////////////////////////////////
 #ifdef _16F884
+/////////////////////////////////////////////////////////////////////////////////////////
+// this line for debug and may be normal operations
+// on pin 15 (RA6) no oscilator output  
+//#pragma config PWRTE=on, WDTE=off, FOSC=4, BODEN=off
+//#define DEBUG_OSC_PIN15 1
+
+// this line for pin 15 (RA6) oscilator output 2MHz
+#pragma config PWRTE=off, WDTE=off
+//#pragma config |= 0x30f4
+// for debuging by pickit 3
+#pragma config |= 0x10f4
+// 0001 0000 1110 0000
+// 00                  == not in use
+//   1                 = 1 = In-Circuit Debugger disabled, RB6 and RB7 are general purpose I/O pins
+//    1                == LVP (1) = RB3/PGM pin has PGM function, Low-Voltage Programming enabled, (0) disabled
+//      0              == FCMEN Fail-Safe Clock Monitor (1) Enabled (0) disabled
+//       0             == IESO Internal - external Swithcover bit (1) eabled (0) disabled
+//        00           == BOREN - brown-out reset selection
+//                       11 - BOR enable
+//                       10 - BOR enabled at operation and disabled at sleep
+//                       01 - BOR controlled by SBOREN bit in PCON register
+//                       00 - BOR disabled
+//           1         == CPD (data code protection (1) disabled (0) enabled
+//            1        == CP Data Code protection (1) program memory code protection disabled (0) enabled
+//             1       == MCLRE - (1) RE3 is MCLR is on (0) RE3 - digital input
+//              1      == PWRTE - (1) power up timer disabled (0) powerup timer enabled
+//                0    == WTDE watchdog timer (1) enabled (0) disabled
+//                 100 =100 = INTRC oscillator; port I/O function on both RA6/OSC2/CLKO pin and RA7/OSC1/CLKI pin
+// bit 13 DEBUG: In-Circuit Debugger Mode bit
+//            1 = In-Circuit Debugger disabled, RB6 and RB7 are general purpose I/O pins
+//            0 = In-Circuit Debugger enabled, RB6 and RB7 are dedicated to the debugger
+// bit 12 LVP: Low-Voltage Programming Enable bit
+//            1 = RB3/PGM pin has PGM function, Low-Voltage Programming enabled
+//            0 = RB3 is digital I/O, HV on MCLR must be used for programming
+// bit 11 FCMEN
+// bit 10 IESO
+// bit 9-8 BOREN: Brown-out Reset Enable bits
+// bit 7   CPD Data EE Memory Code Protection bit
+//            1 = Code protection off; 0 = Data EE memory code-protected
+// bit 6 CP: Flash Program Memory Code Protection bits
+//            1 = Code protection off; 0 = 0000h to 0FFFh code-protected (all protected)
+// bit 5 MCLRE: RA5/MCLR/VPP Pin Function Select bit
+//            1 = RE3/MCLR/VPP pin function is MCLR ; 0 = RE3/MCLR/VPP pin function is digital I/O, MCLR internally tied to VDD
+// bit 4 PWRTEN: Power-up Timer Enable bit
+//            1 = PWRT disabled; 0 = PWRT enabled
+// bit 3 WDTEN: Watchdog Timer Enable bit
+//            1 = WDT enabled ; 0 = WDT disabled
+// bit 2-0: Oscillator Selection bits
+//         111 = RC oscillator; CLKO function on RA6/OSC2/CLKO, RC on RA7
+//         110 = RCIO oscillator; port I/O function on RA6/OSC2/CLKO, RC on RA7
+//         101 = INTRC oscillator; CLKOUT function on RA6/OSC2/CLKO pin and port I/O function on RA7/OSC1/CLKI pin
+//         100 = INTRC oscillator; port I/O function on both RA6/OSC2/CLKO pin and RA7/OSC1/CLKI pin
+//         011 = EC: port I/O function on RA6/OSC2/CLKO, CLKIN on RA7
+//         010 = HS oscillator; Highspeed cristal/resonator on RA6 and RA7
+//         001 = XT oscillator; Crystal/resonator on RA6 and RA7
+//         000 = LP oscillator; low power crystal on RA6 and RA7
+#pragma config reg2 = 0x0700
+// CONFIG2
+//  bit 10-9  WRT Flash program memory self write enable bit
+//  bit 8     BOR4V  (1) brownout reset 4.0v (1_ brownout reset 2.1V
+// 0000 0111 0000 0000
+#endif
+
+//////////////////////////////////////////////////////////////////////////////////////////
+//
+//
+//////////////////////////////////////////////////////////////////////////////////////////
+#ifdef _16F724
 /////////////////////////////////////////////////////////////////////////////////////////
 // this line for debug and may be normal operations
 // on pin 15 (RA6) no oscilator output  

@@ -5,6 +5,7 @@
 /////////////////////////////////////////////////////////////////
 
 #ifndef __PIC24H__
+#ifndef _16F724
 // EECON1
 //        bit 7 EEPGD: Flash Program or Data EEPROM Memory Select bit
 //            1 = Access Flash program memory
@@ -63,6 +64,7 @@ void eeprom_write(unsigned char addr, unsigned char value)
     {
     }
 }
+#endif
 #endif
 
 void enable_uart(void)//bit want_ints)

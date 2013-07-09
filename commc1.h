@@ -1517,7 +1517,7 @@ TMR2_COUNT_DONE:
                 if (++TMR1MIN > 59)
                 {
                     TMR1MIN = 0;
-                    RTTCCounts = 0;
+                    //RTTCCounts = 0;
                     if (++TMR1HOUR > 23)
                     {
                          TMR1HOUR = 0;
@@ -1574,7 +1574,7 @@ TMR2_COUNT_DONE:
        Tmr4CountOld2= Tmr4CountOld;
        Tmr4CountOld= (((unsigned long)Tmr4CountH)<<16) | ((unsigned long)Tmr4Count);
 
-       RTTCCounts++;
+       //RTTCCounts++;
        IFS3bits.RTCIF = 0;        
    }
 #endif   
