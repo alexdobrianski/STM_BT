@@ -34,7 +34,7 @@
             Main.DoneWithCMD = 1; // long command "=XC" done
             if (bByte == '*')  // "=X*" and all data transfers to X till end of the packet
             {
-                 //if (UnitFrom) // is it unit specified assuming that this is a 
+                 //if (UnitFrom) // assuming that unit was specified 
                  {
                      putch(UnitFrom);putch(UnitFrom); // twice to avoid lost bytes
                      Main.RetransmitTo = 1;
@@ -62,7 +62,7 @@
 #endif // __PIC24H__
                 return;
             }
-#endif
+#endif // SYNC_CLOCK_TIMER
 
 #ifdef RESPONCE_ON_EQ
 			if (UnitFrom) // basically that is ACK
@@ -107,6 +107,7 @@
 #endif
         else if (bByte == '=') // new version   "=XC" where X - unit to responce and C - one byte command to responce 
                                // if command is "=X*" than all packet till end has to be send over com to device X with closing packet byte (X at the end)
+                               
                                // old verion
                                // <unit>=XCI<unit> from unit = X, CMD to send =C (space = no CMD) I = expect retransmit over I2C
         {                      //  '=5CC' == to unit=5 with CMD=C over Type=C (Com) (operation SET)
@@ -136,6 +137,16 @@
 #endif // __PIC24H__
 #endif // SYNC_CLOCK_TIMER
         }
+#ifdef NON_STANDART_MODEM
+        else if (bByte == '*')
+        {
+            if (ATCMD & MODE_CONNECT) // was connection esatblished?
+            {
+                 Main.SendOverLink = 1;
+            }
+        }
+#endif
+#ifndef NO_I2C_PROC
         else if (bByte == '<') // "<"<I2CAddr><DATA>@ or "<"<I2C addr><data><unit> 
         {                      // "<"<I2Caddr><data>">"L@   or "<"<I2Caddr><data>">"L<unit> 
                                // where L is a length data to read
@@ -154,6 +165,7 @@
             I2C.WaitQuToEmp =  1;
             I2C.NextI2CRead = 1;
         }
+#endif // NO_I2C_PROC
 #ifdef SSPORT
         else if (bByte == 'F') // manipulation with FLASH memory: read/write/erase/any flash command
         {

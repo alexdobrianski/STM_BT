@@ -285,6 +285,7 @@ DONE_DONE_I2C:
 DONE_WITH_FLASH:
                 DataB3.FlashCmd = 0;
                 CS_HIGH;
+#ifndef NO_I2C_PROC
                 if (!Main.ComNotI2C) // CMD comes from I2C - reply from read should goes back to I2C
                 {
                      // initiate send using I2C
@@ -295,6 +296,7 @@ DONE_WITH_FLASH:
                     //if (UnitFrom)
                     //    putch(UnitFrom);
                 }
+#endif
                 Main.DoneWithCMD = 1; // long command flash manipulation done 
             }
             return;

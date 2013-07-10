@@ -181,7 +181,7 @@ see www.adobri.com for communication protocol spec
 //  A                                                |
 //  --------------------------------------------------
 #define MY_UNIT '5' 
-#define MAX_COM_TOPOLOGY_UNIT '5'
+
 #define BT_TIMER1 1
 #define BT_TIMER3 1
 
@@ -191,7 +191,7 @@ see www.adobri.com for communication protocol spec
 //#define SHOW_RX
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////
-// define blinking LED on pin 9 (RA7)
+// define blinking LED on pin 14 (RC3)
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 #define DEBUG_LED
 #ifdef DEBUG_LED
@@ -233,6 +233,11 @@ see www.adobri.com for communication protocol spec
 
 // sync clock / timeral  support
 #define SYNC_CLOCK_TIMER  
+
+// next line define non standart modem implementation
+// next line define command:
+// *<send data> over connected link
+#define NON_STANDART_MODEM 1
 
 
 ////////////////////////////////////////////
@@ -380,7 +385,6 @@ unsigned AlowSwitchFq1ToFq3:1;
 unsigned char FqTXCount;
 unsigned char FqTX;
 unsigned char TXSendOverFQ;
-UWORD Time4Packet;
 #ifdef _18F2321_18F25K20
 UWORD TIMER0 @ 0xFD6;
 UWORD TIMER1 @ 0xFCE;
@@ -627,7 +631,40 @@ void putch(unsigned char simbol);
 void putchWithESC(unsigned char simbol);
 unsigned char getch(void);
 
-
+void InitModem(void)
+{
+    ATCMDStatus = 0;
+    ATCMD = 0;
+    FqTX = Freq1;
+    FqTXCount = 0;
+    BTFQcurr = Freq1;
+        
+    RXreceiveFQ = 0;
+    TXSendOverFQ = 0;
+    FqRXCount = 0;
+    FqRX = Freq1;
+    FqTXCount = 0;
+    FqTX = Freq1;
+    BTType = 0;
+    BTokMsg = 0xff;
+#ifdef BT_TIMER1
+    DataB0.Timer1Done3FQ = 0;
+    DataB0.Timer3DoneMeasure = 0;
+    //DataB0.Time3JustDone = 0;
+    DataB0.Timer3Meausre = 0;
+    DataB0.Timer3OutSync = 0;
+    DataB0.Timer3OutSyncRQ = 0;
+    // 1 = round robin on FQ1->Fq2->Fq3
+    // 0 = working on FQ1 only
+    DataB0.Timer3SwitchRX = 1;
+    DataB0.Timer1SwitchTX = 1;
+    DataB0.Timer3Ready2Sync = 0;
+    DataB0.AlowSwitchFq1ToFq3 = 1;
+    DataB0.TransmitESC = 0;
+    //DataB0.Timer3SkipFQ2 = 0;
+    //DataB0.Timer3SkipFQ3 = 0;
+#endif
+}
 void main()
 {
     unsigned char bWork;
@@ -643,46 +680,15 @@ void main()
         //UnitADR = '4';
 #include "commc6.h"
 
-        ATCMDStatus = 0;
-        ATCMD = 0;
         Config01 = eeprom_read(0x30);
         Freq1 = eeprom_read(0x31);
-        FqTX = Freq1;
-        
-        FqTXCount = 0;
         Freq2 = eeprom_read(0x32);
         Freq3 = eeprom_read(0x33);
         Addr1 = eeprom_read(0x34);
         Addr2 = eeprom_read(0x35);
         Addr3 = eeprom_read(0x36);
-        BTFQcurr = Freq1;
-        
-
-        RXreceiveFQ = 0;
-        TXSendOverFQ = 0;
-        FqRXCount = 0;
-        FqRX = Freq1;
-        FqTXCount = 0;
-        FqTX = Freq1;
-        BTType = 0;
-        BTokMsg = 0xff;
+        InitModem();
 #ifdef BT_TIMER1
-        DataB0.Timer1Done3FQ = 0;
-        DataB0.Timer3DoneMeasure = 0;
-        //DataB0.Time3JustDone = 0;
-        DataB0.Timer3Meausre = 0;
-        DataB0.Timer3OutSync = 0;
-        DataB0.Timer3OutSyncRQ = 0;
-        // 1 = round robin on FQ1->Fq2->Fq3
-        // 0 = working on FQ1 only
-        DataB0.Timer3SwitchRX = 1;
-        DataB0.Timer1SwitchTX = 1;
-        DataB0.Timer3Ready2Sync = 0;
-        DataB0.AlowSwitchFq1ToFq3 = 1;
-        DataB0.TransmitESC = 0;
-        //DataB0.Timer3SkipFQ2 = 0;
-        //DataB0.Timer3SkipFQ3 = 0;
-        
 #else
         DataB0.TimerPresc = 0;
         DataB0.Timer = 0;
@@ -694,7 +700,6 @@ void main()
         DataB3.FlashCmdLen = 0;
         DataB3.FlashRead = 0;
 
-        Time4Packet = TIME_FOR_PACKET;
         
 #ifdef SSPORT
         CS_HIGH;
@@ -860,7 +865,7 @@ void ProcessCMD(unsigned char bByte)
                   goto CONTINUE_NOT_AT;
              }
          }
-         else if (ATCMDStatus == 3) // atd // ats
+         else if (ATCMDStatus == 3) // atd // ats // ath
          {
              if (bByte == 'd') // atd command
              {
@@ -870,7 +875,12 @@ void ProcessCMD(unsigned char bByte)
              { 
                  ATCMDStatus = 9;        // on next entry will be 10
              }
-             else
+             else if (bByte == 'h') // ath command
+             { 
+                 ATCMDStatus = 3;        // on next entry will be 4
+                 InitModem();
+             }
+             else 
                 ATCMDStatus = 3;         // on next entry will be 4
              return;
          }
@@ -1263,6 +1273,10 @@ unsigned char CallBkComm(void) // return 1 == process queue; 0 == do not process
 {                              // in case 0 fucntion needs to pop queue byte by itself
     unsigned char bReturn = 0;
     unsigned char bByte;
+#ifdef NON_STANDART_MODEM
+    if (!Main.SendOverLink)   // if command * was send then data has to be transferred to up/down link
+        return 1;             // untill end of the packet
+#endif
     if (ATCMD & MODE_CONNECT) // was connection esatblished
     {
         if ((ATCMD & MODE_CALL_LUNA_COM) 
@@ -1277,7 +1291,7 @@ SEND_BT:
             {
                 TMR0ON = 0;
                 BTpkt = PCKT_DATA;
-                
+#ifndef NON_STANDART_MODEM                
                 if (DataB0.TransmitESC)
                 {
                     if (ESCCount)
@@ -1294,7 +1308,29 @@ OUT_ESC_CHARS:
                         goto PUSH_TO_BT_QUEUE;
                     }
                 }
+#endif
                 bByte = getch();
+#ifdef NON_STANDART_MODEM
+                if (Main.ESCNextByte)
+                {
+                    Main.ESCNextByte = 0;
+                    goto PUSH_TO_BT_QUEUE;
+                }
+                else
+                {
+                    if (bByte == ESC_SYMB)
+                    {
+                        Main.ESCNextByte = 1;
+                        goto PUSH_TO_BT_QUEUE;
+                    }
+                    else if (bByte == UnitADR)
+                    {
+                        Main.getCMD = 0; // CMD stream done
+                        Main.SendOverLink = 0;
+                        return 0; 
+                    }
+                }
+#else           // standart modem implementation
                 if (bByte == '+')
                 {
                     if (++ESCCount >=4) // disconnect condition
@@ -1314,6 +1350,7 @@ OUT_ESC_CHARS:
                         goto OUT_ESC_CHARS;
                     }
                 }
+#endif
 PUSH_TO_BT_QUEUE:       
                 ATCMD |= SOME_DATA_OUT_BUFFER;
                 BTqueueOut[BTqueueOutLen] = bByte;//
@@ -1338,10 +1375,13 @@ SET_FLAG:
         }
         else if (ATCMD & MODE_CALL_EARTH) // calling earth (it can be relay data from a loop or communication with some devices)
         {
+#ifndef NON_STANDART_MODEM
             if (UnitFrom == 0)
+#endif
                goto SEND_BT;
         }
     }
+#ifndef NO_I2C_PROC
     if (Main.ComNotI2C) // prev was COM processing
     {
         //Main.ComNotI2C = 1;
@@ -1355,9 +1395,12 @@ SET_FLAG:
             bReturn = 1;               // do process data
         }
     }    
-
     return bReturn;
+#else
+    return 1;                          // do process data
+#endif
 }
+#ifndef NO_I2C_PROC
 unsigned char CallBkI2C(void)// return 1 == process queue; 0 == do not process; 
                                // 2 = do not process and finish process 3 == process and finish internal process
 {                              // in case 0 fucntion needs to pop queue byte by itself
@@ -1377,14 +1420,12 @@ unsigned char CallBkI2C(void)// return 1 == process queue; 0 == do not process;
     }    
     return bReturn;
 }
+#endif
 unsigned char CallBkMain(void) // 0 = do continue; 1 = process queues
 {
     unsigned char bWork;
-
-
     if (INT0_ENBL)
     {             
-
         if (Main.ExtInterrupt) // received interrupt == it can be TX or RX
         {
             // what it was ?

@@ -1802,6 +1802,9 @@ unsigned char SendCMD;
 unsigned char RetransmitLen;
 struct _MainB2{
 unsigned RetransmitTo:1;
+#ifdef NON_STANDART_MODEM
+unsigned SendOverLink:1;
+#endif
 unsigned getCMD:1;
 unsigned getHbit:1;
 unsigned ESCNextByte:1;
