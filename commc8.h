@@ -315,6 +315,7 @@ void enable_uart(void)//bit want_ints)
     //WREN = 1;
 #endif
 }    
+#ifndef NO_I2C_PROC
 void enable_I2C(void)
 {
 #ifdef __PIC24H__
@@ -414,6 +415,7 @@ void enable_I2C(void)
     //SSPOV = 0;  // clean owerflow
 #endif
 }
+#endif
 void EnableTMR1(void)
 {
 #ifdef __PIC24H__

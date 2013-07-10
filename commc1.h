@@ -117,7 +117,7 @@ INTERRUPT int_server( void)
    unsigned char work1;
    unsigned char work2;
 #endif
-
+#ifndef NO_I2C_PROC
    //////////////////////////////////////////////////////////////////////////////////////////
    //////////////////////////////////////////////////////////////////////////////////////////
    IF_SSPIF    //if (SSPIF)    // I2C interrupt
@@ -310,10 +310,6 @@ ENFORCE_STOP:
 //CHECK_ANOTHER:
        if (S)  // this is a Start condition for I2C
        {
-           //dddddebug = ddddebug;
-           //ddddebug = dddebug;
-           //dddebug = ddebug;
-           //bitset(ddebug,0);
            I2C_B1.I2CBusBusy = 1;
            //S = 0;
            //bitset(PORTA,2);
@@ -325,11 +321,6 @@ ENFORCE_STOP:
            }
            if (I2C_B1.NeedRestart)
            {
-           //dddddebug = ddddebug;
-           //ddddebug = dddebug;
-           //dddebug = ddebug;
-           //bitset(ddebug,1);
-           //bitclr(ddebug,0);
                I2C_B1.NeedRestart = 0;
                I2C_B1.NeedReceive = 1;
                
@@ -340,11 +331,6 @@ ENFORCE_STOP:
            }
            if (I2C_B1.NeedMaster)
            {
-           //dddddebug = ddddebug;
-           //ddddebug = dddebug;
-           //dddebug = ddebug;
-           //ddebug = 1;
-           //bitset(ddebug,1);
                //I2C.I2CGettingPKG =1;  // blocking - anyway it will be some packege
                I2C_B1.NeedMaster = 0;
                if (AOutI2CQu.iQueueSize)  // in output Que there are something then it will be req Send first
@@ -367,10 +353,6 @@ SENTI2C_ADDR:
        }
        if (P)  // I2C bus is free
        {
-           //dddddebug = ddddebug;
-           //ddddebug = dddebug;
-           //dddebug = ddebug;
-           //ddebug = 0;
 #ifdef I2C_INT_SUPPORT
            if (I2C_B1.NeedStop) // needs to close MASTER mode and go back to SLAVE 
            {
@@ -501,7 +483,7 @@ MAIN_EXIT:;
 
    }
 #endif
-
+#endif //#ifndef NO_I2C_PROC
 #ifdef __PIC24H__
 #ifdef USE_COM2
    ///////////////////////////////////////////////////////////////////////////////////////////////////////

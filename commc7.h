@@ -79,6 +79,7 @@ REPEAT_OP1:
                 continue;
             }
 #endif
+#ifndef NO_I2C_PROC
             if (CallBkI2C())// 0 = do not process byte; 1 = process;
             {
                 bitclr(bWork,0);
@@ -91,6 +92,7 @@ REPEAT_OP1:
                     Main.getCMD = 1;
 
             }
+#endif
         }
         if (AInQu.iQueueSize)      // in comm queue bytes
         {

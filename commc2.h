@@ -11,7 +11,9 @@ void SendSSByteFAST(unsigned char bByte); // for a values <= 3
 
 
 void enable_uart(void);
+#ifndef NO_I2C_PROC
 void enable_I2C(void);
+#endif
 void EnableTMR1(void);
 void putch(unsigned char simbol)
 {
@@ -144,7 +146,7 @@ unsigned char getchCom2(void)
 
 #endif // __PIC24H_
 #endif // USE_COM2
-
+#ifndef NO_I2C_PROC
 void putchI2C(unsigned char simbol)
 {
     AOutI2CQu.Queue[AOutI2CQu.iEntry] = simbol; // add bytes to a queue
@@ -152,7 +154,7 @@ void putchI2C(unsigned char simbol)
         AOutI2CQu.iEntry = 0;
     AOutI2CQu.iQueueSize++;
 }
-
+#endif
 void putchWithESC(unsigned char simbol)
 {
     if (Main.SendWithEsc)
@@ -220,6 +222,7 @@ unsigned char getch(void)
     iInQuSize --;
     return bRet;
 }*/
+#ifndef NO_I2C_PROC
 unsigned char getchI2C(void)
 {
     unsigned char bRet = AInI2CQu.Queue[AInI2CQu.iExit];
@@ -242,12 +245,14 @@ void InsertI2C(unsigned char bWork)
 //bWork = 0;
 //    } 
 }
+#endif // #ifndef NO_I2C_PROC
 #pragma rambank RAM_BANK_1
 //////////////////////////////////////////////BANK 1///////////////////////////
 
 
 unsigned char eeprom_read(unsigned char addr);
 void eeprom_write(unsigned char addr, unsigned char value);
+ #ifndef NO_I2C_PROC
 /////////////////////////////////////////////////////////////////////
 //
 /////////////////////////////////////////////////////////////////////
@@ -621,6 +626,7 @@ void ReleseI2cMaster(void)
      //SSPEN = 1;
 }
 #endif //I2C_INT_SUPPORT
+#endif //  #ifndef NO_I2C_PROC
 //////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////

@@ -83,14 +83,17 @@ RETRANSMIT:
                     return;           // needs to continue CMD mode  
 
                 Main.getCMD = 0; // CMD stream done 
+#ifndef NO_I2C_PROC
                 if (Main.PrepI2C) // execute I2C if CMD stream done 
                 {
                     bByte = '@';
                     goto END_I2C_MSG_WAIT;
                 }
+#endif
             }
             I2C.LastWasUnitAddr = 0;
         }
+#ifndef NO_I2C_PROC
 //////////////////////////////////////////////////////////////////////////////////
 //  I2C command processing:
 //     "<"<I2CAddr><DATA>@ or "<"<I2C addr><data><unit> 
@@ -205,6 +208,7 @@ DONE_DONE_I2C:
             Main.DoneWithCMD = 1; // long command ends
             return;
         }  // end if a adressing I2C stream
+#endif
 //////////////////////////////////////////////////////////////////////////////
 // FLASH command processing
 // set by external comman like F
