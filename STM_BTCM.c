@@ -248,6 +248,10 @@ see www.adobri.com for communication protocol spec
 // -g -Wall -save-temps -O1 -Wa,-ahlsnd="$(BINDIR_)$(INFILEBASE).lst"
 ////////////////////////////////////////////
 
+///////////////////////////////////////////////////////////////
+// disable I2C processing
+///////////////////////////////////////////////////////////////
+#define NO_I2C_PROC 1
 // it can be only master support: pic works in master mode only=> uncomment this line if 
 //     no multimaster support on a bus
 #define I2C_ONLY_MASTER 1
@@ -493,7 +497,9 @@ unsigned char Config01;
 //   for support of a "frozen" session
 /////////////////////////////////////////////////////////////////////////// 
 #define MODE_CALL_EARTH 1
+#ifndef NO_I2C_PROC
 #define MODE_CALL_LUNA_I2C 2
+#endif
 #define MODE_CALL_LUNA_COM 4
 #define MODE_CONNECT 8
 #define MODE_DIAL 0x10
@@ -607,15 +613,16 @@ void SetTimer1(UWORD iTime);
 unsigned char CallBkComm(void); // return 1 == process queue; 0 == do not process; 
                                 // 2 = do not process and finish process 3 == process and finish internal process
                                 // in case 0 fucntion needs to pop queue byte by itself
-
+#ifndef NO_I2C_PROC
 unsigned char CallBkI2C(void); // return 1 == process queue; 0 == do not process; 
                                // 2 = do not process and finish process 3 == process and finish internal process
                                // in case 0 fucntion needs to pop queue byte by itself
+unsigned char getchI2C(void);
+#endif
 unsigned char CallBkMain(void); // 0 = do continue; 1 = process queues
 void Reset_device(void);
 void ShowMessage(void);
 void ProcessCMD(unsigned char bByte);
-unsigned char getchI2C(void);
 void putch(unsigned char simbol);
 void putchWithESC(unsigned char simbol);
 unsigned char getch(void);
@@ -906,8 +913,10 @@ void ProcessCMD(unsigned char bByte)
              ATCMD = 0;
              if (bByte == 'e') // atdtEARTH
                  ATCMD = MODE_CALL_EARTH;//1;
+#ifndef NO_I2C_PROC
              else if (bByte == 'L') // atdtLuna
                  ATCMD = MODE_CALL_LUNA_I2C;//2;
+#endif
              else if (bByte == 'l') // atdtluna
                  ATCMD = MODE_CALL_LUNA_COM;//4;
              ATCMDStatus = 6; // on next entry will be 7
@@ -1256,7 +1265,11 @@ unsigned char CallBkComm(void) // return 1 == process queue; 0 == do not process
     unsigned char bByte;
     if (ATCMD & MODE_CONNECT) // was connection esatblished
     {
-        if ((ATCMD & MODE_CALL_LUNA_COM) || (ATCMD & MODE_CALL_LUNA_I2C)) // calling CubSat
+        if ((ATCMD & MODE_CALL_LUNA_COM) 
+#ifndef NO_I2C_PROC
+             || (ATCMD & MODE_CALL_LUNA_I2C)
+#endif
+           ) // calling CubSat
         {
 SEND_BT:
             // TBD this is a place where ++++ can be checked for disconnect == needs to accumulate data in InQueu and on ++++ disconnect from remote
@@ -1465,7 +1478,11 @@ AFTER_PROCESS:
                                 }
                                 else // no connection yet == this is RX after transmit dial packet
                                 {
-                                    if ((ATCMD & MODE_CALL_LUNA_COM) || (ATCMD & MODE_CALL_LUNA_I2C)) // earth calls cubsat
+                                    if ((ATCMD & MODE_CALL_LUNA_COM) 
+#ifndef NO_I2C_PROC
+                                         || (ATCMD & MODE_CALL_LUNA_I2C)
+#endif
+                                       ) // earth calls cubsat
                                        SetTimer0(DELAY_BTW_NEXT_DIAL); // 0x0000 == 4 sec till next attempt for earth to dial luna
                                 }
                             }
@@ -1628,7 +1645,11 @@ TO_ON_FQ3:
                             
                             }
                         }
-                        if ((ATCMD & MODE_CALL_LUNA_COM) || (ATCMD & MODE_CALL_LUNA_I2C)) // earth calls cubsat
+                        if ((ATCMD & MODE_CALL_LUNA_COM) 
+#ifndef NO_I2C_PROC
+                            || (ATCMD & MODE_CALL_LUNA_I2C)
+#endif
+                           ) // earth calls cubsat
                         {
                             if (ATCMD & MODE_CONNECT) // was connection esatblished
                             {
@@ -1720,7 +1741,11 @@ NEXT_TRANSMIT:
         }
         
         // done interrupt processing now: call/transmit
-        if ((ATCMD & MODE_CALL_LUNA_COM) || (ATCMD & MODE_CALL_LUNA_I2C)) // earth calls cubsat
+        if ((ATCMD & MODE_CALL_LUNA_COM) 
+#ifndef NO_I2C_PROC
+             || (ATCMD & MODE_CALL_LUNA_I2C)
+#endif
+           ) // earth calls cubsat
         {
             // earth call cubesat that is a main mode == earth initiate transmission
             // 1. send msg on FQ1
@@ -1956,7 +1981,9 @@ void Reset_device(void)
     //GIE = 1;     // bit 7 GIE: Global Interrupt Enable bit
                  // 1 = Enables all unmasked interrupts
                  // 0 = Disables all interrupts
+#ifndef NO_I2C_PROC
     enable_I2C();
+#endif
     TIMER0_INT_FLG = 0; // clean timer0 interrupt
     TIMER0_INT_ENBL = 0; // diasable timer0 interrupt
     TMR1IF = 0; // clean timer0 interrupt
@@ -2350,7 +2377,9 @@ void Reset_device(void)
     //GIE = 1;     // bit 7 GIE: Global Interrupt Enable bit
                  // 1 = Enables all unmasked interrupts
                  // 0 = Disables all interrupts
+#ifndef NO_I2C_PROC
     enable_I2C();
+#endif
     // timer0 prescaler
 #ifdef _18F2321_18F25K20
     T0CON = 6; //prescaler 1 tick = 16mks => 1ms = 63 tic 2ms = 125 value 0xff00 mean 4ms value 0xf424 = 1s
@@ -2718,7 +2747,11 @@ void ProcessBTdata(void)
             Freq2 = Freq3 - (OpponentFreq3 - OpponentFreq2);
         }
         
-        if ((ATCMD & MODE_CALL_LUNA_COM) || (ATCMD & MODE_CALL_LUNA_I2C))
+        if ((ATCMD & MODE_CALL_LUNA_COM) 
+#ifndef NO_I2C_PROC
+            || (ATCMD & MODE_CALL_LUNA_I2C)
+#endif
+           )
         {
             if (ATCMD & MODE_CONNECT) // connection was already established
             {
@@ -2744,7 +2777,11 @@ void ProcessBTdata(void)
     else // another packets == data
     {
         ptrMy+=sizeof(PacketStart);
-        if ((ATCMD & MODE_CALL_LUNA_COM) || (ATCMD & MODE_CALL_LUNA_I2C))
+        if ((ATCMD & MODE_CALL_LUNA_COM) 
+#ifndef NO_I2C_PROC
+             || (ATCMD & MODE_CALL_LUNA_I2C)
+#endif
+           )
         {
 OUTPUT_DIRECTLY:
             /*
