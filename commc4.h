@@ -32,6 +32,7 @@
             Main.SetSendCMD = 0;
             I2C.SetI2CYesNo = 1;
             Main.DoneWithCMD = 1; // long command "=XC" done
+/*
             if (bByte == '*')  // "=X*" and all data transfers to X till end of the packet
             {
                  //if (UnitFrom) // assuming that unit was specified 
@@ -41,6 +42,7 @@
                      return;
                  }
             }
+*/
 #ifdef SYNC_CLOCK_TIMER
             if (bByte == '?')
             {

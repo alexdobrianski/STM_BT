@@ -1437,7 +1437,8 @@ unsigned char CallBkMain(void) // 0 = do continue; 1 = process queues
 MAIN_INT:
             Main.ExtInterrupt = 0;
 
-/*            if (BTStatus & 0x40)
+/*          debug code  
+            if (BTStatus & 0x40)
             {
                 if (FqRXCount)
                 {
@@ -2735,6 +2736,8 @@ CONTINUE:
     return 0xff;
 }
 //=========================================================================================================
+//   received data -> to output
+//=========================================================================================================
 void ProcessBTdata(void)
 {
     //CRC = BTbyteCRC(CRC,0xaa);// preambul offset 0
@@ -2818,6 +2821,9 @@ void ProcessBTdata(void)
     else // another packets == data
     {
         ptrMy+=sizeof(PacketStart);
+#ifdef NON_STANDART_MODEM
+        // place everything into a input (com) buffer can be done only in a case when there are no long command under process
+#else
         if ((ATCMD & MODE_CALL_LUNA_COM) 
 #ifndef NO_I2C_PROC
              || (ATCMD & MODE_CALL_LUNA_I2C)
@@ -2884,6 +2890,7 @@ WAIT_SPACE_Q:
             else
                 goto OUTPUT_DIRECTLY;
         }
+#endif
     }        
 }
 void BTCE_low(void)

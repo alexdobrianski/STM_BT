@@ -33,6 +33,7 @@ SKIP_ECHO_BYTE: ;
     }
     else    // now unit in command mode == processing all data
     {
+/*
         if (Main.RetransmitTo) // command =X* was entered - all packet till end was retransmitted to different unit
         {
             if (Main.ESCNextByte)
@@ -60,7 +61,8 @@ RETRANSMIT:
                 }
                 goto RETRANSMIT;
             }
-        } 
+        }
+*/ 
         // getCMD == 1 
         // stream addressing this unit
         if (Main.ESCNextByte)
