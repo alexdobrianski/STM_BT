@@ -1064,7 +1064,7 @@ void ProcessCMD(unsigned char bByte)
                 //INT0_ENBL = 1;
                 return;
           }
-          else if (ATCMDStatus == 24) // ATSY=<pkt><len><data> set into a FLASH memory <pkt> with a <data>
+          else if (ATCMDStatus == 24) 
           {
           }
           // something wrong == done with AT
@@ -2822,7 +2822,25 @@ void ProcessBTdata(void)
     {
         ptrMy+=sizeof(PacketStart);
 #ifdef NON_STANDART_MODEM
-        // place everything into a input (com) buffer can be done only in a case when there are no long command under process
+        
+        if (Main.getCMD)  
+        {
+            if (Main.SendOverLink) // serial input already forwarded to up/down link
+                goto PROCESS_UPLINK;
+            // now need to store data and process it somehow after later at !Main.getCMD 
+
+        }
+        else // if no command mode than it is posible to process data by ProcessCMD
+        {
+PROCESS_UPLINK:
+            do
+            {
+                ProcessCMD(*ptrMy);
+                ptrMy++;
+            } while(--ilen);
+            // last byte if closing packet
+            ProcessCMD(UnitADR);
+        }
 #else
         if ((ATCMD & MODE_CALL_LUNA_COM) 
 #ifndef NO_I2C_PROC

@@ -8,6 +8,7 @@
         {                     //       |         if ' ' than responce unit is not set
             if (bByte == ' ')
                 bByte = 0;
+#ifdef USE_OLD_CMD_EQ
             if (bByte == '*') // this will switch stream permanently
             {
                 return;
@@ -19,9 +20,11 @@
                  Main.DoneWithCMD = 0;
                  return;
             }
+#endif
             UnitFrom = bByte;
             Main.SetFromAddr = 0;
             Main.SetSendCMD = 1;
+
             return;
         }
         else if (Main.SetSendCMD) //<unit>=xC                 ///<unit>=xCi<unit> 
@@ -32,7 +35,7 @@
             Main.SetSendCMD = 0;
             I2C.SetI2CYesNo = 1;
             Main.DoneWithCMD = 1; // long command "=XC" done
-/*
+
             if (bByte == '*')  // "=X*" and all data transfers to X till end of the packet
             {
                  //if (UnitFrom) // assuming that unit was specified 
@@ -42,7 +45,6 @@
                      return;
                  }
             }
-*/
 #ifdef SYNC_CLOCK_TIMER
             if (bByte == '?')
             {
@@ -59,6 +61,7 @@
                 {
                     putchWithESC(PTR_FSR);FSR_REGISTER++;
                 }
+                putch(UnitFrom); // close packet
                 Main.SendWithEsc = 0;
 #else  // not __PIC24H__
 #endif // __PIC24H__
