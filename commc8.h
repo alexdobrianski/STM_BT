@@ -601,15 +601,16 @@ unsigned char GetSSByte(void)
         //bitclr(bWork2,0); // bWork2 is unsigned == zero in low bit garanteed check assembler code to confirm
 //#undef SSDATA_OUT2
 #ifdef SSDATA_OUT2
-        if (btest(SSPORT_READ2,SSDATA_OUT))
+
+        if (btest(SSPORT_READ,SSDATA_OUT))
         {
-            if (btest(SSPORT_READ2,SSDATA_OUT2))
+            if (btest(SSPORT2,SSDATA_OUT2))
                 goto FLASH_MAJORITY;
-            else if (btest(SSPORT_READ2,SSDATA_OUT3))
+            else if (btest(SSPORT2,SSDATA_OUT3))
                 goto FLASH_MAJORITY;
         }
-        else if (btest(SSPORT_READ2,SSDATA_OUT2))
-                 if (btest(SSPORT_READ2,SSDATA_OUT3))
+        else if (btest(SSPORT2,SSDATA_OUT2))
+                 if (btest(SSPORT2,SSDATA_OUT3))
                  {
 FLASH_MAJORITY:
                      bitset(bWork2,0);

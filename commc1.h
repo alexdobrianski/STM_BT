@@ -775,7 +775,7 @@ TO_ANOTHER_UNIT:
 //////////////////////////////////////////////////////////////////
 // end of optimized version
 //////////////////////////////////////////////////////////////////
-#else
+#else //  NOT NEW_CMD_PROC
                if (RetrUnit) // relay data to next unit during processing streaming == stream to another unit retransmit directly without entering queue
                {
                    if (Main.prepStream)
@@ -866,7 +866,7 @@ SEND_BYTE_TO_QU:
                    }
                    // ===> process simbol
                }
-#endif
+#endif   //  end NEW_CMD_PROC
 INSERT_TO_COM_Q:
                if (AInQu.iQueueSize < BUFFER_LEN)
                {

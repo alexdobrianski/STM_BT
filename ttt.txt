@@ -1,0 +1,36 @@
+
+com->  55qqwweerrttttyyuuu5
+BT->                       qqwweerrttttyyuuu-> copy to flash at adress ABCD
+                           if nothing in INQUEUE ->insert to input queue 5EABCD5 (7 bytes)
+                           on interrupt from serial just add any bytes  
+
+if (getCMD == 0) process BT
+=============================================
+
+com->  55qqwweerrttttyyuuu5
+BT->       qqwweerrttttyyuuu -> copy to flash qqwweerrttttyyuuu at adress ABCD (hex decimal adress in 64 K adress area 
+         qqwweerrttttyyuuu5 -> on end of packet processing exec from FLASH at address ABCD
+                           qqwweerrttttyyuuu
+
+
+...~                 == test message
+...<Adata@...        == send 'data' over I2C
+...<Adata>           == send 'data' over I2C (next will be read from I2C
+...<Adata5           == send 'data' over I2C
+...>L@...            == wait to get L bytes over I2C   
+...>L5               == wait to get L bytes over I2C
+FLxdata              == send to FLASH L bytes == command 'x' and data == 'data'
+FLxdata@l            == send to FLASH L bytes == command 'x' and data == 'data' then read 'l' bytes
+                        L = all bytes including char '@'
+F\x01\x06              == write enable (flash command 06) -> send 0x06
+F\x01\0xc7                                                     == erase all flash                 -> send =0xc7
+F\x05\x03\x00\x12\x34@\x04                                     == read 4 bytes from a address 0x001234  -> send 0x03 0x00 0x12 0x34 
+                                                                   (must not to cross boundary)
+F\x01\x06F\x0c\x02\x00\x11\x22\x00\x00\x00\x00\x00\x00\x00\x00 == write 8 bytes to address 0x001122
+F\x01\x06F\x04\x20\x00\x04\x00                                 == erase sector (4K) starting from address 0x000400
+*                    == send to uplink
+?                    == send over serial 4 time measuring fields
+=AC                  == set FromUnit and replay command
+atdtl                == call luna
+atdte                == call earth
+ATSX=LunBMF1F2F3     == set modem param

@@ -309,7 +309,7 @@ see www.adobri.com for communication protocol spec
 #define SSCS       RA3
 #else
 // SSCLOCK RA2(pin4), SSDATA_IN RA3(pin5), SSDATA_OUT RA4(pin6), SSCS RA5(pin7)
-#ifdef _USE_FLASH_MEMORY
+
 #define SSPORT PORTA
 #define SSCLOCK 2
 #define SSDATA_IN 3
@@ -317,11 +317,9 @@ see www.adobri.com for communication protocol spec
 #define SSCS       5
 
 // this is for Cubesat version - 3 FLASH memory processing
-//#define SSPORT2  PORTC
-//#define SSDATA_OUT2 0
-//#define SSDATA_OUT3 1
-
-#endif
+#define SSPORT2  PORTC
+#define SSDATA_OUT2 0
+#define SSDATA_OUT3 1
 #endif
 //
 #define PORT_BT PORTA
@@ -665,6 +663,22 @@ void InitModem(void)
     //DataB0.Timer3SkipFQ3 = 0;
 #endif
 }
+#ifdef NON_STANDART_MODEM
+// adr 0z000000 (0) == Adr2B = 0x00  (var Ard2BH = 0x00)
+// adr 0x001000 (4K)== Adr2B = 0x10  (var Ard2BH = 0x00)
+// adr 0x002000 (8k)== Adr2B = 0x20  (var Ard2BH = 0x00)
+// adr 0x010000 (65536)Adr2B = 0x00  (var Adr2BH = 0x01)
+unsigned char Adr2BH;
+unsigned int wAddr;
+unsigned int FlashEntry;
+unsigned int FlashExit;
+unsigned int FlashQueueSize;
+#define FLASH_BUFFER_LEN      0x2000
+#define FLASH_BUFFER_HALF_LEN 0x1000
+
+void Erace4K(unsigned char Adr2B);
+#endif
+
 void main()
 {
     unsigned char bWork;
@@ -736,6 +750,14 @@ void main()
                     Tmr1LoadLow = 0x8975;      // timer1 interupt reload values 
                     Tmr1TOHigh = Tmr1LoadHigh;
                     SetTimer1(Tmr1LoadLow);
+#endif
+
+#ifdef NON_STANDART_MODEM
+    Adr2BH = 0;
+    Erace4K(0);
+    FlashEntry = 0;
+    FlashExit = 0;
+    FlashQueueSize = 0;
 #endif
 
 #ifdef DEBUG_LED
@@ -813,6 +835,71 @@ void main()
 
 
 // additional code:
+#ifdef NON_STANDART_MODEM
+// adr 0z000000 (0) == Adr2B = 0x00  (var Ard2BH = 0x00)
+// adr 0x001000 (4K)== Adr2B = 0x10  (var Ard2BH = 0x00)
+// adr 0x002000 (8k)== Adr2B = 0x20  (var Ard2BH = 0x00)
+// adr 0x010000 (65536)Adr2B = 0x00  (var Adr2BH = 0x01)
+void InsertIntoCom1(unsigned char work2)
+{
+    if (AInQu.iQueueSize < BUFFER_LEN)
+    {
+        AInQu.Queue[AInQu.iEntry] = work2;
+        if (++AInQu.iEntry >= BUFFER_LEN)
+            AInQu.iEntry = 0;
+        AInQu.iQueueSize++;
+    }
+}
+void CheckStatus(void)
+{
+    unsigned char StatusByte = 0x80;
+    CS_LOW;
+    SendSSByte(0x05);
+    while( StatusByte & 0x80)
+    {
+        StatusByte = GetSSByte();
+    }
+    CS_HIGH;
+}
+
+void Push2Flash( unsigned char bByte)
+{
+    if (btest(SSPORT,SSCS))
+    {
+        CheckStatus();
+        CS_LOW;
+        SendSSByte(0x06);
+        CS_HIGH;
+        nop();
+        CS_LOW; 
+        SendSSByte(0x02);
+        SendSSByte(Adr2BH);
+        SendSSByte(wAddr>>8);
+        SendSSByte(wAddr&0xff);
+    }
+    SendSSByte(bByte);// 10mks after write :: in 16MHz it ig 10 command in 40MIPS it is 400 command
+                      // in some FLASH memory on first read it can be 50 mks and 10 mks next
+    wAddr++;
+    if ((wAddr &0xff) == 0) // page write done
+        CS_HIGH;
+}
+void Erace4K(unsigned char Adr2B)
+{
+    CheckStatus();
+    // erace first 4K for buffer
+    // F\x01\x06F\x04\x20\x00\x00\x00  // address 000000
+    CS_LOW;
+    SendSSByte(0x06);
+    CS_HIGH;
+    nop();
+    CS_LOW; 
+    SendSSByte(0x20);
+    SendSSByte(Adr2BH);
+    SendSSByte(Adr2B);
+    SendSSByte(0x00); 
+    CS_HIGH;
+}
+#endif
 
 
 void Reset_device(void);
@@ -2822,24 +2909,47 @@ void ProcessBTdata(void)
     {
         ptrMy+=sizeof(PacketStart);
 #ifdef NON_STANDART_MODEM
-        
-        if (Main.getCMD)  
+        // insert into FLASH memory
+        wAddr = FlashEntry;
+        if (FlashQueueSize < FLASH_BUFFER_LEN)
         {
-            if (Main.SendOverLink) // serial input already forwarded to up/down link
-                goto PROCESS_UPLINK;
-            // now need to store data and process it somehow after later at !Main.getCMD 
-
-        }
-        else // if no command mode than it is posible to process data by ProcessCMD
-        {
-PROCESS_UPLINK:
+            Push2Flash(ilen&0xff);
+            FlashQueueSize++;
             do
             {
-                ProcessCMD(*ptrMy);
+                if (FlashQueueSize < FLASH_BUFFER_LEN)
+                {
+                    Push2Flash(*ptrMy);
+                    if (wAddr >= FLASH_BUFFER_LEN)
+                        wAddr = 0;
+                    FlashQueueSize++;
+                }
                 ptrMy++;
-            } while(--ilen);
-            // last byte if closing packet
-            ProcessCMD(UnitADR);
+             } while(--ilen);
+             FlashEntry = wAddr;
+        }
+        if (Main.getCMD) // serial already getting commands => exec from FLASH will be on closing packet
+        {
+            
+        }
+        else
+        {
+           // disable serial interrupts
+           RCIE = 0;
+           if (Main.getCMD)
+           {
+               RCIE = 1; // serial already getting commands => exec from FLASH will be on closing packet
+           }
+           else // now it is possible to insert into serial input queue command to execute from FLASH
+           {
+               InsertIntoCom1('e');
+               InsertIntoCom1(0x00);
+               InsertIntoCom1(FlashEntry>>8);
+               InsertIntoCom1(FlashEntry&0xff);
+               InsertIntoCom1(UnitADR);
+               Main.getCMD =1;
+               RCIE = 1;
+           }
         }
 #else
         if ((ATCMD & MODE_CALL_LUNA_COM) 
