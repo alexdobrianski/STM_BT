@@ -20,7 +20,7 @@
                 Main.SetFromAddr = 0;
                 Main.SetSendCMD = 0;
                 I2C.ESCI2CChar = 0;
-                I2C.LastWasUnitAddr = 1;
+                Main.LastWasUnitAddr = 1;
                 return;
             }
             else if (bByte == ESC_SYMB)   // ESC char - needs to echo next simbol to loop
@@ -45,14 +45,14 @@ SKIP_ECHO_BYTE: ;
             {
                 if (bByte == ESC_SYMB)
                 {
-                    I2C.LastWasUnitAddr = 0;
+                    Main.LastWasUnitAddr = 0;
 RETRANSMIT:                    
                     putch(bByte);
                     return;
                 }
                 else if (bByte == UnitADR)
                 {
-                    if (I2C.LastWasUnitAddr)  // pakets can not travel with 0 length - it is definetly was a lost packet and
+                    if (Main.LastWasUnitAddr)  // pakets can not travel with 0 length - it is definetly was a lost packet and
                         goto RETRANSMIT;
 
                      Main.RetransmitTo = 0;
@@ -71,7 +71,7 @@ RETRANSMIT:
         {
             if (bByte == ESC_SYMB)
             {
-                I2C.LastWasUnitAddr = 0;
+                Main.LastWasUnitAddr = 0;
                 if (!Main.PrepI2C)
                     Main.ESCNextByte = 1;
                 else
@@ -81,7 +81,7 @@ RETRANSMIT:
             }
             else if (bByte == UnitADR)
             {
-                if (I2C.LastWasUnitAddr)  // pakets can not travel with 0 length - it is definetly was a lost packet and
+                if (Main.LastWasUnitAddr)  // pakets can not travel with 0 length - it is definetly was a lost packet and
                     return;           // needs to continue CMD mode  
 
                 Main.getCMD = 0; // CMD stream done 
@@ -93,7 +93,7 @@ RETRANSMIT:
                 }
 #endif
             }
-            I2C.LastWasUnitAddr = 0;
+            Main.LastWasUnitAddr = 0;
         }
 #ifndef NO_I2C_PROC
 //////////////////////////////////////////////////////////////////////////////////

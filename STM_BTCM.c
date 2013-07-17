@@ -2838,6 +2838,7 @@ void ProcessBTdata(void)
     unsigned char *ptrMy =&BTqueueIn[0] ;
     unsigned char ilen;
     struct PacketStart *MyPacket;
+    unsigned int BeginAddr;
     if (BTFlags.BT3fqProcessed)
         return;
     BTFlags.BT3fqProcessed = 1; // packet(s) is(are) fine == process done == flag to avoid process duplication packets
@@ -2911,6 +2912,7 @@ void ProcessBTdata(void)
 #ifdef NON_STANDART_MODEM
         // insert into FLASH memory
         wAddr = FlashEntry;
+        BeginAddr = FlashEntry;
         if (FlashQueueSize < FLASH_BUFFER_LEN)
         {
             Push2Flash(ilen&0xff);
@@ -2926,6 +2928,7 @@ void ProcessBTdata(void)
                 }
                 ptrMy++;
              } while(--ilen);
+             
              FlashEntry = wAddr;
         }
         if (Main.getCMD) // serial already getting commands => exec from FLASH will be on closing packet
@@ -2937,17 +2940,15 @@ void ProcessBTdata(void)
            // disable serial interrupts
            RCIE = 0;
            if (Main.getCMD)
-           {
                RCIE = 1; // serial already getting commands => exec from FLASH will be on closing packet
-           }
            else // now it is possible to insert into serial input queue command to execute from FLASH
            {
                InsertIntoCom1('e');
                InsertIntoCom1(0x00);
-               InsertIntoCom1(FlashEntry>>8);
-               InsertIntoCom1(FlashEntry&0xff);
+               InsertIntoCom1(BeginAddr>>8);
+               InsertIntoCom1(BeginAddr&0xff);
                InsertIntoCom1(UnitADR);
-               Main.getCMD =1;
+               Main.getCMD = 1;
                RCIE = 1;
            }
         }

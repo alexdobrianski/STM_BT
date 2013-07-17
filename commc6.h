@@ -34,7 +34,9 @@
 #ifdef NEW_CMD_PROC
         Main.CheckESC = 1;
 #endif
+#ifdef USE_OLD_CMD_EQ
         RetransmitLen = 0;
+#endif
         Main.RetransmitTo = 0;
 #ifdef NON_STANDART_MODEM
         Main.SendOverLink = 0;
@@ -52,7 +54,7 @@
         //BlockComm = 0;
 
         I2C.Timer0Fired = 0;
-        I2C.LastWasUnitAddr = 0;
+        Main.LastWasUnitAddr = 0;
 #ifdef SPEED_SEND_DATA
         Speed.SpeedSend = 0;
         Speed.SpeedSendLocked = 0;

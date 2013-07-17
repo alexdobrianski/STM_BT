@@ -722,18 +722,21 @@ SEND_BYTE_TO_QU:
                    Main.prepZeroLen = 0;
                    goto RELAY_SYMB; // ===> retransmit
                }
-               else if (Main.getCMD)
+               else if (Main.getCMD) // Main.CMDProcess
                {
-                   if (Main.CheckESC)
+                   if (Main.CheckESC) // Main.CMDProcessCheckESC
                    {
-                      Main.CheckESC = 0;  // =======> process message => insert in queue
+                      Main.CheckESC = 0;  // Main.CMDProcessCheckESC =======> process message => insert in queue
                    }
                    else if (work2 == ESC_SYMB)
                    {
-                        Main.CheckESC = 1;
+                        Main.CheckESC = 1;  // Main.CMDProcessCheckESC
                    }
                    else if (work2 == MY_UNIT)
+                   {
+                      // Main.CMDProcess = 0;
                       ; // =======> process message => insert in queue
+                   }
                    else if (work2 <= MAX_ADR)
                    {            
                        if (work2 >= MIN_ADR) // msg to relay
@@ -752,8 +755,10 @@ SEND_BYTE_TO_QU:
                else if (work2 == MY_UNIT) // message addresed to a unit
                {
 SET_MY_UNIT:
+                   // Main.CMDProcess = 1;
+                   // Main.CMDProcessCheckESC = 0;
                    Main.getCMD =1; // byte eated
-                   I2C.LastWasUnitAddr = 1;
+                   Main.LastWasUnitAddr = 1;
                    Main.CheckESC = 0;
                    Main.ESCNextByte = 0;
                    goto END_INPUT_COM;

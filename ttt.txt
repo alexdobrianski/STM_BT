@@ -1,3 +1,22 @@
+com in           -> 55a#3#4#5bcd5    44abcd4            33abcd3 44abcd4 33abcd3       33abcd3 33abcdabcd3
+u==4                
+Main.prepSkip     0 0001010100000    000
+Main.prepZeroLen  0 1100000000000    110
+RetrUnit          0 5           0
+NoPacket          1 00000000000011111111111111111111111100000011111111110000001111111100000011111111111111111111111111
+com out             55a#3#4#5bcd5                       33abcd3         33abcd39abcd9 33abcd39abcdabcdabcd933abcdabcd3
+queue                                 4abcd4                     4abcd4                       33abcdabcd3
+putchr call                                                               9(abcd9)     9(abcdabcdabcd9)    33abcdabcd3
+out queue                                                                      9abcd9        9abcdabcdabcd933abcdabcd3
+wait                                                                      .....        ......
+NoOutPacket      00000000000000000000000000000000000000000000000000000000000000111111000000001111111111111111111111111
+
+
+
+
+
+
+
 
 com->  55qqwweerrttttyyuuu5
 BT->                       qqwweerrttttyyuuu-> copy to flash at adress ABCD
