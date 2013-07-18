@@ -636,9 +636,10 @@ NO_RC_ERROR:
 #ifdef NEW_CMD_PROC
                // optimized version
                
-               if (Main.prepSkip)     // was skip = retransmit byte - top priority
+
+               if (Main.prepESC)     // was skip = retransmit byte - top priority
                {
-                   Main.prepSkip = 0;
+                   Main.prepESC = 0;
                    Main.prepZeroLen = 0;
                    goto RELAY_SYMB; // ===> retransmit
                }
@@ -647,7 +648,7 @@ NO_RC_ERROR:
                    if (work2 == ESC_SYMB) // do relay but account that is was ESC char 
                    {
                        Main.prepZeroLen = 0;
-                       Main.prepSkip = 1;//====> retransmit
+                       Main.prepESC = 1;//====> retransmit
 RELAY_SYMB:
                        // exact copy from putchar == it is big!!! but it can be called recursivly!!
                        ///////////////////////////////////////////////////////////////////////////////////////
@@ -706,6 +707,7 @@ SEND_BYTE_TO_QU:
                        if (Main.prepZeroLen) // packets with 0 length does not exsists
                            goto RELAY_SYMB; // ===> retransmit
                        RetrUnit = 0;
+                       Main.SomePacket = 0;
                        goto RELAY_SYMB; // ===> retransmit
                    }
                    else if (work2 == MY_UNIT)
@@ -722,61 +724,67 @@ SEND_BYTE_TO_QU:
                    Main.prepZeroLen = 0;
                    goto RELAY_SYMB; // ===> retransmit
                }
-               else if (Main.getCMD) // Main.CMDProcess
+               else if (Main.CMDProcess)
                {
-                   if (Main.CheckESC) // Main.CMDProcessCheckESC
+                   if (Main.CMDProcessCheckESC)
                    {
-                      Main.CheckESC = 0;  // Main.CMDProcessCheckESC =======> process message => insert in queue
+                      Main.CMDProcessCheckESC = 0;  // =======> process message => insert in queue
                    }
                    else if (work2 == ESC_SYMB)
                    {
-                        Main.CheckESC = 1;  // Main.CMDProcessCheckESC
+                        Main.CMDProcessCheckESC = 1;
                    }
                    else if (work2 == MY_UNIT)
                    {
-                      // Main.CMDProcess = 0;
-                      ; // =======> process message => insert in queue
+                      Main.CMDProcess = 0;
+                      ; // =======> process last byte => insert in queue = but packet done
                    }
-                   else if (work2 <= MAX_ADR)
+                   else if (work2 <= MAX_ADR) // if inside packet present another one == send it to loop
                    {            
-                       if (work2 >= MIN_ADR) // msg to relay
+                       if (work2 >= MIN_ADR) // packet to relay
                           // retransmit to another unit has a priority - current status freazed
                            goto TO_ANOTHER_UNIT;
                    }         
                    ;  // =======> process message => insert in queue
                }
-               else // not a command mode == stream mode 
-               if (work2 == ESC_SYMB) // do relay
-               {
-                   Main.prepZeroLen = 0;
-                   Main.prepSkip = 1;//====> retransmit
-                   goto RELAY_SYMB; // ===> retransmit
-               }
-               else if (work2 == MY_UNIT) // message addresed to a unit
-               {
-SET_MY_UNIT:
-                   // Main.CMDProcess = 1;
-                   // Main.CMDProcessCheckESC = 0;
-                   Main.getCMD =1; // byte eated
-                   Main.LastWasUnitAddr = 1;
-                   Main.CheckESC = 0;
-                   Main.ESCNextByte = 0;
-                   goto END_INPUT_COM;
-               }
-               else
-               {
-                   if (work2 <= MAX_ADR)
-                   {            
-                       if (work2 >= MIN_ADR) // msg to relay to another untis
-                       {
-TO_ANOTHER_UNIT:          
-                           RetrUnit = work2;
-                           Main.prepZeroLen = 1;
-                           Main.prepSkip = 0;
-                       }
+               else // not a command mode == stream mode
+               { 
+                   if (work2 == ESC_SYMB) // do relay
+                   {
+                       Main.prepZeroLen = 0;
+                       Main.prepESC = 1;//====> retransmit
+                       goto RELAY_SYMB; // ===> retransmit
                    }
-                   goto RELAY_SYMB; // ===> retransmit
-               }
+                   else if (work2 == MY_UNIT) // packet addresed to a unit
+                   {
+SET_MY_UNIT:
+                       Main.CMDProcess = 1;
+                       Main.CMDProcessCheckESC = 0;
+                       //Main.CMDProcessLastWasUnitAddr = 1;
+                       Main.getCMD =1; // byte eated
+                       Main.LastWasUnitAddr = 1;
+                       Main.ESCNextByte = 0;
+                       goto END_INPUT_COM;
+                   }
+                   else
+                   {
+                       if (work2 <= MAX_ADR)
+                       {            
+                           if (work2 >= MIN_ADR) // packet to relay to another untis
+                           {
+TO_ANOTHER_UNIT:               //if (Main.OutPacket)  // if packet alreadi in serial output then input stream has to be processed via queue
+                               //{
+                               //    goto INSERT_TO_COM_Q;
+                               //}
+                               Main.SomePacket = 1;
+                               RetrUnit = work2;
+                               Main.prepZeroLen = 1;
+                               Main.prepESC = 0;
+                           }
+                       }
+                       goto RELAY_SYMB; // ===> retransmit
+                   }
+               }    
 //////////////////////////////////////////////////////////////////
 // end of optimized version
 //////////////////////////////////////////////////////////////////
@@ -786,16 +794,16 @@ TO_ANOTHER_UNIT:
                    if (Main.prepStream)
                    {
                       
-                       if (Main.prepSkip)     // was skip = clean and relay
+                       if (Main.prepESC)     // was skip = clean and relay
                        {
-                           Main.prepSkip = 0;
+                           Main.prepESC = 0;
                            Main.prepZeroLen = 0;
                            goto RELAY_SYMB; // ===> retransmit
                        }
                        else if (work2 == ESC_SYMB) // do relay
                        {
                            Main.prepZeroLen = 0;
-                           Main.prepSkip = 1;//====> retransmit
+                           Main.prepESC = 1;//====> retransmit
 RELAY_SYMB:
                            // exact copy from putchar == it is big!!! but it can be called recursivly!!
                            ///////////////////////////////////////////////////////////////////////////////////////
@@ -1780,14 +1788,14 @@ MAIN_EXIT:
 #else
 unsigned char Monitor(unsigned char bWork, unsigned char CheckUnit)
 {
-    if (Main.prepSkip)
+    if (Main.prepESC)
     {
         Main.prepZeroLen = 0;
-        Main.prepSkip = 0;
+        Main.prepESC = 0;
     }
     else if (bWork == ESC_SYMB) // it is ESC char ??
     {
-        Main.prepSkip = 1;
+        Main.prepESC = 1;
         Main.prepZeroLen = 0;
     }
     else if (bWork == CheckUnit) // 

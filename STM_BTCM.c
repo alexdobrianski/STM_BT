@@ -1410,7 +1410,7 @@ OUT_ESC_CHARS:
                         Main.ESCNextByte = 1;
                         goto PUSH_TO_BT_QUEUE;
                     }
-                    else if (bByte == UnitADR)
+                    else if (bByte == MY_UNIT)
                     {
                         Main.getCMD = 0; // CMD stream done
                         Main.SendOverLink = 0;
@@ -2537,9 +2537,9 @@ void ShowMessage(void)
     {
     }
     // in a case of a CMD replay it is safly to skip that check - unit allow to send message in CMD mode
-    putch(UnitADR);  // this message will circle over com and will be supressed by unit
+    putch(MY_UNIT);  // this message will circle over com and will be supressed by unit
     Puts("~");
-    putch(UnitADR);
+    putch(MY_UNIT);
 }
 
 #include "commc8.h"
@@ -2947,7 +2947,7 @@ void ProcessBTdata(void)
                InsertIntoCom1(0x00);
                InsertIntoCom1(BeginAddr>>8);
                InsertIntoCom1(BeginAddr&0xff);
-               InsertIntoCom1(UnitADR);
+               InsertIntoCom1(MY_UNIT);
                Main.getCMD = 1;
                RCIE = 1;
            }

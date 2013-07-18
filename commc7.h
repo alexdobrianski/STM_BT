@@ -50,6 +50,7 @@
     {
         if (CallBkMain() == 0) // 0 = do continue; 1 = process queues
             continue;
+#ifndef NO_I2C_PROC
         if (AInI2CQu.iQueueSize) // if something comes from I2C (slave received or some I2c device responded on read command)
         {
 #ifdef USE_OLD_CMD_EQ
@@ -94,6 +95,7 @@ REPEAT_OP1:
             }
 #endif
         }
+#endif // #ifndef NO_I2C_PROC
         if (AInQu.iQueueSize)      // in comm queue bytes
         {
             //if (RetransmitLen)
@@ -110,10 +112,10 @@ REPEAT_OP1:
                  bWork = AInQu.Queue[AInQu.iExit]; // next char
                  if (Main.prepStream)
                  {
-                     if (Main.prepSkip)
-                         Main.prepSkip = 0;
+                     if (Main.prepESC)
+                         Main.prepESC = 0;
                      else if (bWork == ESC_SYMB) // it is ESC char ??
-                         Main.prepSkip = 1;
+                         Main.prepESC = 1;
                      else if (bWork <= MAX_ADR)
                      {
                           if (bWork >= MIN_ADR) // msg to relay
@@ -195,7 +197,9 @@ NO_PROCESS_IN_CMD:;
         }
         else  // nothing in both queue can sleep till interrupt
         {
+#ifndef NO_I2C_PROC
             if (AInI2CQu.iQueueSize == 0)
+#endif
             {
                 //if (I2C_B1.I2CMasterDone) // no communication over I2C
 #ifdef __PIC24H__

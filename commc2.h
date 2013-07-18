@@ -17,6 +17,38 @@ void enable_I2C(void);
 void EnableTMR1(void);
 void putch(unsigned char simbol)
 {
+    while(Main.SomePacket) // wait to output to be clean == no packet in serial output
+    ;
+    // monitor output packets and set Main.OutPacket accordinly
+    if (Main.OutPacketESC)
+        Main.OutPacketESC =0;
+    else if (simbol == ESC_SYMB)
+        Main.OutPacketESC = 1;
+    else 
+    {
+        if (Main.OutPacket)
+        {
+            if (simbol == OutPacketUnit)
+            {
+                if (!Main.OutPacketZeroLen)
+                    Main.OutPacket = 0;
+            }
+            else
+                Main.OutPacketZeroLen = 0;
+        }
+        else
+        {
+            if (simbol <= MAX_ADR)
+            {
+                if (simbol  >= MIN_ADR)
+                {
+                    Main.OutPacket = 1;
+                    Main.OutPacketZeroLen = 1;
+                    OutPacketUnit = simbol; 
+                }
+            }
+        }
+    }
     if (AOutQu.iQueueSize == 0)  // if this is a com and queue is empty then needs to directly send byte(s) 
     {                            // on 16LH88,16F884,18F2321 = two bytes on pic24 = 4 bytes
         // at that point Uart interrupt is disabled

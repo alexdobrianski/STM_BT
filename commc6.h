@@ -11,7 +11,7 @@
 		AOutQu.iEntry = 0;
         AOutQu.iExit = 0;
 		AOutQu.iQueueSize = 0;
-
+#ifndef NO_I2C_PROC
         AInI2CQu.iEntry = 0;
         AInI2CQu.iExit = 0;
 		AInI2CQu.iQueueSize = 0;
@@ -19,6 +19,7 @@
 		AOutI2CQu.iEntry = 0;
         AOutI2CQu.iExit = 0;
 		AOutI2CQu.iQueueSize = 0;
+#endif
         //TimerB1=0;
 #ifdef BT_TIMER1
 #else
@@ -26,23 +27,37 @@
         TimerB1.SetSyncTime = 0;
 #endif
 
-        //Main= 0;
+        //Main = 0;
         Main.getCMD = 0;
         Main.ESCNextByte = 0;
+        Main.CMDProcess = 0;
+        Main.CMDProcessCheckESC = 0;
+
         Main.PrepI2C = 0;
         Main.DoneWithCMD = 1;
-#ifdef NEW_CMD_PROC
-        Main.CheckESC = 1;
-#endif
-#ifdef USE_OLD_CMD_EQ
-        RetransmitLen = 0;
-#endif
+
+        Main.prepStream = 1;
+        Main.prepCmd = 0;
+        Main.prepESC = 0;
+        Main.prepZeroLen = 0;
+
+        Main.SomePacket = 0;
+        Main.OutPacket = 0;
+        Main.OutPacketESC = 0;
+        Main.OutPacketZeroLen = 0;
+
         Main.RetransmitTo = 0;
 #ifdef NON_STANDART_MODEM
         Main.SendOverLink = 0;
 #endif
         //Main.SendWithEsc = 0;
         //Main.CommLoopOK = 0;
+        Main.LastWasUnitAddr = 0;
+
+
+#ifdef USE_OLD_CMD_EQ
+        RetransmitLen = 0;
+#endif
 
         SSPADD = UnitADR<<1;
         I2C.LockToI2C = 0;
@@ -54,7 +69,6 @@
         //BlockComm = 0;
 
         I2C.Timer0Fired = 0;
-        Main.LastWasUnitAddr = 0;
 #ifdef SPEED_SEND_DATA
         Speed.SpeedSend = 0;
         Speed.SpeedSendLocked = 0;
@@ -81,10 +95,6 @@
 #endif
         UnitMask1 = 0xff;
         UnitMask2 = 0;
-        Main.prepStream = 1;
-        Main.prepCmd = 0;
-        Main.prepSkip = 0;
-        Main.prepZeroLen = 0;
         UnitFrom = 0;
 #ifdef SYNC_CLOCK_TIMER
 #ifdef __PIC24H__

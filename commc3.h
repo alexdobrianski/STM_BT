@@ -5,8 +5,6 @@
 /////////////////////////////////////////////////////////////////////
     //if (!Main.getCMD) // outside of the include was if == unit in "stream" relay mode
     //{
-#ifdef NEW_CMD_PROC
-#else
         // getCMD == 0
         // in stream was ESC char and now needs to echo that char to loop
         if (Main.ESCNextByte)
@@ -14,7 +12,7 @@
         else
         {  
             // if this is addressed to this unit then process it and switch "stream" -> "command" mode
-            if (bByte == UnitADR)
+            if (bByte == MY_UNIT)
             {
                 Main.getCMD = 1; //next will be: <CMD>
                 Main.SetFromAddr = 0;
@@ -28,7 +26,6 @@
         }
         // relay char to the loop, bcs now it is "stream" mode      
         putch(bByte); //ok
-#endif
 SKIP_ECHO_BYTE: ;
     }
     else    // now unit in command mode == processing all data
@@ -50,7 +47,7 @@ RETRANSMIT:
                     putch(bByte);
                     return;
                 }
-                else if (bByte == UnitADR)
+                else if (bByte == MY_UNIT)
                 {
                     if (Main.LastWasUnitAddr)  // pakets can not travel with 0 length - it is definetly was a lost packet and
                         goto RETRANSMIT;
@@ -79,7 +76,7 @@ RETRANSMIT:
              
                 return;
             }
-            else if (bByte == UnitADR)
+            else if (bByte == MY_UNIT)
             {
                 if (Main.LastWasUnitAddr)  // pakets can not travel with 0 length - it is definetly was a lost packet and
                     return;           // needs to continue CMD mode  
