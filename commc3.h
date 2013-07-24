@@ -19,6 +19,7 @@
                 Main.SetSendCMD = 0;
                 I2C.ESCI2CChar = 0;
                 Main.LastWasUnitAddr = 1;
+                Main.LockToQueue =0; //that will allow to switch back ability to retansmit
                 return;
             }
             else if (bByte == ESC_SYMB)   // ESC char - needs to echo next simbol to loop

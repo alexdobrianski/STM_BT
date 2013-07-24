@@ -650,6 +650,14 @@ NO_RC_ERROR:
                        Main.prepZeroLen = 0;
                        Main.prepESC = 1;//====> retransmit
 RELAY_SYMB:
+                       if (Main.LockToQueue)
+                           goto INSERT_TO_COM_Q;
+
+                       if (Main.OutPacket) // serial output busy only way is for any data is via input queue
+                       {
+                           Main.LockToQueue =1;
+                           goto INSERT_TO_COM_Q;
+                       } 
                        // exact copy from putchar == it is big!!! but it can be called recursivly!!
                        ///////////////////////////////////////////////////////////////////////////////////////
                        // direct output to com1

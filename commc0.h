@@ -1805,6 +1805,7 @@ VOLATILE unsigned CMDProcessLastWasUnitAddr:1;
 unsigned getCMD:1;
 unsigned ESCNextByte:1;
 unsigned LastWasUnitAddr:1;
+VOLATILE unsigned LockToQueue:1;
 unsigned PrepI2C:1;
 unsigned CommLoopOK:1;
 unsigned SetFromAddr:1;

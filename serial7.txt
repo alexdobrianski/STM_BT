@@ -1,11 +1,38 @@
 wait 1 sec
 "5~#5#1#2#a51aaaaaaaaaaab13aaaaaab3"
+0x0d 
+0x0a 
 "5~1aaaaaaaaaaab13aaaaaab3"
+0x0d 
+0x0a 
 "5~1aaaaaaaaaaab3aaaaaab3"
+0x0d 
+0x0a 
 "5~51aaa#1#2#3#4#5#6#7aaaaaaaab13aaa#1#2#3#4#5#6aaab3"
+0x0d 
+0x0a 
 "5~1aa#2#3#1aaaaaaaaab13aaaaaab3"
+0x0d 
+0x0a 
 "55~11aa#2#3#1aaaaaaaaab33aaaaaab"
+0x0d 
+0x0a 
 "5~51a#aaaaaaaaaab13aaaaaab3"
 0x0d 
 0x0a 
-"2~2"
+wait 1 ms
+"33a#3#4#5bcd3"
+wait 1 ms
+"55ab33aa3cd55"            
+wait 4 ms
+"33abcd3"
+wait 1 ms
+"55abcd5"
+wait 1 ms 
+"33abcd3"
+wait 2 ms
+"33abcd3"
+wait 1 ms
+"33abcdabcd3"
+0x0d 
+0x0a 

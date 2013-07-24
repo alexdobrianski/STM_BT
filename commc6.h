@@ -45,6 +45,7 @@
         Main.OutPacket = 0;
         Main.OutPacketESC = 0;
         Main.OutPacketZeroLen = 0;
+        Main.LockToQueue = 0;
 
         Main.RetransmitTo = 0;
 #ifdef NON_STANDART_MODEM

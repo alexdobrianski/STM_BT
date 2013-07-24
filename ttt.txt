@@ -16,6 +16,23 @@ Lock2queue       000000000000000000000000000000000000000000000000000000000000000
 
 
 
+com in           -  33abcd3 44abcd4 33abcd3       33abcd3 33abcdabcd3
+u==4                
+Main.prepSkip     
+Main.prepZeroLen  
+RetrUnit          
+SomePacket        0011111100000000001111110000000011111100000000000000000000000000
+com out             33abcd3         33abcd39abcd9 33abcd39abcdabcdabcd933abcdabcd3
+queue                       4abcd4                       33abcdabcd3
+putchr call                           9(abcd9)     9(abcdabcd9)    33abcdabcd3
+out queue                                  9abcd9        9abcdabcd933abcdabcd3
+wait                                  .....        ......
+OutPacket        00000000000000000000000000111111000000001111111110111111111110000
+Lock2queue       00000000000000000000000000000000000000000111111111110000000000000
+
+
+
+
 
 
 
