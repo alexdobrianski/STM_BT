@@ -192,6 +192,17 @@ REPEAT_OP1:
 #endif // end NEW_CMD_PROC
 PROCESS_IN_CMD:
                  ProcessCMD(getch());
+#ifdef NON_STANDART_MODEM
+#ifdef FLASH_BUFFER_LEN
+                 if (!Main.getCMD) // CMD done == check for cmd stored in memory
+                 {
+                     if (FlashQueueSize)
+                     {
+                         Main.getCMD =1;
+                     }
+                 }
+#endif               
+#endif           
 NO_PROCESS_IN_CMD:;
             }
         }

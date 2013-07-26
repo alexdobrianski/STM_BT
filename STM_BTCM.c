@@ -240,6 +240,8 @@ see www.adobri.com for communication protocol spec
 #define NON_STANDART_MODEM 1
 
 
+
+
 ////////////////////////////////////////////
 // listing in C30
 // -Wa,-ahlsnd="$(BINDIR_)$(INFILEBASE).lst"
@@ -338,8 +340,8 @@ see www.adobri.com for communication protocol spec
 
 
 // redifine output buffer size
-#define BUFFER_LEN 18
-#define OUT_BUFFER_LEN 32
+#define BUFFER_LEN 40
+#define OUT_BUFFER_LEN 40
 
 
 #include "commc0.h"
@@ -850,6 +852,15 @@ void InsertIntoCom1(unsigned char work2)
         AInQu.iQueueSize++;
     }
 }
+unsigned char getchFromFlash(void)
+{
+    unsigned char bRet = AInQu.Queue[AInQu.iExit];
+    if (++AInQu.iExit >= BUFFER_LEN)
+        AInQu.iExit = 0;
+    AInQu.iQueueSize --;
+    return bRet;
+}
+
 void CheckStatus(void)
 {
     unsigned char StatusByte = 0x80;
@@ -2921,7 +2932,7 @@ void ProcessBTdata(void)
             {
                 if (FlashQueueSize < FLASH_BUFFER_LEN)
                 {
-                    Push2Flash(*ptrMy);
+                    Push2Flash(*ptrMy); // inside: wAddr++
                     if (wAddr >= FLASH_BUFFER_LEN)
                         wAddr = 0;
                     FlashQueueSize++;
