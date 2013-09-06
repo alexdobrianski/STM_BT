@@ -370,12 +370,12 @@ unsigned Timer1DoTX:1;
 unsigned Timer1Done3FQ:1;
 unsigned Timer1SwitchTX:1;
 #ifdef BT_TIMER3
-unsigned Timer3Meausre:1;
-unsigned Timer3Count:1;
-unsigned Timer3Inturrupt:1;
-unsigned Timer3DoneMeasure:1;
+unsigned Tmr3DoMeausreFq1_Fq2:1;
+unsigned Tmr3Run:1;
+unsigned Tmr3Inturrupt:1;
+unsigned Tmr3DoneMeasureFq1Fq2:1;
 unsigned Timer3Ready2Sync:1;
-unsigned Timer3OutSync:1;
+unsigned Tmr3RxFqSwitchLost:1;
 unsigned Timer3OutSyncRQ:1;
 unsigned Timer3SwitchRX:1;
 unsigned TransmitESC:1;
@@ -649,10 +649,10 @@ void InitModem(void)
     BTokMsg = 0xff;
 #ifdef BT_TIMER1
     DataB0.Timer1Done3FQ = 0;
-    DataB0.Timer3DoneMeasure = 0;
+    DataB0.Tmr3DoneMeasureFq1Fq2 = 0;
     //DataB0.Time3JustDone = 0;
-    DataB0.Timer3Meausre = 0;
-    DataB0.Timer3OutSync = 0;
+    DataB0.Tmr3DoMeausreFq1_Fq2 = 0;
+    DataB0.Tmr3RxFqSwitchLost = 0;
     DataB0.Timer3OutSyncRQ = 0;
     // 1 = round robin on FQ1->Fq2->Fq3
     // 0 = working on FQ1 only
@@ -1177,7 +1177,15 @@ CONTINUE_NOT_AT:
 
 // additional code:
 //
-
+#ifdef NON_STANDART_MODEM
+        else if (bByte == '*')
+        {
+            if (ATCMD & MODE_CONNECT) // was connection esatblished?
+            {
+                 Main.SendOverLink = 1;
+            }
+        }
+#endif
         else if (bByte == 'a')
         {
             ATCMDStatus = 1;
@@ -1366,12 +1374,18 @@ unsigned char CheckSuddenRX(void)
     return 0;
 
 }
+/////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//            COM CALL BACK
+//
+/////////////////////////////////////////////////////////////////////////////////////////////////
 unsigned char CallBkComm(void) // return 1 == process queue; 0 == do not process; 
                                // 2 = do not process and finish process 3 == process and finish internal process
 {                              // in case 0 fucntion needs to pop queue byte by itself
     unsigned char bReturn = 0;
     unsigned char bByte;
 #ifdef NON_STANDART_MODEM
+    //   Main.SendOverLink == 0 => return from call back and process com queue
     if (!Main.SendOverLink)   // if command * was send then data has to be transferred to up/down link
         return 1;             // untill end of the packet
 #endif
@@ -1383,8 +1397,10 @@ unsigned char CallBkComm(void) // return 1 == process queue; 0 == do not process
 #endif
            ) // calling CubSat
         {
-SEND_BT:
+SEND_BT:    
             // TBD this is a place where ++++ can be checked for disconnect == needs to accumulate data in InQueu and on ++++ disconnect from remote
+            
+            // returning from call back 0 will block command's processing 
             if (BTqueueOutLen < BT_TX_MAX_LEN) // enought in output buffer needs to send data to CubSat
             {
                 TMR0ON = 0;
@@ -1465,11 +1481,13 @@ PUSH_TO_BT_QUEUE:
             }
             else // no space in buffer but chars is coming == left it in queue in hope that they will not owerfrlow buffer
             {
+                // if BT in RX mode set request to transmit
+                // in this moment (before transmit happened) input queue is blocked before TX set 
 SET_FLAG:
                 if (BTType & 0x01) // only in  RX mode set flag
                     BTFlags.BTNeedsTX = 1;
             }
-            return 0;
+            return 0; // this will block retreiving data from com queue
         }
         else if (ATCMD & MODE_CALL_EARTH) // calling earth (it can be relay data from a loop or communication with some devices)
         {
@@ -1519,6 +1537,11 @@ unsigned char CallBkI2C(void)// return 1 == process queue; 0 == do not process;
     return bReturn;
 }
 #endif
+///////////////////////////////////////////////////////////////////////////////////////////
+//      
+//          PRE PROCESSING CALL BACK
+//
+///////////////////////////////////////////////////////////////////////////////////////////
 unsigned char CallBkMain(void) // 0 = do continue; 1 = process queues
 {
     unsigned char bWork;
@@ -1535,7 +1558,7 @@ unsigned char CallBkMain(void) // 0 = do continue; 1 = process queues
 MAIN_INT:
             Main.ExtInterrupt = 0;
 
-/*          debug code  
+/* ////////////////////////////////////////////////////////////////////////         debug code  
             if (BTStatus & 0x40)
             {
                 if (FqRXCount)
@@ -1575,6 +1598,7 @@ MAIN_INT:
                 else
                     putch('a');
             }
+    //////////////////////////////////////////////////////////////////end debug code
 */
             if (BTStatus & 0x40) // RX interrupt
             {
@@ -1603,7 +1627,7 @@ MAIN_INT:
                         {
                             //SetTimer0(0xff58); // 446mks+xxx(2247mks) = 2693 = count 169
 SET_TIMER_AND_PROC:
-                            if (!DataB0.Timer3DoneMeasure)
+                            if (!DataB0.Tmr3DoneMeasureFq1Fq2) // DataB0.Timer3DoneMeasure == 0
                                 SetTimer0(TIME_FOR_PACKET);//Time4Packet); // count 220 = 3520 mks == why?
                             //putch('0');
 PROCESS_DATA:
@@ -1633,11 +1657,11 @@ AFTER_PROCESS:
                             //putch('1');
                             goto SET_TIMER_AND_PROC;
                             //SetTimer0(0xff58); // 446mks+xxx(2247mks) = 2693 = count 169
-                            //if (DataB0.Timer3DoneMeasure) // adjust time btw packets
+                            //if (DataB0.Tmr3DoneMeasureFq1Fq2) // adjust time btw packets
                             //{
                             //}
                             //else
-                            //if (!DataB0.Timer3DoneMeasure)
+                            //if (!DataB0.Tmr3DoneMeasureFq1Fq2)
                             //    SetTimer0(TIME_FOR_PACKET);//Time4Packet); // count 220 = 3520 mks
                             ////putch('1');
                             //if (BTFlags.BT3fqProcessed == 0)
@@ -1666,7 +1690,7 @@ AFTER_PROCESS:
                         }
                         else 
                         {
-                            if (!DataB0.Timer3DoneMeasure) // adjust time btw packets
+                            if (!DataB0.Tmr3DoneMeasureFq1Fq2) // adjust time btw packets
 
                                 SetTimer0(TIME_FOR_PACKET);//Time4Packet); // count 220 = 3520 mks
                         }
@@ -1675,7 +1699,7 @@ AFTER_PROCESS:
                 else // RX interrupt in a moment of TX operation
                 {
                 }
-                //DataB0.Timer3Inturrupt = 0;// switch off interrupt from timer 3 if it was fired during processing
+                //DataB0.Tmr3Inturrupt = 0;// switch off interrupt from timer 3 if it was fired during processing
             }
             if (BTStatus & 0x20) // TX interrupt
             {
@@ -1811,9 +1835,9 @@ NEXT_TRANSMIT:
                 }
             }
         }
-        else if (DataB0.Timer3Inturrupt) // time to switch frequency on RX operation
+        else if (DataB0.Tmr3Inturrupt) // time to switch frequency on RX operation
         {
-            DataB0.Timer3Inturrupt = 0;
+            DataB0.Tmr3Inturrupt = 0;
             if (BTType == 1) // RX mode
             {
                 if (CheckSuddenRX())
@@ -1827,7 +1851,7 @@ NEXT_TRANSMIT:
                      if (FqRXCount ==0)
                      {
                          DataB0.Timer3OutSyncRQ = 0;
-                         DataB0.Timer3OutSync = 1;
+                         DataB0.Tmr3RxFqSwitchLost = 1;
                          DataB0.Timer3SwitchRX = 0;
                      } 
                 }
@@ -1885,13 +1909,13 @@ NEXT_TRANSMIT:
 #ifndef NO_I2C_PROC
              || (ATCMD & MODE_CALL_LUNA_I2C)
 #endif
-           ) // earth calls cubsat
+           ) // earth calls cubsat sequence:
         {
             // earth call cubesat that is a main mode == earth initiate transmission
             // 1. send msg on FQ1
             // 2. send msq on FQ2
             // 3. send msg on FQ3 and switched to RX mode
-            // 4. listen on FQ1 with main timeout deppends on a distance x 2
+            // 4. listen on FQ1 with main timeout = (distance x 2)/C
             // 5. on timeout go back to point. 1
             // 6. on msg receive over FQ1 -> check CRC == OK then message marked as OK -> switch to FQ2
             //                                     CRC != OK then switch to FQ2
@@ -3048,11 +3072,11 @@ void AdjTimer3(void)
         // CRCcmp is just working variable
         CRCcmp = Tmr3LoadLow = Tmr3LoadLowCopy + Tmr3LoadLowCopy + MEDIAN_TIME;
         
-        TMR3ON = 0;
+        TMR3ON = 0;                       // stop timer3 (RX) for a moment
         //Tmr3LoadLow = ((MEDIAN_TIME - 0xffff)  + AdjustTimer3);
         //Tmr3LoadLow = Tmr3LoadLowCopy - Tmr3LoadLow;
         Tmr3LoadLow -= AdjustTimer3;
-        TMR3ON = 1;
+        TMR3ON = 1;                       // start timer (RX) back
         //if (Carry)
         //    Tmr3LoadLowCopy--;
         //else
@@ -3118,7 +3142,7 @@ unsigned char ReceiveBTdata(void)
 
          i = BTFixlen(ptrMy, bret); // if it is posible to fix packet i == 0
 
-         if (!DataB0.Timer3DoneMeasure)
+         if (!DataB0.Tmr3DoneMeasureFq1Fq2)
          {
              if (RXreceiveFQ == 0) 
              {
@@ -3132,14 +3156,14 @@ unsigned char ReceiveBTdata(void)
              {
                  if (i == 0)
                  {
-                     DataB0.Timer3DoneMeasure = 1;
+                     DataB0.Tmr3DoneMeasureFq1Fq2 = 1;
                      goto LOOKS_GOOD;
                  }
                  // stop timer 3 == needs to get two good packets over FQ1 and FQ2
                  TMR3ON = 0;
              }
          }
-         else //if (DataB0.Timer3DoneMeasure)
+         else //if (DataB0.Tmr3DoneMeasureFq1Fq2)
          {
              //if (DataB0.Timer3OldSkipSwitch) // 1 == it is not a time to switch frequency yet == wrong packet
              //{
@@ -3171,7 +3195,7 @@ LOOKS_GOOD:
                   if (CheckPacket(ptrMy, bret) == 0)
                   {
                        BTokMsg = RXreceiveFQ;
-                       if (DataB0.Timer3DoneMeasure)
+                       if (DataB0.Tmr3DoneMeasureFq1Fq2)
                        //if ((AdjustTimer3 > 0x3700) || (AdjustTimer3 < 0x3300))
                        {
 /*                          if (ptrMy[6] == '+')
@@ -3195,10 +3219,10 @@ ADJUST_TMR3:
                           i = ptrMy[4];
                           if (i > RXreceiveFQ)
                               RXreceiveFQ = i;
-                          if (DataB0.Timer3OutSync)
+                          if (DataB0.Tmr3RxFqSwitchLost)
                           {
                               //FqRXCount = RXreceiveFQ;
-                              DataB0.Timer3OutSync = 0;
+                              DataB0.Tmr3RxFqSwitchLost = 0;
                               DataB0.Timer3SwitchRX = 1;
                               // round-robin already switched - just need to start from FQ1
                               TMR3ON = 0;
@@ -3213,7 +3237,7 @@ ADJUST_TMR3:
          }
          else
          {
-             if (DataB0.Timer3DoneMeasure)
+             if (DataB0.Tmr3DoneMeasureFq1Fq2)
              {
                  if (CheckPacket(ptrMy, bret) == 0)
                     goto ADJUST_TMR3;
@@ -3243,9 +3267,9 @@ ADJUST_TMR3:
                 {
                     AdjTimer3();
                     
-                    if (DataB0.Timer3OutSync)
+                    if (DataB0.Tmr3RxFqSwitchLost)
                     {
-                        DataB0.Timer3OutSync = 0;
+                        DataB0.Tmr3RxFqSwitchLost = 0;
                         DataB0.Timer3SwitchRX = 1;
                         // round-robin already switched - just need to start from FQ1
                         TMR3ON = 0;

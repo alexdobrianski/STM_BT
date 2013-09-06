@@ -142,15 +142,6 @@
 #endif // __PIC24H__
 #endif // SYNC_CLOCK_TIMER
         }
-#ifdef NON_STANDART_MODEM
-        else if (bByte == '*')
-        {
-            if (ATCMD & MODE_CONNECT) // was connection esatblished?
-            {
-                 Main.SendOverLink = 1;
-            }
-        }
-#endif
 #ifndef NO_I2C_PROC
         else if (bByte == '<') // "<"<I2CAddr><DATA>@ or "<"<I2C addr><data><unit> 
         {                      // "<"<I2Caddr><data>">"L@   or "<"<I2Caddr><data>">"L<unit> 

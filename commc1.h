@@ -1585,16 +1585,15 @@ TMR2_COUNT_DONE:
 #ifdef BT_TIMER3
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    IF_TMR3IF // RX timer
+    IF_TMR3IF // RX timer for BT
     {
         TMR3IF = 0;
         
-
-        if (DataB0.Timer3Meausre)
+        if (DataB0.Tmr3DoMeausreFq1_Fq2)
         {
-            Tmr3High++; // timer count and interrupts continue
+            Tmr3High++; // timer count till next interrupt from BT RX on FQ2
         }
-        else if (DataB0.Timer3Count)
+        else if (DataB0.Tmr3Run)
         {
             if ((++Tmr3TOHigh) == 0)
             {
@@ -1609,7 +1608,7 @@ TMR2_COUNT_DONE:
                 }
                 else
                 {
-                    DataB0.Timer3Inturrupt = 1;
+                    DataB0.Tmr3Inturrupt = 1;
                     if (++FqRXCount>=3)
                     {
                         FqRXCount = 0;
@@ -1677,13 +1676,12 @@ TMR2_COUNT_DONE:
             // TBD: also may be need to switch off transmitter or receiver
             //BTCE_low();  // Chip Enable Activates RX or TX mode (now disable)
             
-#ifdef BT_TIMER3
             if (BTType & 0x01) // it was RX operation
             {
                 if (DataB0.Timer3SwitchRX)
-                    bitclr(PORT_BT,Tx_CE);	// Chip Enable Activates RX or TX mode (now standby)
+                    bitclr(PORT_BT,Tx_CE);	// Chip Enable (Activates RX or TX mode) == now standby
 
-                if (DataB0.Timer3DoneMeasure) // receive set
+                if (DataB0.Tmr3DoneMeasureFq1Fq2) // receive set
                 {
                     SkipPtr++; // set of next frquency will be in CallBackMain
                     AdjustTimer3 = TIMER3;
@@ -1691,9 +1689,9 @@ TMR2_COUNT_DONE:
                 }
                 else // needs to monitor FQ1 and FQ2 receive time
                 {
-                    if (RXreceiveFQ == 0) // it is receive over Fq1 == need to start timer to record time btw Fq1 and FQ2
+                    if (RXreceiveFQ == 0) // it is receive over Fq1 == need to start timer3 to record time btw Fq1 and FQ2
                     {
-                        DataB0.Timer3Meausre = 1;
+                        DataB0.Tmr3DoMeausreFq1_Fq2 = 1;
                         TMR3H = 0;
                         TMR3L = 0;
                         TMR3IF = 0;
@@ -1703,32 +1701,30 @@ TMR2_COUNT_DONE:
                     }
                     else if (RXreceiveFQ == 1) // it was receive over Fq2
                     {
-                        if (DataB0.Timer3Meausre) // timer for a measure was started ??
+                        if (DataB0.Tmr3DoMeausreFq1_Fq2) // timer for a measure was started ??
                         {
-                            TMR3ON = 0;
-                            Tmr3LoadLowCopy =0xFFFF - TIMER3;      // timer1 interupt reload values 
-                            Tmr3LoadLowCopy += 52;
+                            TMR3ON = 0;                            // stop timer3 for a moment 
+                            Tmr3LoadLowCopy =0xFFFF - TIMER3;      // timer3 interupt reload values 
+                            Tmr3LoadLowCopy += 52;                 // ofset from begining of a interrupt routine
                             Tmr3LoadLow = Tmr3LoadLowCopy - MEDIAN_TIME;
                             TMR3H = (Tmr3LoadLow>>8);
                             TMR3L = (unsigned char)(Tmr3LoadLow&0xFF);
                             //TMR3L = 0;//xff;
                             TMR3ON = 1; // continue run
                             Tmr3TOHigh = Tmr3LoadHigh = 0xffff - Tmr3High;
-                            DataB0.Timer3Meausre = 0;
-                            DataB0.Timer3Count = 1;
-                            DataB0.Timer3Inturrupt = 0;
+                            DataB0.Tmr3DoMeausreFq1_Fq2 = 0;           // switch in timer3 interrupt routine from "measure time FQ1-FQ2"
+                            DataB0.Tmr3Run = 1;               // to "run timer3 on BT RX"
+                            DataB0.Tmr3Inturrupt = 0;         // when "measured time FQ1-FQ2" passed it will be timer3 interrupt
                             //SkipPtr =1;
-                            DataB0.Timer3OutSync = 0;
+                            DataB0.Tmr3RxFqSwitchLost = 0;
                         }
                     }
                 }
-                if (!DataB0.Timer3OutSync)
+                if (!DataB0.Tmr3RxFqSwitchLost)
                     OutSyncCounter = 125; // 2.5 sec no packets == switch for out of sync
             }
-            else
-                bitclr(PORT_BT,Tx_CE);	// Chip Enable Activates RX or TX mode (now standby)
-#endif
-
+            else // TX operation
+                bitclr(PORT_BT,Tx_CE);	// Chip Enable (Activates RX or TX mode) == now standby
 #endif
         }
     }

@@ -1,0 +1,114 @@
+DP-Nr. 1 (50.000 + j0.000) Ohm       Q = 0.000  2.450 GHz
+DP-Nr. 2 (26.982 - j24.921) Ohm       Q = 0.924  2.450 GHz
+DP-Nr. 3 (26.982 - j31.417) Ohm       Q = 1.164  2.450 GHz
+DP-Nr. 4 (26.982 + j13.885) Ohm       Q = 0.515  2.450 GHz
+
+DP-Nr. 1 (50.000 + j0.000) Ohm       Q = 0.000  2.450 GHz
+DP-Nr. 2 (26.982 - j24.921) Ohm       Q = 0.924  2.450 GHz
+DP-Nr. 3 (26.982 - j31.417) Ohm       Q = 1.164  2.450 GHz
+DP-Nr. 4 (26.982 + j13.225) Ohm       Q = 0.490  2.450 GHz
+
+DP-Nr. 1 (50.000 + j0.000) Ohm       Q = 0.000  2.450 GHz
+DP-Nr. 2 (26.982 - j24.921) Ohm       Q = 0.924  2.450 GHz
+DP-Nr. 3 (26.982 - j31.417) Ohm       Q = 1.164  2.450 GHz
+DP-Nr. 4 (26.982 + j13.225) Ohm       Q = 0.490  2.450 GHz
+DP-Nr. 5 (26.982 + j24.847) Ohm       Q = 0.921  2.450 GHz
+DP-Nr. 6 (49.863 + j0.000) Ohm       Q = 0.000  2.450 GHz
+
+
+DP-Nr. 1 (50.000 + j0.000) Ohm       Q = 0.000  2.450 GHz
+DP-Nr. 2 (50.000 - j2.953) Ohm       Q = 0.059  2.450 GHz
+
+DP-Nr. 1 (50.000 + j0.000) Ohm       Q = 0.000  2.450 GHz
+DP-Nr. 2 (50.667 + j2.835) Ohm       Q = 0.056  2.450 GHz
+DP-Nr. 3 (50.667 - j0.117) Ohm       Q = 0.002  2.450 GHz
+
+to match 28.56 12.93
+****1.0 pf +- 0.05 = 0.95 ~ 1.05 req regulation capasitor from 9 pf - 20pf
+http://www.digikey.ca/product-detail/en/ML03511R0AAT2A/478-6732-1-ND/2694246
+
+10pf- http://www.digikey.ca/product-detail/en/04025U100FAT2A/478-5717-1-ND/2136325
+11pf http://www.digikey.ca/product-detail/en/CBR04C110F5GAC/399-8823-1-ND/3479773
+****12pf http://www.digikey.ca/product-detail/en/CBR04C120F5GAC/399-8815-1-ND/3479795
+13pf - http://www.digikey.ca/product-detail/en/CBR04C130F5GAC/399-8812-1-ND/3479804
+14pf
+15pf - http://www.digikey.ca/product-detail/en/04025A150FAT2A/478-5126-1-ND/1913216
+16pf - http://www.digikey.ca/product-detail/en/CBR04C160F5GAC/399-8829-1-ND/3479748
+17pf
+18pf - http://www.digikey.ca/product-detail/en/04025A180FAT2A/478-5128-1-ND/1913218
+19pf
+20pf - http://www.digikey.ca/product-detail/en/CBR04C200F5GAC/399-8786-1-ND/3479845
+****3.3 nH %2 =0.066 error http://www.digikey.ca/product-detail/en/AISC-0402-3N3G-T/AISC-0402-3N3G-TCT-ND/3060430
+****5pF http://www.digikey.ca/product-detail/en/CBR04C509B1GAC/399-8583-1-ND/3479382
+
+or to match 26.982 + j13.885
+****1.1 pf +- 0.05 http://www.digikey.ca/product-detail/en/UVK105CH1R1BW-F/587-1008-1-ND/930785
+****(same range) 15pf-http://www.digikey.ca/product-detail/en/04025A150FAT2A/478-5126-1-ND/1913216
+****3.3 nH %2 =0.066 error http://www.digikey.ca/product-detail/en/AISC-0402-3N3G-T/AISC-0402-3N3G-TCT-ND/3060430
+****5.6 pF 0.1pF error http://www.digikey.ca/product-detail/en/MK02275R6BAT2A/478-6288-1-ND/2506272
+
+or inductor 2.5nH
+
+
+microstrip 5.52mm x 0.45mm Er=4.8 h=0.033" t=0.0017" Om=58.29 (http://chemandy.com/calculators/coplanar-waveguide-with-ground-calculator.htm
+DP-Nr. 1 (50.000 + j0.000) Ohm       Q = 0.000  2.450 GHz
+DP-Nr. 2 (51.050 + j4.213) Ohm       Q = 0.083  2.450 GHz
+
+microstrip 5.52mm x 0.45mm Er=4.8 h=0.033" t=0.0017" Om=55.5 (http://www.eeweb.com/toolbox/microstrip-impedance
+DP-Nr. 1 (50.000 + j0.000) Ohm       Q = 0.000  2.450 GHz
+DP-Nr. 2 (50.744 + j2.843) Ohm       Q = 0.056  2.450 GHz
+
+for stip+c+c+strip+ind
+DP-Nr. 6 (26.705 + j16.502) Ohm       Q = 0.618  2.450 GHz
+C1 1.1 - 1.3
+DP-Nr. 6 (28.869 + j16.728) Ohm       Q = 0.579  2.450 GHz
+DP-Nr. 6 (24.693 + j16.461) Ohm       Q = 0.667  2.450 GHz
+C2 9.5 -10.5
+DP-Nr. 6 (26.685 + j16.183) Ohm       Q = 0.606  2.450 GHz
+DP-Nr. 6 (26.723 + j16.791) Ohm       Q = 0.628  2.450 GHz
+L1 2.6-3.2
+DP-Nr. 6 (26.705 + j11.884) Ohm       Q = 0.445  2.450 GHz
+DP-Nr. 6 (26.705 + j21.121) Ohm       Q = 0.791  2.450 GHz
+
+median:
+26.73 16.528
+without strips
+DP-Nr. 6 (26.827 + j13.604) Ohm       Q = 0.507  2.450 GHz
+match:
+DP-Nr. 6 (26.512 + j12.883) Ohm       Q = 0.486  2.450 GHz
+****12pf http://www.digikey.ca/product-detail/en/CBR04C120F5GAC/399-8815-1-ND/3479795
+microstrip 3.059 (0.025lambda) 83 om 
+****5.0pF http://www.digikey.ca/product-detail/en/CBR04C509B1GAC/399-8583-1-ND/3479382
+****1.3pF http://www.digikey.ca/product-detail/en/500R07S1R3BV4T/712-1269-1-ND/1786731
+
+****3.3 nH %2 =0.066 error http://www.digikey.ca/product-detail/en/AISC-0402-3N3G-T/AISC-0402-3N3G-TCT-ND/3060430
+
+
+
+DP-Nr. 1 (50.000 + j0.000) Ohm       Q = 0.000  2.450 GHz
+DP-Nr. 2 (50.000 - j3.248) Ohm       Q = 0.065  2.450 GHz <-capasitor 20pF -> switch
+DP-Nr. 3 (99.052 + j60.392) Ohm       Q = 0.610  2.450 GHz <strip
+DP-Nr. 4 (99.052 + j1.337) Ohm       Q = 0.013  2.450 GHz <capasitor <--- antenna
+now from antenna:
+DP-Nr. 1 (99.052 - j1.337) Ohm       Q = 0.013  2.450 GHz
+DP-Nr. 2 (99.052 - j60.393) Ohm       Q = 0.610  2.450 GHz
+DP-Nr. 3 (49.997 + j3.188) Ohm       Q = 0.064  2.450 GHz
+
+
+
+
+for strips avalable in Express PCB
+        0.30    0.33     0.36   0.38     0.41    0.43    0.46    0.48     0.51
+0.15    105.06  107.67  110.07  111.57  113.67
+0.18    99.77   102.3   104.61  106.07  108.1
+0.20    96.79   99.26   101.53  102.94  104.93 
+0.25    90.66   93.01   95.15   96.5    98.39
+0.30    85.85   88.06   90.12   91.4    93.2
+0.38    79.87   81.93   83.84   85.04   86.72  
+0.51    72.83   74.69   76.4    77.49   79       79.97    81.32  82.19    83.41
+
+resistor 1M 402 http://www.digikey.ca/product-detail/en/ERJ-2GEJ105X/P1.0MJCT-ND/146899
+22k 402 http://www.digikey.ca/product-detail/en/ERJ-2GEJ220X/P22JCT-ND/146937
+0.64    67.71   69.4    70.96   71.94   73.33
+0.76    63.99   65.54   66.99   67.9    69.19
+1.02    57.89   59.23   60.47   61.25   62.35
