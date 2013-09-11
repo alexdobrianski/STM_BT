@@ -225,78 +225,116 @@ DONE_DONE_I2C:
                 DataB3.FlashCmdLen = 0;
                 CountWrite = bByte;
                 DataB3.FlashRead = 0;
-                CS_LOW;
+                FlashCmdPos = 0;
+                //CS_LOW;
             }
             else
             {
                 if (DataB3.FlashRead)
                 {
-                    DataB3.FlashRead = 0;
-                    //if (!Main.ComNotI2C)
-                    //{
-                    //    //do 
-                    //    //{
-                    //    //    InsertI2C(GetSSByte()); // read byte from FLASh will goes to I2C < 10 bytes
-                    //    //} while(--bByte);
-                    //    //InsertI2C('@');
-                    //}
-                    //else
+                    goto SEND_AGAIN;
+CONTINUE_READ: 
+                    Main.SendWithEsc = 1;
+                    do 
                     {
-                        Main.SendWithEsc = 1;
-                        do 
-                        {
-                            putchWithESC(GetSSByte()); // read byte from FLASh will goes to Com
-                                                       // if size bigger then 13 bytes it can be delay (putchWithESC waits out queue avalable space)
-                        } while(--bByte);
-                        Main.SendWithEsc = 0;
-                        if (UnitFrom)
-                            putch(UnitFrom);
-                    }
+                        putchWithESC(GetSSByte()); // read byte from FLASh will goes to Com
+                                                   // if size bigger then 13 bytes it can be delay (putchWithESC waits out queue avalable space)
+                    } while(--bByte);
+                    DataB3.FlashRead = 0;
+                    Main.SendWithEsc = 0;
+                    if (UnitFrom)
+                        putch(UnitFrom);
                     goto DONE_WITH_FLASH;
                 }
                 else if (CountWrite == 1) // this will be last byte to write or it can be symb=@ request to read
                 {
-                    if (bByte == '@') // without CS_HIGH will be next read
+                    if (OldFlashCmd == 0)  // no prev command "write enable" == read command
                     {
-                        DataB3.FlashRead = 1;
-                        //if (!Main.ComNotI2C) // CMD comes from I2C - reply from read should goes back to I2C
-                        //{
-                        //    //InsertI2C('<');
-                        //    //InsertI2C(UnitFrom);
-                        //    //if (SendCMD)
-                        //    //    InsertI2C(SendCMD);
-                        //}
-                        //else     // CMD comes from Com == relay (read) must go back to comm
+                        if (bByte == '@') // without CS_HIGH will be next read
                         {
-                            if (UnitFrom)
+                            DataB3.FlashRead = 1;
                             {
-                                putch(UnitFrom);
-                                if (SendCMD)
-                                    putch(SendCMD);
+                                if (UnitFrom)
+                                {
+                                    putch(UnitFrom);
+                                    if (SendCMD)
+                                        putch(SendCMD);
+                                }
                             }
+                            return;
                         }
-                        return;
                     }
                 }
-                SendSSByte(bByte);
+                if (FlashCmdPos == 0)
+                {
+                   if (CountWrite== 1)
+                   {
+                       OldFlashCmd = bByte;
+                       DataB3.FlashWas1byteWrite = 1;
+                   }
+                   else
+                   {
+                       CurFlashCmd = bByte;
+                       if (!DataB3.FlashWas1byteWrite)
+                       {
+                           OldFlashCmd = 0;
+                       }
+                       DataB3.FlashWas1byteWrite = 0;
+                   }
+                } 
+                else if (FlashCmdPos == 1)
+                    AdrFlash1 = bByte;
+                else if (FlashCmdPos == 2)
+                    AdrFlash2 = bByte;
+                else if (FlashCmdPos == 3)
+                    AdrFlash3 = bByte;
+                else
+                {
+SEND_AGAIN:         // that is equivalent of a function -- just on some PIC it is not enought stack
+                    if (!btest(SSPORT,SSCS)) // another FLASH write can pause FLASH write intiated by serial 
+                    {
+                        if (OldFlashCmd != 0)
+                        {
+                            CS_LOW;
+                            SendSSByte(OldFlashCmd);
+                            CS_HIGH;
+                            nop();nop();
+                        }
+                        CS_LOW;
+                        SendSSByte(CurFlashCmd);
+                        SendSSByte(AdrFlash1);
+                        SendSSByte(AdrFlash2);
+                        SendSSByte(AdrFlash3);
+                    }
+                    if (!DataB3.FlashRead)
+                        SendSSByte(bByte);
+                    if (++AdrFlash1 ==0)
+                    {
+                        if (++AdrFlash2 ==0)
+                            ++AdrFlash3;
+                        CS_HIGH;          // that is extention == FLASH can not read/write over same page
+                        goto SEND_AGAIN;
+                    }
+                    if (DataB3.FlashRead)
+                        goto CONTINUE_READ;
+                }
+                FlashCmdPos++;
+               
+                //SendSSByte(bByte);
                 //SendSSByteFAST(bByte); //for testing only
                 if (--CountWrite)
                     return;
 DONE_WITH_FLASH:
+                if (DataB3.FlashWas1byteWrite)
+                {
+                    if (OldFlashCmd != 0x06) // not write enable command
+                    {
+                        CS_LOW;
+                        SendSSByte(OldFlashCmd);
+                    }
+                }
                 DataB3.FlashCmd = 0;
                 CS_HIGH;
-#ifndef NO_I2C_PROC
-                if (!Main.ComNotI2C) // CMD comes from I2C - reply from read should goes back to I2C
-                {
-                     // initiate send using I2C
-                     //InitI2cMaster();
-                }
-                else
-                {
-                    //if (UnitFrom)
-                    //    putch(UnitFrom);
-                }
-#endif
                 Main.DoneWithCMD = 1; // long command flash manipulation done 
             }
             return;

@@ -440,8 +440,15 @@ struct _DataB3{
 unsigned FlashCmd:1;
 unsigned FlashCmdLen:1;
 unsigned FlashRead:1;
+unsigned FlashWas1byteWrite:1;
 } DataB3;
 unsigned char CountWrite;
+unsigned char FlashCmdPos;
+unsigned char OldFlashCmd;
+unsigned char CurFlashCmd;
+unsigned char AdrFlash1;
+unsigned char AdrFlash2;
+unsigned char AdrFlash3;
 #pragma rambank RAM_BANK_1
 ///////////////////////////////////////BANK 1//////////////////////////
 

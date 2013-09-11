@@ -168,6 +168,7 @@
             Main.DoneWithCMD = 0; // long command
             DataB3.FlashCmd = 1;
             DataB3.FlashCmdLen = 1;
+            
             // send something to FLASH
             // F<length-of-packet><CMD><data>
             // send and receive responce from FLASH
