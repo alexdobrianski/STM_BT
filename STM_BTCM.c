@@ -2242,7 +2242,8 @@ void Reset_device(void)
 
     PLLEN = 1;
 #ifdef _NOT_SIMULATOR
-    while((OSCCON&0b0000100) == 0); //Wait for frequency to stabilize
+    // for external HS 16MHZ x4 ==64MHz no need to check bit HFINTOSC frequency is stable
+    //while((OSCCON&0b0000100) == 0); //Wait for frequency to stabilize
 #endif
 
     // delay ??? for what reason ???
@@ -2275,10 +2276,10 @@ void Reset_device(void)
 //                                  VSS | 8     21| RB0/INT0/FLT0/AN12    Rx_IRQ
 //     crystal            OSC1/CLKI/RA7 | 9     20| VDD
 //     crystal            OSC2/CLKO/RA6 |10     19| VSS
-// SSDATA_OUT2         RC0/T1OSO/T13CKI |11     18| RC7/RX/DT             Serial RX
-// SSDATA_OUT3           RC1/T1OSI/CCP2 |12     17| RC6/TX/CK             Serial TX
-//                             RC2/CCP1 |13     16| RC5/SDO
-// dbg blinking LED         RC3/SCK/SCL |14     15| RC4/SDI/SDA           
+// SSDATA_OUT2         RC0/T1OSO/T13CKI |11     18| RC7/RX/DT        <--- Serial RX
+// SSDATA_OUT3           RC1/T1OSI/CCP2 |12     17| RC6/TX/CK        ---> Serial TX
+//                             RC2/CCP1 |13     16| RC5/SDO          ---> Low == Serial RX ready to get (set High on Com queue full)
+// dbg blinking LED         RC3/SCK/SCL |14     15| RC4/SDI/SDA      <--- Low == next in loop ready to get data  
 
 
     //BT pin assignment

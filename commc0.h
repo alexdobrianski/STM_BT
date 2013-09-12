@@ -1220,7 +1220,8 @@ void CsHigh(void);
 #ifdef __18CXX
 #pragma config OSC=INTIO2
 #else
-#pragma config[1] = 0x08
+//#pragma config[1] = 0x08
+#pragma config[1] = 0x06
 #endif
 // CONFIG2L: CONFIGURATION REGISTER 2 LOW (BYTE ADDRESS 300002h)
 // bit 7-5 Unimplemented: Read as ‘0’
@@ -1243,7 +1244,7 @@ void CsHigh(void);
 #ifdef __18CXX
 #pragma config BOR=OFF
 #else
-#pragma config[2] = 0x10
+#pragma config[2] = 0x11
 #endif
 // CONFIG2H: CONFIGURATION REGISTER 2 HIGH (BYTE ADDRESS 300003h)
 // bit 7-5      Unimplemented: Read as ‘0’
