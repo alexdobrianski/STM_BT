@@ -98,11 +98,6 @@ REPEAT_OP1:
 #endif // #ifndef NO_I2C_PROC
         if (AInQu.iQueueSize)      // in comm queue bytes
         {
-            //if (RetransmitLen)
-            //{
-            //   // TBD
-            //    continue;
-            //}
             if (CallBkComm()) // 0 = do not process byte; 1 = process;
             {
 #ifdef NEW_CMD_PROC
@@ -189,9 +184,16 @@ REPEAT_OP1:
                  {
                      Monitor(bWork,MY_UNIT);
                  }
-#endif // end NEW_CMD_PROC
+#endif // end NOT NEW_CMD_PROC
 PROCESS_IN_CMD:
                  ProcessCMD(getch());
+#ifdef RX_READY
+               if (AInQu.iQueueSize > (BUFFER_LEN-3))
+                   RX_READY = 1;
+               else
+                   RX_READY = 0;
+#endif
+
 #ifdef NON_STANDART_MODEM
 #ifdef FLASH_BUFFER_LEN
                  if (!Main.getCMD) // CMD done == check for cmd stored in memory

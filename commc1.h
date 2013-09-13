@@ -900,6 +900,12 @@ INSERT_TO_COM_Q:
                }
                //else
                //    W = RCREG; // this byte is skipped to process
+#ifdef RX_READY
+               if (AInQu.iQueueSize > (BUFFER_LEN-3))
+                   RX_READY = 1;
+               else
+                   RX_READY = 0;
+#endif
            }
         }
 END_INPUT_COM:;

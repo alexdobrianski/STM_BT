@@ -338,6 +338,10 @@ see www.adobri.com for communication protocol spec
 #define SETUP_RX_MODE 0
 #define SETUP_TX_MODE 1
 
+#define RX_READY PORTC.5
+#define NEXT_IN_LOOP PORTC.4
+
+
 
 // redifine output buffer size
 #define BUFFER_LEN 40
@@ -2278,8 +2282,8 @@ void Reset_device(void)
 //     crystal            OSC2/CLKO/RA6 |10     19| VSS
 // SSDATA_OUT2         RC0/T1OSO/T13CKI |11     18| RC7/RX/DT        <--- Serial RX
 // SSDATA_OUT3           RC1/T1OSI/CCP2 |12     17| RC6/TX/CK        ---> Serial TX
-//                             RC2/CCP1 |13     16| RC5/SDO          ---> Low == Serial RX ready to get (set High on Com queue full)
-// dbg blinking LED         RC3/SCK/SCL |14     15| RC4/SDI/SDA      <--- Low == next in loop ready to get data  
+//                             RC2/CCP1 |13     16| RC5/SDO          ---> Low == Serial RX_READY to get (set High on Com queue full)
+// dbg blinking LED         RC3/SCK/SCL |14     15| RC4/SDI/SDA      <--- Low == NEXT_IN_LOOP ready to get data  
 
 
     //BT pin assignment
@@ -2306,6 +2310,8 @@ void Reset_device(void)
 
     // RC7 - Serial RX  Pin 18
 	// RC6 - Serial TX Pin 17
+    // RC5 - RX_READY     pin 16 - out
+    // RC4 - NEXT_IN_LOOP pin 15 - in
     // debug LED RC3 pin 14
     // SSDATA_OUT2 = IN RC0 pin 11
     // SSDATA_OUT3 = IN RC1 pin 12
