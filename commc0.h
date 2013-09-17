@@ -1791,6 +1791,7 @@ unsigned char SendCMD;
 unsigned char RetransmitLen;
 #endif
 struct _MainB2{
+unsigned SuspendTX:1;
 unsigned RetransmitTo:1;
 #ifdef NON_STANDART_MODEM
 unsigned SendOverLink:1;

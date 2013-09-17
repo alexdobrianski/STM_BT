@@ -293,8 +293,10 @@ see www.adobri.com for communication protocol spec
 #ifdef _18F25K20
 #endif
 
+////////////////////////////////////////////////////////////////////////////////////
 // for additional (separated from SyncUART) support 
-// if such functionality does not present then comment out this lines
+// FLASH MEMORY support
+///////////////////////////////////////////////////////////////////////////////////
 #define EXT_INT 1
 #ifdef __PIC24H__
 // SSCLOCK RA0(pin2), SSDATA_IN RA1(pin3), SSDATA_OUT RA2(pin9), SSCS RA3(pin10)
@@ -323,7 +325,9 @@ see www.adobri.com for communication protocol spec
 #define SSDATA_OUT2 0
 #define SSDATA_OUT3 1
 #endif
-//
+/////////////////////////////////////////////////////////////////////////////////
+//   BT definitions
+/////////////////////////////////////////////////////////////////////////////////
 #define PORT_BT PORTA
 #define Tx_CE      0	// RA0 pin 2 // Chip Enable Activates RX or TX mode
 #define Tx_CSN     1	// RA1 pin 3 // SPI Chip Select
@@ -338,8 +342,13 @@ see www.adobri.com for communication protocol spec
 #define SETUP_RX_MODE 0
 #define SETUP_TX_MODE 1
 
+///////////////////////////////////////////////////////////////////////////////////
+//   serial port semaphores
+//     RX_READY     signals to prev unit to send data
+//     CHECK_NEXT   check next in loop for ready to receive data
+////////////////////////////////////////////////////////////////////////////////////
 #define RX_READY PORTC.5
-#define NEXT_IN_LOOP PORTC.4
+#define CHECK_NEXT PORTC.4
 
 
 
@@ -1387,14 +1396,31 @@ unsigned char CheckSuddenRX(void)
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////
 //
-//            COM CALL BACK
-//
+//            COM CALL BACK data ready from serial input
+//            return 1 == process queue; 0 == do not process;
+//            in case of next unit is not ready it is not good idea to process
+//            byte if it will generate some serial output
 /////////////////////////////////////////////////////////////////////////////////////////////////
-unsigned char CallBkComm(void) // return 1 == process queue; 0 == do not process; 
-                               // 2 = do not process and finish process 3 == process and finish internal process
-{                              // in case 0 fucntion needs to pop queue byte by itself
+unsigned char CallBkComm(void)  
+{
     unsigned char bReturn = 0;
     unsigned char bByte;
+    if (CHECK_NEXT)
+    {
+        // commands:
+        // 
+        if (Main.DoneWithCMD) // long command ??
+        {
+            if (DataB3.FlashCmd)
+                if (DataB3.FlashRead)
+                    return 0;  // better do not process byte to read from flash - next unit can not acsepted it 
+
+        }
+        else
+        {
+            // '=', '~', 'F', '*', 'a' - OK to process
+        }
+    }
 #ifdef NON_STANDART_MODEM
     //   Main.SendOverLink == 0 => return from call back and process com queue
     if (!Main.SendOverLink)   // if command * was send then data has to be transferred to up/down link
@@ -2283,7 +2309,7 @@ void Reset_device(void)
 // SSDATA_OUT2         RC0/T1OSO/T13CKI |11     18| RC7/RX/DT        <--- Serial RX
 // SSDATA_OUT3           RC1/T1OSI/CCP2 |12     17| RC6/TX/CK        ---> Serial TX
 //                             RC2/CCP1 |13     16| RC5/SDO          ---> Low == Serial RX_READY to get (set High on Com queue full)
-// dbg blinking LED         RC3/SCK/SCL |14     15| RC4/SDI/SDA      <--- Low == NEXT_IN_LOOP ready to get data  
+// dbg blinking LED         RC3/SCK/SCL |14     15| RC4/SDI/SDA      <--- Low == CHECK_NEXT ready to get data  
 
 
     //BT pin assignment
@@ -2311,7 +2337,7 @@ void Reset_device(void)
     // RC7 - Serial RX  Pin 18
 	// RC6 - Serial TX Pin 17
     // RC5 - RX_READY     pin 16 - out
-    // RC4 - NEXT_IN_LOOP pin 15 - in
+    // RC4 - CHECK_NEXT pin 15 - in
     // debug LED RC3 pin 14
     // SSDATA_OUT2 = IN RC0 pin 11
     // SSDATA_OUT3 = IN RC1 pin 12
@@ -2581,14 +2607,17 @@ void Reset_device(void)
 
 void ShowMessage(void)
 {
-    // if message initiated by unit needs to check then it is possible to do:
-    while(!Main.prepStream) // this will wait untill no relay message in a progress
+    if (!CHECK_NEXT)  // output unit ID only if next unit is receiving data
     {
+        // if message initiated by unit needs to check then it is possible to do:
+        while(!Main.prepStream) // this will wait untill no relay message in a progress
+        {
+        }
+        // in a case of a CMD replay it is safly to skip that check - unit allow to send message in CMD mode
+        putch(MY_UNIT);  // this message will circle over com and will be supressed by unit
+        Puts("~");
+        putch(MY_UNIT);
     }
-    // in a case of a CMD replay it is safly to skip that check - unit allow to send message in CMD mode
-    putch(MY_UNIT);  // this message will circle over com and will be supressed by unit
-    Puts("~");
-    putch(MY_UNIT);
 }
 
 #include "commc8.h"

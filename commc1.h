@@ -950,6 +950,12 @@ END_INPUT_COM:;
        if (TXIF)        
 #endif
        {
+           if (CHECK_NEXT)  // next unit is not ready to acsept data 
+           {
+               // suspend transmit
+                Main.SuspendTX = 1;
+                goto CLOSE_SEND;
+           }
 #ifdef SPEED_SEND_DATA
            if (Speed.SpeedSendLocked)
                goto SPEED_SEND;
@@ -1013,7 +1019,7 @@ SPEED_TX:
                    goto CONTINUE_WITH_ISR; 
               }
 #endif
-
+CLOSE_SEND:
                if (_TRMT)    // if nothing ina queue and transmit done - then disable interrupt for transmit
                {             // otherwise it will be endless
                     // for speed up output - first bytes already send + at the end needs to send UnitAddr

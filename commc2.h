@@ -51,6 +51,12 @@ void putch(unsigned char simbol)
     }
     if (AOutQu.iQueueSize == 0)  // if this is a com and queue is empty then needs to directly send byte(s) 
     {                            // on 16LH88,16F884,18F2321 = two bytes on pic24 = 4 bytes
+CHECK_NEXT_UNIT:        
+        if (CHECK_NEXT)  // next unit is not ready to acsept data 
+        {
+             // TBD: probably requare TimeOut???
+             goto CHECK_NEXT_UNIT; 
+        }
         // at that point Uart interrupt is disabled
 #ifdef __PIC24H__
         if (!U1STAbits.UTXBF) // on pic24 this bit is empy when at least there is one space in Tx buffer
