@@ -228,9 +228,6 @@ see www.adobri.com for communication protocol spec
 // will be responce on command "=<unit><cmd>"
 #define RESPONCE_ON_EQ
 
-// CMD switch processed in interrupt
-#define NEW_CMD_PROC 1
-
 // sync clock / timeral  support
 #define SYNC_CLOCK_TIMER  
 
@@ -266,22 +263,8 @@ see www.adobri.com for communication protocol spec
 // master support done via interrupts and firmware - commenting next line and I2C will be a software work
 #define I2C_INT_SUPPORT 1
 
-// define speed send data over com - sequence should be:
-// ptrSpeed = &AllGyro.TempL; pointer to the last transfwered byte -1
-// LenSpeed = 17; bytes to transfer
-// SpeedSendLocked = 0; prepear lock mode for speed send
-// SpeedSendUnit = 0; unit at the end was not send et
-// SpeedSendWithESC = 1; does (or does not if == 0) send data using esc on units addreses
-// SpeedESCwas = 0; no esc on first byte et
-// SpeedSend = 1; LAST TO INITIATE
-// TXIE = 1; and run over interrupts
-//#define SPEED_SEND_DATA 1
-// if such fucntionality does not requare then commneting this line saved code in ISR
-
-
 // different processors:
 #ifdef _16F88
-#undef SPEED_SEND_DATA
 #endif
 
 #ifdef _16F884
@@ -961,16 +944,18 @@ void ProcessCMD(unsigned char bByte)
     {
 /////////////////////////////////////////////////////////////////////
 // this is a STREAM area of processing
+// yes, yes, it is ugly == but processor is PIC, and stack for calls can be limited
 
 #include "commc3.h"
 
-
+/////////////////////////////////////////////////////////////////////
 // additional code proceessed as Cmd :
+/////////////////////////////////////////////////////////////////////
 
     if (ATCMDStatus)
     {
          ATCMDStatus++;
-         if (ATCMDStatus == 2)
+         if (ATCMDStatus == 2) // At
          {
              if (bByte == 't') // at command starts == othervise commane done
              {
@@ -983,7 +968,7 @@ void ProcessCMD(unsigned char bByte)
                   goto CONTINUE_NOT_AT;
              }
          }
-         else if (ATCMDStatus == 3) // atd // ats // ath
+         else if (ATCMDStatus == 3) // ATd // ATs // ATh
          {
              if (bByte == 'd') // atd command
              {

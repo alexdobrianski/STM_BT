@@ -8,19 +8,6 @@
         {                     //       |         if ' ' than responce unit is not set
             if (bByte == ' ')
                 bByte = 0;
-#ifdef USE_OLD_CMD_EQ
-            if (bByte == '*') // this will switch stream permanently
-            {
-                return;
-            }
-            if (bittest(bByte,7))
-            {
-                 RetransmitLen = bByte&0x7f;
-                 Main.SetFromAddr = 0;
-                 Main.DoneWithCMD = 0;
-                 return;
-            }
-#endif
             UnitFrom = bByte;
             Main.SetFromAddr = 0;
             Main.SetSendCMD = 1;
@@ -81,35 +68,6 @@
 #endif
             return;
         }
-#ifdef USE_OLD_CMD_EQ
-        else if (I2C.SetI2CYesNo) //<unit>=xcI<unit> I= com->I2C C = I2C->com ' '=nothing 
-        {                         //         |
-            I2C.SetI2CYesNo = 0;
-            if (bByte == 'i') // it is just for convinience I2CReplyExpected can be set in any CMD
-            {
-                I2C.I2CReplyExpected = 1;
-            }
-            else if (bByte == 'I')
-            {
-                I2C.RetransComI2C = 1;
-                I2C.RetransComI2CSet = 0;
-                I2C.RetransI2CCom = 0;
-            }
-            else if (bByte == 'C') //<unit>=xcC = I2C->com ' '=nothing
-            {
-                I2C.RetransI2CCom = 1;
-                I2C.RetransI2CComSet = 0;
-                I2C.RetransComI2C = 0;
-            }
-            else // clean all set for retransmit
-            {
-                I2C.RetransI2CCom = 0;
-                I2C.RetransI2CComSet = 0;
-                I2C.RetransComI2C = 0;
-            }
-            Main.DoneWithCMD = 1; // long command =XCI done
-        }
-#endif
         else if (bByte == '=') // new version   "=XC" where X - unit to responce and C - one byte command to responce 
                                // if command is "=X*" than all packet till end has to be send over com to device X with closing packet byte (X at the end)
                                
@@ -123,11 +81,6 @@
                                //  high bit has to be set
             Main.DoneWithCMD = 0; // long command
             Main.SetFromAddr = 1;
-#ifdef USE_OLD_CMD_EQ
-            I2C.RetransComI2C = 0;
-            I2C.RetransComI2CSet = 0;
-            I2C.RetransI2CCom = 0;            
-#endif
         }
         // processing CMD
         else if (bByte == '~') // reseved test message from itself

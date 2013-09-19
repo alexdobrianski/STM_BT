@@ -48,39 +48,32 @@
 
     while(1)
     {
+#ifdef CHECK_NEXT
+        if (Main.SuspendTX) // was suspend of a transmit because next unit was not ready to acsept data
+        {
+            if (!CHECK_NEXT)  // next unit is READY (low) to accsept data
+            {
+                if (AOutQu.iQueueSize)
+                {
+                    TXREG = AOutQu.Queue[AOutQu.iExit];
+                    if (++AOutQu.iExit >= OUT_BUFFER_LEN)
+                        AOutQu.iExit = 0;
+                    AOutQu.iQueueSize--;
+                }
+                Main.SuspendTX = 0;
+                if (Main.SuspendRetrUnit)
+                {
+                    RX_READY = 0;
+                    Main.SuspendRetrUnit = 0;
+                }    
+            } 
+        }
+#endif
         if (CallBkMain() == 0) // 0 = do continue; 1 = process queues
             continue;
 #ifndef NO_I2C_PROC
         if (AInI2CQu.iQueueSize) // if something comes from I2C (slave received or some I2c device responded on read command)
         {
-#ifdef USE_OLD_CMD_EQ
-            if (RetransmitLen) // from I2C comes command =<LEN> - needs to retransmit everything to previously set device
-            {                  //                          (set done by =5CC)
-                if (!I2C.RetransComI2CSet)
-                {
-                    I2C.RetransComI2CSet = 1;
-                    if (UnitFrom)
-                    {
-                        putch(UnitFrom);
-                        if (SendCMD)
-                            putch(SendCMD);
-                    }
-                }
-REPEAT_OP1:                
-                putchWithESC(getchI2C()); // if out queue does not has empty space putchWithESC will wait
-                if (--RetransmitLen ==0)
-                {
-                    if (UnitFrom)
-                        putch(UnitFrom);
-                    Main.DoneWithCMD = 1; // long command done // this will unlock switching process from I2C to com
-                    continue;
-                }
-                if (AInI2CQu.iQueueSize)
-                    goto REPEAT_OP1;
-                continue;
-            }
-#endif
-#ifndef NO_I2C_PROC
             if (CallBkI2C())// 0 = do not process byte; 1 = process;
             {
                 bitclr(bWork,0);
@@ -93,105 +86,25 @@ REPEAT_OP1:
                     Main.getCMD = 1;
 
             }
-#endif
         }
 #endif // #ifndef NO_I2C_PROC
         if (AInQu.iQueueSize)      // in comm queue bytes
         {
             if (CallBkComm()) // 0 = do not process byte; 1 = process;
             {
-#ifdef NEW_CMD_PROC
-#else
-                 // place where has to be checked realy message mode : if CallBkComm desided to process data then needs to monitor
-                 // input message for not related to unit device
-                 bWork = AInQu.Queue[AInQu.iExit]; // next char
-                 if (Main.prepStream)
-                 {
-                     if (Main.prepESC)
-                         Main.prepESC = 0;
-                     else if (bWork == ESC_SYMB) // it is ESC char ??
-                         Main.prepESC = 1;
-                     else if (bWork <= MAX_ADR)
-                     {
-                          if (bWork >= MIN_ADR) // msg to relay
-                          {
-#ifdef ALLOW_RELAY_TO_NEW
-                              AllowOldMask4=AllowOldMask3;AllowOldMask3=AllowOldMask2;AllowOldMask2=AllowOldMask1;AllowOldMask1=AllowOldMask;AllowOldMask=AllowMask; // put mask into stack
-                              AllowMask = 0;
-                              if (bWork > MY_UNIT)
-                              {
-                                  iWork = bWork - (MY_UNIT+1);
-                                  while(iWork)
-                                  { 
-                                      iWork--;
-                                      AllowMask <<=1;AllowMask|=UNIT_MASK;        
-                                  }
-                              }
-                              else if (bWork < MY_UNIT)
-                              {
-                                  iWork = (MY_UNIT-1);// - bWork;
-                                  while(iWork)
-                                  { 
-                                      iWork--;
-                                      AllowMask <<=1;AllowMask|=0x01;        
-                                  }
-                                  AllowMask |= UNIT_MASK_H;
-                              }
-                              else // unit matches
-                              {
-                                  Main.prepCmd = 1;
-                                  Main.prepStream = 0;
-                                  Main.prepZeroLen = 1;
-                                  if (UnitFrom)              // if reply's unit was set
-                                      AllowMask = UnitMask1; // then allow to send in CMD mode to exact unit
-                                                             // otherwise unit can not initiate any transfer before endin processing CMD
-                                  goto PROCESS_IN_CMD;
-                              }
-                              AllowMask &= AllowOldMask;
-#else // NOT ALLOW_RELAY_TO_NEW
-                              if (bWork == MY_UNIT) // unit matches
-                              {
-                                  Main.prepCmd = 1;
-                                  Main.prepStream = 0;
-                                  Main.prepZeroLen = 1;
-                                  AllowMask = 0xff;
-                                  goto PROCESS_IN_CMD;
-                              }
-                              AllowMask =  0;
-#endif // end ALLOW_RELAY_TO_NEW
-                              // now needs to stream everything exsisting from input comm queue to output comm queue
-                              putch(bWork);
-                              getch();
-                              Main.prepZeroLen = 1;
-                              RCIE = 0; // disable com1 interrupts
-                              RetrUnit = bWork;
-                              while(AInQu.iQueueSize)
-                              {
-                                  bWork = getch();
-                                  putch(bWork);
-                                  if (Monitor(bWork,RetrUnit)) // search for end of packet
-                                  {
-                                      RetrUnit = 0;
-                                      break;
-                                  }
-                              }
-                              RCIE = 1; // enable com1 interrupts
-                              goto NO_PROCESS_IN_CMD; // give a chance to process char on a next loop
-                          }
-                     }
-                 }
-                 else // Main.prepCmd == monitor message processed inside ProcessCMD == search for end of packet
-                 {
-                     Monitor(bWork,MY_UNIT);
-                 }
-#endif // end NOT NEW_CMD_PROC
 PROCESS_IN_CMD:
                  ProcessCMD(getch());
 #ifdef RX_READY
-               if (AInQu.iQueueSize > (BUFFER_LEN-3))
-                   RX_READY = 1;
-               else
-                   RX_READY = 0;
+               if (Main.PauseInQueueFull)
+               {
+                   if (AInQu.iQueueSize > (BUFFER_LEN-CRITICAL_BUF_SIZE))
+                       ;//RX_READY = 1;
+                   else
+                   {
+                       RX_READY = 0;
+                       Main.PauseInQueueFull = 0;
+                   }
+               }
 #endif
 
 #ifdef NON_STANDART_MODEM

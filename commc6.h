@@ -55,11 +55,6 @@
         //Main.CommLoopOK = 0;
         Main.LastWasUnitAddr = 0;
 
-
-#ifdef USE_OLD_CMD_EQ
-        RetransmitLen = 0;
-#endif
-
         SSPADD = UnitADR<<1;
         I2C.LockToI2C = 0;
         I2C.WaitQuToEmp = 0;
@@ -70,14 +65,6 @@
         //BlockComm = 0;
 
         I2C.Timer0Fired = 0;
-#ifdef SPEED_SEND_DATA
-        Speed.SpeedSend = 0;
-        Speed.SpeedSendLocked = 0;
-        Speed.SpeedSendUnit = 0;
-        Speed.SpeedSendWithESC = 0;
-        Speed.SpeedESCwas = 0;
-
-#endif
 #ifdef I2C_INT_SUPPORT
 		I2C_B1.NeedMaster = 0;
         I2C_B1.NeedRestart = 0;
@@ -88,12 +75,15 @@
 
 
 #endif
+#ifdef CHECK_NEXT
+        Main.SuspendTX = 0;
+        Main.SuspendRetrUnit = 0;
+        Main.PauseInQueueFull = 0;
+        Main.PauseOutQueueFull = 0;
+#endif
         I2C_B1.I2CMasterDone = 1;
         RetrUnit = 0;
         AllowMask = 0xff;
-#ifdef ALLOW_RELAY_TO_NEW
-        AllowOldMask1 = 0xff;AllowOldMask2=0xff;AllowOldMask3=0xff;AllowOldMask4=0xff; AllowOldMask =  0xff;
-#endif
         UnitMask1 = 0xff;
         UnitMask2 = 0;
         UnitFrom = 0;

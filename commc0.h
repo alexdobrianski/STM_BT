@@ -1739,6 +1739,7 @@ unsigned char setTMR1DAY;
 
 #pragma rambank RAM_BANK_0
 /////////////////////////////////////BANK 0///////////////////////
+#define CRITICAL_BUF_SIZE 4
 #ifndef BUFFER_LEN
  #ifdef _18F2321_18F25K20
    #define BUFFER_LEN 18
@@ -1787,11 +1788,13 @@ VOLATILE struct BQueue AOutQuCom2;
 unsigned char UnitADR;
 unsigned char UnitFrom;
 unsigned char SendCMD;
-#ifdef USE_OLD_CMD_EQ
-unsigned char RetransmitLen;
-#endif
 struct _MainB2{
+#ifdef CHECK_NEXT
 unsigned SuspendTX:1;
+unsigned SuspendRetrUnit:1;
+unsigned PauseInQueueFull:1;
+unsigned PauseOutQueueFull:1;
+#endif
 unsigned RetransmitTo:1;
 #ifdef NON_STANDART_MODEM
 unsigned SendOverLink:1;
@@ -1840,13 +1843,6 @@ VOLATILE unsigned char RetrUnit;
 VOLATILE unsigned char AllowMask;
 VOLATILE unsigned char UnitMask1;
 VOLATILE unsigned char UnitMask2;
-#ifdef ALLOW_RELAY_TO_NEW
-VOLATILE unsigned char AllowOldMask;
-VOLATILE unsigned char AllowOldMask1;
-VOLATILE unsigned char AllowOldMask2;
-VOLATILE unsigned char AllowOldMask3;
-VOLATILE unsigned char AllowOldMask4;
-#endif
 
 //bit BlockComm;
 // this is in BANK0
@@ -1860,12 +1856,6 @@ unsigned EchoWhenI2C:1;
 
 //} I2C_B3;
 //struct _I2CB4{
-#ifdef USE_OLD_CMD_EQ
-unsigned RetransI2CCom:1;
-unsigned RetransI2CComSet:1;
-unsigned RetransComI2C:1;
-unsigned RetransComI2CSet:1;
-#endif
 VOLATILE unsigned I2CGettingPKG:1;
 unsigned I2CReplyExpected:1;
 unsigned RetransI2ComCSet:1;
@@ -1896,19 +1886,6 @@ VOLATILE unsigned I2CMasterDone:1;
 unsigned char I2Caddr;
 VOLATILE struct AQueue AInI2CQu;
 VOLATILE struct BQueue AOutI2CQu;
-#endif
-
-#ifdef SPEED_SEND_DATA
-#pragma rambank SPEED_SEND_DATA
-struct _SpeedB6{
-unsigned SpeedSend:1;
-unsigned SpeedSendLocked:1;
-unsigned SpeedSendUnit:1;
-unsigned SpeedSendWithESC:1;
-unsigned SpeedESCwas:1;
-} Speed;
-unsigned char *ptrSpeed;
-unsigned char LenSpeed;
 #endif
 
 #pragma rambank RAM_BANK_0
