@@ -50,6 +50,7 @@
         Main.RetransmitTo = 0;
 #ifdef NON_STANDART_MODEM
         Main.SendOverLink = 0;
+        Main.SendOverLinkAndProc = 0;
 #endif
         //Main.SendWithEsc = 0;
         //Main.CommLoopOK = 0;

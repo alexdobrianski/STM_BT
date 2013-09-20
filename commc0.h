@@ -1798,6 +1798,7 @@ unsigned PauseOutQueueFull:1;
 unsigned RetransmitTo:1;
 #ifdef NON_STANDART_MODEM
 unsigned SendOverLink:1;
+unsigned SendOverLinkAndProc:1;
 #endif
 VOLATILE unsigned SomePacket:1;
 VOLATILE unsigned OutPacket:1;

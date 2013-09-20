@@ -533,6 +533,8 @@ unsigned char OpponentAddr2;
 unsigned char OpponentAddr3;
 #define PCKT_DIAL 0xf0
 #define PCKT_DATA 0xf1
+#define PCKT_DATA_TO_LOOP 0xf3
+#define PCKT_WRITE 0xf4
 unsigned char BTpkt;
 unsigned char RXreceiveFQ;
 unsigned char BTFQcurr;
@@ -1183,12 +1185,22 @@ CONTINUE_NOT_AT:
 // additional code:
 //
 #ifdef NON_STANDART_MODEM
-        else if (bByte == '*')
+        else if (bByte == '$') // send everything to connected BT till end of the packet and ask to retransmit data to link
+        {
+            if (ATCMD & MODE_CONNECT) // was connection esatblished?
+            {
+                 Main.SendOverLink = 1;
+                 Main.SendOverLinkAndProc = 1;
+            }
+            // TBD: on no connection established - needs to do something with uplink data - it is going to nowhere
+        }
+        else if (bByte == '*') // send everything to connected BT till end of the packet and process inside BT 
         {
             if (ATCMD & MODE_CONNECT) // was connection esatblished?
             {
                  Main.SendOverLink = 1;
             }
+            // TBD: on no connection established - needs to do something with uplink data - it is going to nowhere
         }
 #endif
         else if (bByte == 'a')
