@@ -3022,9 +3022,9 @@ SEND_CONNECT:
                         wAddr = 0;
                     FlashQueueSize++;
                 }
-                else
-                {
-                }
+                //else  // loosing data !!!!
+                //{
+                //}
                 ptrMy++;
              } while(--ilen);
              

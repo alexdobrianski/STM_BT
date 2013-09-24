@@ -112,6 +112,12 @@ NO_PROCESS_IN_CMD:;
         }
         else  // nothing in both queue can sleep till interrupt
         {
+#ifdef NON_STANDART_MODEM
+            if (!Main.getCMD) // only if it is not a command mode
+            {
+                if (RetrUnit==0) // can be write to com -> data can be sent 
+            }
+#endif
 #ifndef NO_I2C_PROC
             if (AInI2CQu.iQueueSize == 0)
 #endif
