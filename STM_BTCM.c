@@ -569,6 +569,14 @@ unsigned char PktCount;
 /*
 typedef struct PacketDial
 {
+    //unsigned char Preamb;
+    unsigned char Preamb1;
+    unsigned char Preamb2;
+    unsigned char Preamb3;
+    unsigned char BTpacket;
+    unsigned char FqCur;
+#define PACKET_LEN_OFFSET 5
+    unsigned char BTpacketLen;
     unsigned char Type1; // 'L' , 'l', 'E'
     unsigned char Type2; // 'u'        'a'
     unsigned char Type3; // 'n'        'r'
@@ -591,6 +599,18 @@ typedef struct PacketStart
     unsigned char FqCur;
 #define PACKET_LEN_OFFSET 5
     unsigned char BTpacketLen;
+
+    unsigned char Type; //  'l'        'e'
+    unsigned char Res1;  // 'u'        'a'
+    unsigned char Res2;  // 'n'        'r'
+    unsigned char Res3;  // 'a'        'z'
+    unsigned char Adr1;
+    unsigned char Adr2;
+    unsigned char Adr3;
+    unsigned char Fq1;
+    unsigned char Fq2;
+    unsigned char Fq3;
+
 };
 
 
@@ -681,6 +701,11 @@ unsigned int FlashQueueSize;
 #define FLASH_BUFFER_LEN      0x2000
 #define FLASH_BUFFER_HALF_LEN 0x1000
 
+// structure of a packet acsepted from BT
+unsigned char PrevLen;
+unsigned char NextLen;
+unsigned char TypePkt;
+
 void Erace4K(unsigned char Adr2B);
 #endif
 
@@ -758,11 +783,15 @@ void main()
 #endif
 
 #ifdef NON_STANDART_MODEM
-    Adr2BH = 0;
-    Erace4K(0);
+    //Adr2BH = 0;
+    //Erace4K(0);
     FlashEntry = 0;
     FlashExit = 0;
     FlashQueueSize = 0;
+    PrevLen = 0;
+    NextLen = 0;
+
+    // needs to search for packets and process it if they was stored
 #endif
 
 #ifdef DEBUG_LED
@@ -845,14 +874,6 @@ void main()
 // adr 0x001000 (4K)== Adr2B = 0x10  (var Ard2BH = 0x00)
 // adr 0x002000 (8k)== Adr2B = 0x20  (var Ard2BH = 0x00)
 // adr 0x010000 (65536)Adr2B = 0x00  (var Adr2BH = 0x01)
-unsigned char getchFromFlash(void)
-{
-    unsigned char bRet = AInQu.Queue[AInQu.iExit];
-    if (++AInQu.iExit >= BUFFER_LEN)
-        AInQu.iExit = 0;
-    AInQu.iQueueSize --;
-    return bRet;
-}
 
 void CheckStatus(void)
 {
@@ -1927,11 +1948,7 @@ NEXT_TRANSMIT:
         }
         
         // done interrupt processing now: call/transmit
-        if ((ATCMD & MODE_CALL_LUNA_COM) 
-#ifndef NO_I2C_PROC
-             || (ATCMD & MODE_CALL_LUNA_I2C)
-#endif
-           ) // earth calls cubsat sequence:
+        if (ATCMD & MODE_CALL_LUNA_COM) // earth calls cubsat sequence:
         {
             // earth call cubesat that is a main mode == earth initiate transmission
             // 1. send msg on FQ1
@@ -1963,11 +1980,8 @@ NEXT_TRANSMIT:
                 }
                 else // was not dialed yet
                 {
-                    if (ATCMD & MODE_CALL_LUNA_COM)
-                        BTqueueOut[0] = 'L';
-                    else 
-                        BTqueueOut[0] = 'l';
-                    BTqueueOut[1] = 'u';BTqueueOut[2] = 'n';BTqueueOut[3] = 'a';
+                    BTqueueOut[0] = 'l'; BTqueueOut[1] = 'u';BTqueueOut[2] = 'n';BTqueueOut[3] = 'a';
+
                     ATCMD |= MODE_DIAL;
                     SetupBT(SETUP_TX_MODE);
 SEND_PKT_DIAL:
@@ -2924,8 +2938,9 @@ void ProcessBTdata(void)
         //BTqueueOut[4] = Addr1;BTqueueOut[5] = Addr2;BTqueueOut[6] = Addr3;
         //          13                    14                    15
         //BTqueueOut[7] = Freq1;BTqueueOut[8] = Freq2;BTqueueOut[9] = Freq3;
-        OpponentAddr1 = ptrMy[10];OpponentAddr2 = ptrMy[11];OpponentAddr3 = ptrMy[12];
-        OpponentFreq1 = ptrMy[13];OpponentFreq2 = ptrMy[14];OpponentFreq3 = ptrMy[15];
+        // process to adjust frequency for different temperature ranges
+        OpponentAddr1 = MyPacket->Adr1;OpponentAddr2 = MyPacket->Adr2;OpponentAddr3 = MyPacket->Adr3;
+        OpponentFreq1 = MyPacket->Fq1;OpponentFreq2 = MyPacket->Fq2;OpponentFreq3 = MyPacket->Fq3;
         if (BTokMsg == 0)
         {
             Freq2 = Freq1 + (OpponentFreq2 - OpponentFreq1);
@@ -2941,30 +2956,38 @@ void ProcessBTdata(void)
             Freq1 = Freq3 - (OpponentFreq3 - OpponentFreq1);
             Freq2 = Freq3 - (OpponentFreq3 - OpponentFreq2);
         }
-        
-        if ((ATCMD & MODE_CALL_LUNA_COM) 
-#ifndef NO_I2C_PROC
-            || (ATCMD & MODE_CALL_LUNA_I2C)
-#endif
-           )
-        {
-            if (ATCMD & MODE_CONNECT) // connection was already established
+        if (MyPacket->Type == 'e') 
+        {        
+            if (ATCMD & MODE_CALL_LUNA_COM) 
             {
+                if (ATCMD & MODE_CONNECT) // connection was already established
+                {
+                }
+                else
+                    goto SEND_CONNECT;
             }
-            else
-                PutsToUnit("\n\rCONNECT\n\r");
         }
-        else if (ATCMD & MODE_CALL_EARTH)
+        else if (MyPacket->Type == 'l')
         {
-            if (ATCMD & MODE_CONNECT) // connection was already established
+            if (ATCMD & MODE_CALL_EARTH)
             {
-                // dial message from the earth - frquensies can be adjusted
-                ATCMD &= (RESPONCE_WAS_SENT ^0xff);
+                if (ATCMD & MODE_CONNECT) // connection was already established
+                {
+                    // dial message from the earth - frquensies can be adjusted
+                    ATCMD &= (RESPONCE_WAS_SENT ^0xff);
+                }
+                else
+                {
+SEND_CONNECT:
+                    PutsToUnit("\n\rCONNECT\n\r");
+                }
             }
-            else
-            {
-                PutsToUnit("\n\rCONNECT\n\r");
-            }
+        }
+        else if (MyPacket->Type == 'W') // write data directly to FLASH/magnetoresistive memory/ferromagnetic memory
+        {
+        }
+        else if (MyPacket->Type == 'R') // read request from FLASH/magnetoresistive memory/ferromagnetic memory
+        {
         }
         ATCMD |= MODE_CONNECT;
         
@@ -2973,12 +2996,22 @@ void ProcessBTdata(void)
     {
         ptrMy+=sizeof(PacketStart);
 #ifdef NON_STANDART_MODEM
-        // insert into FLASH memory
+        // write good packet into FLASH memory for processing
+        CS_HIGH;  // that will interrupt operations read and write comming from com
+
+        PrevLen = NextLen;
+        NextLen = ilen;
+        TypePkt = 0;
+
         wAddr = FlashEntry;
         BeginAddr = FlashEntry;
         if (FlashQueueSize < FLASH_BUFFER_LEN)
         {
-            Push2Flash(ilen&0xff);
+            Push2Flash(PrevLen);
+            FlashQueueSize++;
+            Push2Flash(NextLen);
+            FlashQueueSize++;
+            Push2Flash(TypePkt);
             FlashQueueSize++;
             do
             {
@@ -2989,23 +3022,18 @@ void ProcessBTdata(void)
                         wAddr = 0;
                     FlashQueueSize++;
                 }
+                else
+                {
+                }
                 ptrMy++;
              } while(--ilen);
              
              FlashEntry = wAddr;
         }
-        if (Main.getCMD) // serial already getting commands => exec from FLASH will be on closing packet
-        {
-        }
-        else
-        {
-        }
-#else
-        if ((ATCMD & MODE_CALL_LUNA_COM) 
-#ifndef NO_I2C_PROC
-             || (ATCMD & MODE_CALL_LUNA_I2C)
-#endif
-           )
+        CS_HIGH; // that will keep interrupted read/write from com (if any) -
+                 //  on next byte from com interrupted w/r will send to flash enable write/interrupted addr
+#else // NOT NON_STANDART_MODEM
+        if (ATCMD & MODE_CALL_LUNA_COM)
         {
 OUTPUT_DIRECTLY:
             /*
@@ -3067,7 +3095,7 @@ WAIT_SPACE_Q:
             else
                 goto OUTPUT_DIRECTLY;
         }
-#endif
+#endif // DONE with STANDART_MODEM
     }        
 }
 void BTCE_low(void)
@@ -3152,7 +3180,7 @@ unsigned char ReceiveBTdata(void)
          SendBTbyte(0x40); // clean RX interrupt
          bitset(PORT_BT,Tx_CSN);
 
-
+         // TBD: output data as it is over com2 with speed at least 150000 bits/sec - ground station only
          i = BTFixlen(ptrMy, bret); // if it is posible to fix packet i == 0
 
          if (!DataB0.Tmr3DoneMeasureFq1Fq2)
