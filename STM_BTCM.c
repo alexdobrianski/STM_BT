@@ -533,8 +533,6 @@ unsigned char OpponentAddr2;
 unsigned char OpponentAddr3;
 #define PCKT_DIAL 0xf0
 #define PCKT_DATA 0xf1
-#define PCKT_DATA_TO_LOOP 0xf3
-#define PCKT_WRITE 0xf4
 unsigned char BTpkt;
 unsigned char RXreceiveFQ;
 unsigned char BTFQcurr;
@@ -847,16 +845,6 @@ void main()
 // adr 0x001000 (4K)== Adr2B = 0x10  (var Ard2BH = 0x00)
 // adr 0x002000 (8k)== Adr2B = 0x20  (var Ard2BH = 0x00)
 // adr 0x010000 (65536)Adr2B = 0x00  (var Adr2BH = 0x01)
-void InsertIntoCom1(unsigned char work2)
-{
-    if (AInQu.iQueueSize < BUFFER_LEN)
-    {
-        AInQu.Queue[AInQu.iEntry] = work2;
-        if (++AInQu.iEntry >= BUFFER_LEN)
-            AInQu.iEntry = 0;
-        AInQu.iQueueSize++;
-    }
-}
 unsigned char getchFromFlash(void)
 {
     unsigned char bRet = AInQu.Queue[AInQu.iExit];
@@ -3008,24 +2996,9 @@ void ProcessBTdata(void)
         }
         if (Main.getCMD) // serial already getting commands => exec from FLASH will be on closing packet
         {
-            
         }
         else
         {
-           // disable serial interrupts
-           RCIE = 0;
-           if (Main.getCMD)
-               RCIE = 1; // serial already getting commands => exec from FLASH will be on closing packet
-           else // now it is possible to insert into serial input queue command to execute from FLASH
-           {
-               InsertIntoCom1('e');
-               InsertIntoCom1(0x00);
-               InsertIntoCom1(BeginAddr>>8);
-               InsertIntoCom1(BeginAddr&0xff);
-               InsertIntoCom1(MY_UNIT);
-               Main.getCMD = 1;
-               RCIE = 1;
-           }
         }
 #else
         if ((ATCMD & MODE_CALL_LUNA_COM) 
