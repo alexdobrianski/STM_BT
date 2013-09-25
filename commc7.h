@@ -113,10 +113,27 @@ NO_PROCESS_IN_CMD:;
         else  // nothing in both queue can sleep till interrupt
         {
 #ifdef NON_STANDART_MODEM
-            if (!Main.getCMD) // only if it is not a command mode
+            if (FlashEntry == FlashExit)
             {
-                if (RetrUnit==0) // can be write to com -> data can be sent 
+                if (Adr2BHEntry == Adr2BHExit)
+                    Main.FlashRQ = 0;
+                else
+                {
+      
+NEEDS_FLASH_PROC:   Main.FlashRQ = 1;
+                    if (!Main.getCMD) // only if it is not a command mode
+                    {
+                        if (RetrUnit==0) // can be write to com -> data can be sent
+                        {
+                            // now it is possible to process data from flash
+                        }
+                    } 
+                }
             }
+            else
+                goto NEEDS_FLASH_PROC;
+               
+                
 #endif
 #ifndef NO_I2C_PROC
             if (AInI2CQu.iQueueSize == 0)

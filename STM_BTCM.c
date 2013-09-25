@@ -693,8 +693,11 @@ void InitModem(void)
 // adr 0x001000 (4K)== Adr2B = 0x10  (var Ard2BH = 0x00)
 // adr 0x002000 (8k)== Adr2B = 0x20  (var Ard2BH = 0x00)
 // adr 0x010000 (65536)Adr2B = 0x00  (var Adr2BH = 0x01)
-unsigned char Adr2BH;
+
 unsigned int wAddr;
+unsigned char Adr2BH;
+unsigned char Adr2BHEntry;
+unsigned char Adr2BHExit;
 unsigned int FlashEntry;
 unsigned int FlashExit;
 unsigned int FlashQueueSize;
@@ -906,7 +909,11 @@ void Push2Flash( unsigned char bByte)
                       // in some FLASH memory on first read it can be 50 mks and 10 mks next
     wAddr++;
     if ((wAddr &0xff) == 0) // page write done
+    {
         CS_HIGH;
+        if (wAddr  == 0) // over 64K
+            Adr2BH++;
+    }    
 }
 void Erace4K(unsigned char Adr2B)
 {
@@ -3003,6 +3010,7 @@ SEND_CONNECT:
         NextLen = ilen;
         TypePkt = 0;
 
+        Adr2BH = Adr2BHEntry;
         wAddr = FlashEntry;
         BeginAddr = FlashEntry;
         if (FlashQueueSize < FLASH_BUFFER_LEN)
@@ -3029,6 +3037,7 @@ SEND_CONNECT:
              } while(--ilen);
              
              FlashEntry = wAddr;
+             Adr2BHEntry = Adr2BH;
         }
         CS_HIGH; // that will keep interrupted read/write from com (if any) -
                  //  on next byte from com interrupted w/r will send to flash enable write/interrupted addr

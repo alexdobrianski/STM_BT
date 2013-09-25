@@ -770,37 +770,40 @@ SEND_BYTE_TO_QU:
                }
                else // not a command mode == stream mode
                { 
-                   if (work2 == ESC_SYMB) // 1. is it ESC ? == next simbol will be relayed also
+                   if (!Main.FlashRQ)
                    {
-                       Main.prepZeroLen = 0;
-                       Main.prepESC = 1;//====> retransmit
-                       goto RELAY_SYMB; // ===> retransmit
-                   }
-                   else if (work2 == MY_UNIT) // 2. is this our packet?? (CMD to be proccesd)
-                   {
-SET_MY_UNIT:
-                       Main.CMDProcess = 1;
-                       Main.CMDProcessCheckESC = 0;
-                       //Main.CMDProcessLastWasUnitAddr = 1;
-                       Main.getCMD =1; // byte eated
-                       Main.LastWasUnitAddr = 1;
-                       Main.ESCNextByte = 0;
-                       goto END_INPUT_COM;
-                   }
-                   else // 3. is it a packet adressed to another unit (to be retransmitted without processing)
-                   {
-                       if (work2 <= MAX_ADR) 
-                       {            
-                           if (work2 >= MIN_ADR) // packet to relay to another untis
-                           {
-TO_ANOTHER_UNIT:               Main.SomePacket = 1;
-                               RetrUnit = work2;
-                               Main.prepZeroLen = 1;
-                               Main.prepESC = 0;
-                           }
+                       if (work2 == ESC_SYMB) // 1. is it ESC ? == next simbol will be relayed also
+                       {
+                           Main.prepZeroLen = 0;
+                           Main.prepESC = 1;//====> retransmit
+                           goto RELAY_SYMB; // ===> retransmit
                        }
-                       // last case == enything else will be retransmitted
-                       goto RELAY_SYMB; // ===> retransmit
+                       else if (work2 == MY_UNIT) // 2. is this our packet?? (CMD to be proccesd)
+                       {
+SET_MY_UNIT:
+                           Main.CMDProcess = 1;
+                           Main.CMDProcessCheckESC = 0;
+                           //Main.CMDProcessLastWasUnitAddr = 1;
+                           Main.getCMD =1; // byte eated
+                           Main.LastWasUnitAddr = 1;
+                           Main.ESCNextByte = 0;
+                           goto END_INPUT_COM;
+                       }
+                       else // 3. is it a packet adressed to another unit (to be retransmitted without processing)
+                       {
+                           if (work2 <= MAX_ADR) 
+                           {            
+                               if (work2 >= MIN_ADR) // packet to relay to another untis
+                               {
+TO_ANOTHER_UNIT:                   Main.SomePacket = 1;
+                                   RetrUnit = work2;
+                                   Main.prepZeroLen = 1;
+                                   Main.prepESC = 0;
+                               }
+                           }
+                           // last case == enything else will be retransmitted
+                           goto RELAY_SYMB; // ===> retransmit
+                       }
                    }
                }    
 //////////////////////////////////////////////////////////////////
