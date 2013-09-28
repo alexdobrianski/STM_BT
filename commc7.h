@@ -126,6 +126,9 @@ NEEDS_FLASH_PROC:   Main.FlashRQ = 1;
                         if (RetrUnit==0) // can be write to com -> data can be sent
                         {
                             // now it is possible to process data from flash
+                            Main.getCMD = 1;
+                            Main.getCMD = 0;
+                            Main.FlashRQ = 0;
                         }
                     } 
                 }
