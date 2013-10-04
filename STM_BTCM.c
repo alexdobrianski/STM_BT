@@ -694,20 +694,32 @@ void InitModem(void)
 // adr 0x002000 (8k)== Adr2B = 0x20  (var Ard2BH = 0x00)
 // adr 0x010000 (65536)Adr2B = 0x00  (var Adr2BH = 0x01)
 
-unsigned int wAddr;
-unsigned char Adr2BH;
-unsigned char Adr2BHEntry;
-unsigned char Adr2BHExit;
-unsigned int FlashEntry;
-unsigned int FlashExit;
-unsigned int FlashQueueSize;
-#define FLASH_BUFFER_LEN      0x2000
-#define FLASH_BUFFER_HALF_LEN 0x1000
+unsigned char AdrBH;
+unsigned int  wAddr;
+
+unsigned char FlashEntryBH;
+unsigned int  FlashEntry;
+
+unsigned char FlashExitBH;
+unsigned int  FlashExit;
+
+unsigned char FlashQueueSizeBH;
+unsigned int  FlashQueueSize;
+
+#define FLASH_BUFFER_LEN_BH      0x01
+#define FLASH_BUFFER_LEN         0x2000
+
+#define FLASH_BUFFER_HALF_LEN_BH 0x00
+#define FLASH_BUFFER_HALF_LEN    0x8100
 
 // structure of a packet acsepted from BT
 unsigned char PrevLen;
 unsigned char NextLen;
 unsigned char TypePkt;
+
+unsigned char ReadPrevLen;
+unsigned char ReadNextLen;
+unsigned char ReadTypePkt;
 
 void Erace4K(unsigned char Adr2B);
 #endif
@@ -774,23 +786,30 @@ void main()
     SkipPtr = 0;
     ESCCount = 0;
 #ifdef SKIP_CALC_TX_TIME
-                    TMR1ON = 0;              // stop timer measure it time btw send Fq1 -> Fq2
-                    DataB0.Timer1Done3FQ = 1; 
-                    DataB0.Timer1Meausre = 0;
-                    DataB0.Timer1Count = 1;
+    TMR1ON = 0;              // stop timer measure it time btw send Fq1 -> Fq2
+    DataB0.Timer1Done3FQ = 1; 
+    DataB0.Timer1Meausre = 0;
+    DataB0.Timer1Count = 1;
 
-                    Tmr1LoadHigh = 0xffff;
-                    Tmr1LoadLow = 0x8975;      // timer1 interupt reload values 
-                    Tmr1TOHigh = Tmr1LoadHigh;
-                    SetTimer1(Tmr1LoadLow);
+    Tmr1LoadHigh = 0xffff;
+    Tmr1LoadLow = 0x8975;      // timer1 interupt reload values 
+    Tmr1TOHigh = Tmr1LoadHigh;
+    SetTimer1(Tmr1LoadLow);
 #endif
 
 #ifdef NON_STANDART_MODEM
     //Adr2BH = 0;
     //Erace4K(0);
+    // TBD: search for the begining of a queue
+    FlashEntryBH = 0;
     FlashEntry = 0;
+
+    FlashExitBH = 0;
     FlashExit = 0;
+
+    FlashQueueSizeBH = 0;
     FlashQueueSize = 0;
+
     PrevLen = 0;
     NextLen = 0;
 
@@ -889,10 +908,29 @@ void CheckStatus(void)
     }
     CS_HIGH;
 }
-
+void GetFromFlash( unsigned char bByte)
+{
+    unsigned char bRet;
+    if (btest(SSPORT,SSCS)) // is it HIGH ???
+    {
+        CheckStatus(); 
+        SendSSByte(0x03);
+        SendSSByte(AdrBH);
+        SendSSByte(wAddr>>8);
+        SendSSByte(wAddr&0xff);
+    }
+    bRet = GetSSByte();
+    wAddr++;
+    if ((wAddr &0xff) == 0) // page write done
+    {
+        CS_HIGH;
+        if (wAddr  == 0) // over 64K
+            AdrBH++;
+    }    
+}
 void Push2Flash( unsigned char bByte)
 {
-    if (btest(SSPORT,SSCS))
+    if (btest(SSPORT,SSCS)) // is it HIGH ???
     {
         CheckStatus();
         CS_LOW;
@@ -901,7 +939,7 @@ void Push2Flash( unsigned char bByte)
         nop();
         CS_LOW; 
         SendSSByte(0x02);
-        SendSSByte(Adr2BH);
+        SendSSByte(AdrBH);
         SendSSByte(wAddr>>8);
         SendSSByte(wAddr&0xff);
     }
@@ -912,7 +950,7 @@ void Push2Flash( unsigned char bByte)
     {
         CS_HIGH;
         if (wAddr  == 0) // over 64K
-            Adr2BH++;
+            AdrBH++;
     }    
 }
 void Erace4K(unsigned char Adr2B)
@@ -926,7 +964,7 @@ void Erace4K(unsigned char Adr2B)
     nop();
     CS_LOW; 
     SendSSByte(0x20);
-    SendSSByte(Adr2BH);
+    SendSSByte(AdrBH);
     SendSSByte(Adr2B);
     SendSSByte(0x00); 
     CS_HIGH;
@@ -3010,34 +3048,44 @@ SEND_CONNECT:
         NextLen = ilen;
         TypePkt = 0;
 
-        Adr2BH = Adr2BHEntry;
+        AdrBH = FlashEntryBH;
         wAddr = FlashEntry;
-        BeginAddr = FlashEntry;
-        if (FlashQueueSize < FLASH_BUFFER_LEN)
+        if (FlashQueueSizeBH < FLASH_BUFFER_LEN_BH)
         {
-            Push2Flash(PrevLen);
-            FlashQueueSize++;
-            Push2Flash(NextLen);
-            FlashQueueSize++;
-            Push2Flash(TypePkt);
-            FlashQueueSize++;
-            do
+            if (FlashQueueSize < FLASH_BUFFER_LEN)
             {
-                if (FlashQueueSize < FLASH_BUFFER_LEN)
+                Push2Flash(PrevLen);
+                FlashQueueSize++;
+                Push2Flash(NextLen);
+                FlashQueueSize++;
+                Push2Flash(TypePkt);
+                FlashQueueSize++;
+                do
                 {
-                    Push2Flash(*ptrMy); // inside: wAddr++
-                    if (wAddr >= FLASH_BUFFER_LEN)
-                        wAddr = 0;
-                    FlashQueueSize++;
-                }
-                //else  // loosing data !!!!
-                //{
-                //}
-                ptrMy++;
-             } while(--ilen);
+                    if (FlashQueueSizeBH < FLASH_BUFFER_LEN_BH)
+                    {
+                        if (FlashQueueSize < FLASH_BUFFER_LEN)
+                        {
+                            Push2Flash(*ptrMy); // inside: wAddr++
+                            if (wAddr >= FLASH_BUFFER_LEN)
+                                wAddr = 0;
+                            FlashQueueSize++;
+                            if (FlashQueueSize == 0)
+                                FlashQueueSizeBH++;
+                        }
+                        //else  // loosing data !!!!
+                        //{
+                        //}
+                    }
+                    //else  // loosing data !!!!
+                    //{
+                    //}
+                    ptrMy++;
+                } while(--ilen);
              
-             FlashEntry = wAddr;
-             Adr2BHEntry = Adr2BH;
+                FlashEntry = wAddr;
+                FlashEntryBH = AdrBH;
+            }
         }
         CS_HIGH; // that will keep interrupted read/write from com (if any) -
                  //  on next byte from com interrupted w/r will send to flash enable write/interrupted addr

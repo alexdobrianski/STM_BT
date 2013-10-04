@@ -115,7 +115,7 @@ NO_PROCESS_IN_CMD:;
 #ifdef NON_STANDART_MODEM
             if (FlashEntry == FlashExit)
             {
-                if (Adr2BHEntry == Adr2BHExit)
+                if (FlashEntryBH == FlashExitBH)
                     Main.FlashRQ = 0;
                 else
                 {
@@ -127,6 +127,11 @@ NEEDS_FLASH_PROC:   Main.FlashRQ = 1;
                         {
                             // now it is possible to process data from flash
                             Main.getCMD = 1;
+                            CS_HIGH;
+                            //ReadPrevLen;
+                            //ReadNextLen;
+                            //ReadTypePkt;
+
                             Main.getCMD = 0;
                             Main.FlashRQ = 0;
                         }
