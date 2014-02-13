@@ -2146,7 +2146,7 @@ unsigned SendOverLink:1;
 unsigned SendOverLinkAndProc:1;
 unsigned FlashRQ:1;
 #endif
-VOLATILE unsigned SomePacket:1;
+VOLATILE unsigned SomeInputPacket:1;
 VOLATILE unsigned OutPacket:1;
 VOLATILE unsigned OutPacketESC:1;
 VOLATILE unsigned OutPacketZeroLen:1;
@@ -3313,7 +3313,7 @@ SEND_BYTE_TO_QU:
                        if (Main.InComZeroLenMsg) // packets with 0 length does not exsists!!!
                            goto RELAY_SYMB; // ===> retransmit
                        RelayToNextUnit = 0;
-                       Main.SomePacket = 0;
+                       Main.SomeInputPacket = 0;
                        goto RELAY_SYMB; // ===> retransmit
                    }
                    else if (GETCH_BYTE == MY_UNIT)
@@ -3380,7 +3380,7 @@ SET_MY_UNIT:
                            {            
                                if (GETCH_BYTE >= MIN_ADR) // packet to relay to another untis
                                {
-TO_ANOTHER_UNIT:                   Main.SomePacket = 1;     // set everything to relay the packet to another unit
+TO_ANOTHER_UNIT:                   Main.SomeInputPacket = 1;     // set everything to relay the packet to another unit
                                    RelayToNextUnit = GETCH_BYTE;
                                    Main.InComZeroLenMsg = 1;
                                    Main.InComRetransmit = 0;
@@ -4420,7 +4420,7 @@ void main()
         Main.InComRetransmit = 0;
         Main.InComZeroLenMsg = 0;
 
-        Main.SomePacket = 0;
+        Main.SomeInputPacket = 0;
         Main.OutPacket = 0;
         Main.OutPacketESC = 0;
         Main.OutPacketZeroLen = 0;
@@ -4791,7 +4791,7 @@ void enable_I2C(void);
 void EnableTMR1(void);
 void putch(unsigned char simbol)
 {
-    while(Main.SomePacket) // wait to output to be clean == no packet in serial output
+    while(Main.SomeInputPacket) // wait to output to be clean == no packet in serial output
     ;
     // monitor output packets and set Main.OutPacket accordinly
     if (Main.OutPacketESC)
