@@ -2186,7 +2186,7 @@ VOLATILE unsigned ExtFirst:1;
 } Main;
 
 VOLATILE unsigned char OutPacketUnit;
-VOLATILE unsigned char RelayToNextUnit;
+VOLATILE unsigned char RelayPkt;
 VOLATILE unsigned char AllowMask;
 VOLATILE unsigned char UnitMask1;
 VOLATILE unsigned char UnitMask2;
@@ -3216,14 +3216,14 @@ RC_24_ERROR:
                continue; // can be another bytes
 NO_RC_ERROR:
                // optimized version
-
+#if 0
                if (Main.InComRetransmit)     // prev was escape in STREAM mode or in packet retransmit mode = need retransmit byte as it is
                {
                    Main.InComRetransmit = 0;
                    Main.InComZeroLenMsg = 0;
                    goto RELAY_SYMB;          // ===> jump to retransmit byte
                }
-               else if (RelayToNextUnit != 0) // relay packet to next unit, at the same time unit can process adressed stream == 
+               else if (RelayPkt != 0) // relay packet to next unit, at the same time unit can process adressed stream == 
                {                              // packet to another unit will be retransmit directly without entering queue
                    if (GETCH_BYTE == ESC_SYMB) // inside relay packet ESC char - needs to retransmit as it is and also garanteed to retransmit next byte 
                    {
@@ -3308,17 +3308,17 @@ SEND_BYTE_TO_QU:
                        //   end of direct output to com1
                        /////////////////////////////////////////////////////////////////////////////////////////////
                    }
-                   else if (GETCH_BYTE == RelayToNextUnit) // is it relay message done ??
+                   else if (GETCH_BYTE == RelayPkt) // is it relay message done ??
                    {
                        if (Main.InComZeroLenMsg) // packets with 0 length does not exsists!!!
                            goto RELAY_SYMB; // ===> retransmit
-                       RelayToNextUnit = 0;
+                       RelayPkt = 0;
                        Main.SomeInputPacket = 0;
                        goto RELAY_SYMB; // ===> retransmit
                    }
                    else if (GETCH_BYTE == MY_UNIT)
                    {
-                       RelayToNextUnit = 0;
+                       RelayPkt = 0;
                        goto SET_MY_UNIT;
                    }
                    else if (GETCH_BYTE <= MAX_ADR)
@@ -3330,7 +3330,7 @@ SEND_BYTE_TO_QU:
                    Main.InComZeroLenMsg = 0;
                    goto RELAY_SYMB; // ===> retransmit
                }
-               else if (Main.PacketProcessing)  // case - (not Main.InComRetransmit) && (RelayToNextUnit == 0) && (Main.PacketProcessing)
+               else if (Main.PacketProcessing)  // case - (not Main.InComRetransmit) && (RelayPkt == 0) && (Main.PacketProcessing)
                {
                    if (Main.CMDToProcessGetESC)
                    {
@@ -3352,7 +3352,7 @@ SEND_BYTE_TO_QU:
                    }         
                    ;  // =======> process message => insert in queue
                }
-               else // now == (not Main.InComRetransmit) && (RelayToNextUnit == 0) && (not Main.PacketProcessing) == no any packet yet
+               else // now == (not Main.InComRetransmit) && (RelayPkt == 0) && (not Main.PacketProcessing) == no any packet yet
                { 
                    // what is that????? if it is not a FLASH request - well assume this case
                    if (!Main.FlashRQ)
@@ -3381,7 +3381,7 @@ SET_MY_UNIT:
                                if (GETCH_BYTE >= MIN_ADR) // packet to relay to another untis
                                {
 TO_ANOTHER_UNIT:                   Main.SomeInputPacket = 1;     // set everything to relay the packet to another unit
-                                   RelayToNextUnit = GETCH_BYTE;
+                                   RelayPkt = GETCH_BYTE;
                                    Main.InComZeroLenMsg = 1;
                                    Main.InComRetransmit = 0;
                                }
@@ -3392,7 +3392,57 @@ TO_ANOTHER_UNIT:                   Main.SomeInputPacket = 1;     // set everythi
                            //goto RELAY_SYMB; // ===> jump to retransmit
                        }
                    }
-               }    
+               }
+#else
+               if (RelayPkt == 0)  // no packet is in a process or in relay
+               {
+                   if ( Main.GetPkt) // packet in queue
+                   {
+                       if (Main.GetPktESC)
+                       {
+                           Main.GetPktESC = 0;
+                           goto INSERT_TO_COM_Q;
+                       }
+                       if (GETCH_BYTE == ESC_SYMB)
+                       {
+                           Main.GetPktESC = 1;
+                           goto INSERT_TO_COM_Q;
+                       }
+                       if (GETCH_BYTE == MY_UNIT)
+                       {
+                           Main.GetPkt = 0;
+                           goto INSERT_TO_COM_Q;
+                       }
+                   }
+                   if (GETCH_BYTE == MY_UNIT)
+                   {
+                        Main.GetPkt = 1;
+                        goto END_INPUT_COM;
+                   }
+                   if (GETCH_BYTE <= MAX_ADR)
+                   {            
+                       if (GETCH_BYTE >= MIN_ADR) // msg to relay
+                       {
+                           RelayPkt = GETCH_BYTE;
+                       }
+                   }
+                   // all not belong to a packet == garbage has to be removed
+               }
+               else // if (RelayPkt != 0)
+               {
+                   if (RelayPkt == GETCH_BYTE)
+                   {
+                       RelayPkt = 0;
+                   }
+               }
+               if (!TXIE) // if TX interrupt enabled == all comm data has to be sent to queue
+               {
+                   if (OutQu.iQueueSize == 0) // if in outQueue there are someting == all comm data to be sent to queue
+                   {
+
+                   }
+               }
+#endif
 //////////////////////////////////////////////////////////////////
 // end of optimized version
 //////////////////////////////////////////////////////////////////
@@ -4292,6 +4342,7 @@ void ProcessCMD(unsigned char bByte);
 void putch(unsigned char simbol);
 void putchWithESC(unsigned char simbol);
 unsigned char getch(void);
+void putch_main(void);
 
 void InitModem(void)
 {
@@ -4463,7 +4514,7 @@ void main()
         Main.PauseOutQueueFull = 0;
 #endif
         I2C_B1.I2CMasterDone = 1;
-        RelayToNextUnit = 0;
+        RelayPkt = 0;
         AllowMask = 0xff;
         UnitMask1 = 0xff;
         UnitMask2 = 0;
@@ -4642,6 +4693,7 @@ void main()
 
     while(1)
     {
+        putch_main();
 #ifdef TX_NOT_READY
         if (Main.SuspendTX) // was suspend of a transmit because next unit was not ready to acsept data
         {
@@ -4717,7 +4769,7 @@ NO_PROCESS_IN_CMD:;
 NEEDS_FLASH_PROC:   Main.FlashRQ = 1;
                     if (!Main.getCMD) // only if it is not a command mode
                     {
-                        if (RelayToNextUnit==0) // can be write to com -> data can be sent
+                        if (RelayPkt==0) // can be write to com -> data can be sent
                         {
                             // now it is possible to process data from flash
                             Main.getCMD = 1;
@@ -4789,6 +4841,10 @@ void enable_uart(void);
 void enable_I2C(void);
 #endif
 void EnableTMR1(void);
+void putch_main(void)
+{
+}
+#if 0
 void putch(unsigned char simbol)
 {
     while(Main.SomeInputPacket) // wait to output to be clean == no packet in serial output
@@ -4879,7 +4935,112 @@ SEND_BYTE_TO_QU:
         } 
     }
 }
+#else
+void putch(unsigned char simbol)
+{
+    while (AOutQu.iQueueSize >= OUT_BUFFER_LEN)
+    {
+    }
+SEND_BYTE_TO_QU:
+    AOutQu.Queue[AOutQu.iEntry] = simbol; // add bytes to a queue
+    if (++AOutQu.iEntry >= OUT_BUFFER_LEN)
+        AOutQu.iEntry = 0;
+    AOutQu.iQueueSize++; // this is unar operation == it does not interfere with interrupt service decrement
+    //if (!Main.PrepI2C)      // and allow transmit interrupt
+    //    TXIE = 1;  // placed simol will be pushed out of the queue by interrupt
+}
+/*
 
+    while(Main.SomeInputPacket) // wait to output to be clean == no packet in serial output
+    ;
+    // monitor output packets and set Main.OutPacket accordinly
+    if (Main.OutPacketESC)
+        Main.OutPacketESC =0;
+    else if (simbol == ESC_SYMB)
+        Main.OutPacketESC = 1;
+    else 
+    {
+        if (Main.OutPacket)
+        {
+            if (simbol == OutPacketUnit)
+            {
+                if (!Main.OutPacketZeroLen)
+                    Main.OutPacket = 0;
+            }
+            else
+                Main.OutPacketZeroLen = 0;
+        }
+        else
+        {
+            if (simbol <= MAX_ADR)
+            {
+                if (simbol  >= MIN_ADR)
+                {
+                    Main.OutPacket = 1;
+                    Main.OutPacketZeroLen = 1;
+                    OutPacketUnit = simbol; 
+                }
+            }
+        }
+    }
+    if (AOutQu.iQueueSize == 0)  // if this is a com and queue is empty then needs to directly send byte(s) 
+    {                            // on 16LH88,16F884,18F2321 = two bytes on pic24 = 4 bytes
+#ifdef TX_NOT_READY
+CHECK_NEXT_UNIT:        
+        if (TX_NOT_READY)  // next unit is not ready to acsept data 
+        {
+             // TBD: probably requare TimeOut???
+             goto CHECK_NEXT_UNIT; 
+        }
+#endif
+        // at that point Uart interrupt is disabled
+#ifdef __PIC24H__
+        if (!U1STAbits.UTXBF) // on pic24 this bit is empy when at least there is one space in Tx buffer
+        {
+            TXIF = 0; // for pic24 needs to clean uart interrupt in software
+            TXEN = 1; // just in case ENABLE transmission
+            TXREG = simbol;   // full up TX buffer to full capacity, also cleans TXIF
+        }
+        else
+        {
+            goto SEND_BYTE_TO_QU; // placing simbol into queue will also enable uart interrupt
+        }
+#else
+        if (_TRMT)            // indicator that tramsmit shift register is empty (on pic24 it is also mean that buffer is empty too)
+        {
+            TXEN = 1;
+            I2C.SendComOneByte = 0;
+            TXREG = simbol; // this will clean TXIF on 88,884 and 2321
+        }
+        else // case when something has allready send directly
+        {
+
+            if (!I2C.SendComOneByte)      // one byte was send already 
+            {
+                TXREG = simbol;           // this will clean TXIF 
+                I2C.SendComOneByte = 1;
+            }
+            else                     // two bytes was send on 88,884,2321 and up to 4 was send on pic24
+                goto SEND_BYTE_TO_QU; // placing simbol into queue will also enable uart interrupt
+        }
+#endif
+    }
+    else
+    {
+        if (AOutQu.iQueueSize < OUT_BUFFER_LEN)
+        {
+SEND_BYTE_TO_QU:
+            AOutQu.Queue[AOutQu.iEntry] = simbol; // add bytes to a queue
+            if (++AOutQu.iEntry >= OUT_BUFFER_LEN)
+                AOutQu.iEntry = 0;
+            AOutQu.iQueueSize++; // this is unar operation == it does not interfere with interrupt service decrement
+            //if (!Main.PrepI2C)      // and allow transmit interrupt
+            TXIE = 1;  // placed simol will be pushed out of the queue by interrupt
+        } 
+    }
+}
+*/
+#endif
 #ifdef USE_COM2
 #ifdef __PIC24H__
 void putchCom2(unsigned char simbol)
