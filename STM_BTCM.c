@@ -189,7 +189,7 @@ see www.adobri.com for communication protocol spec
 //#define __DEBUG
 //#define SHOW_RX_TX
 //#define SHOW_RX
-
+//#define FLASH_POWER_DOWN 1
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 // define blinking LED on pin 14 (RC3)
 /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -3528,6 +3528,7 @@ RELAY_NOT_GRANTED:         Main.RelayGranted = 0;
                        }
                    }
                    // all not belong to a packet == garbage has to be removed
+                   goto END_INPUT_COM;
                }
                else // if (RelayPkt != 0)  // paket is relaying 
                {
@@ -7547,7 +7548,7 @@ void Reset_device(void)
                          //    00 = Primary oscillato
 
    // 18F25K20
-   OSCCON = 0b01110000; //OSCILLATOR CONTROL REGISTER (ADDRESS 8Fh)
+   OSCCON = 0b11110000; //OSCILLATOR CONTROL REGISTER (ADDRESS 8Fh)
                          //bit 7 IDLEN: Idle Enable bit
                          //   1         = Device enters Idle mode on SLEEP instruction
                          //   0         = Device enters Sleep mode on SLEEP instruction
@@ -7752,7 +7753,7 @@ void Reset_device(void)
      //                1 = Enables Timer3
      //                0 = Stops Timer3
      T3CON = 0b10000000;
-
+     
 
 #else // done _18F2321_18F25K20 // begins 16f884
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -7909,6 +7910,7 @@ void Reset_device(void)
 
     //INT0IE = 1; // enable external interrupt
 #endif
+     //CsLow();
 }
 
 

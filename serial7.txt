@@ -1,5 +1,5 @@
 wait 1 sec
-"5~#5#1#2#a51aaaaaaaaaaab13aaaaaab3"
+"nashamasha luchshe vashei5~#5#1#2#a51aaaaaaaaaaab13aaaaaab3"
 0x0d 
 0x0a 
 "5~1aaaaaaaaaaab13aaaaaab3"
