@@ -3473,52 +3473,18 @@ OVERLOAD_QUEUE:
                                     ///////////////////////////////////////////////////////////////////////////////////////
                                     // direct output to com1
                                     ///////////////////////////////////////////////////////////////////////////////////////
-                                    if (AOutQu.iQueueSize == 0)  // if this is a com and queue is empty then needs to directly send byte(s) 
-                                    {                            // on 16LH88,16F884,18F2321 = two bytes on pic24 = 4 bytes
-                                        // at that point Uart interrupt is disabled
-                                        if (_TRMT)            // indicator that tramsmit shift register is empty (on pic24 it is also mean that buffer is empty too)
-                                        {
-                                            TXEN = 1;
-                                            Main.SendComOneByte = 0;
-                                            TXREG = GETCH_BYTE; // this will clean TXIF on 88,884 and 2321
-                                        }
-                                        else // case when something has allready send directly
-                                        {
-#ifdef __PIC24H__
-                                            TXIF = 0; // for pic24 needs to clean uart interrupt in software
-                                            if (!U1STAbits.UTXBF) // on pic24 this bit is empy when at least there is one space in Tx buffer
-                                                TXREG = GETCH_BYTE;   // full up TX buffer to full capacity, also cleans TXIF
-                                            else
-                                                goto SEND_BYTE_TO_QU; // placing simbol into queue will also enable uart interrupt
-#else
-                                            if (!Main.SendComOneByte)      // one byte was send already 
-                                            {
-                                                TXREG = GETCH_BYTE;           // this will clean TXIF 
-                                                Main.SendComOneByte = 1;
-                                            }
-                                            else                     // two bytes was send on 88,884,2321 and up to 4 was send on pic24
-                                                goto SEND_BYTE_TO_QU; // placing simbol into queue will also enable uart interrupt
-#endif
-                                        }
-                                    }
-                                    else
+                                    if (AOutQu.iQueueSize < OUT_BUFFER_LEN)
                                     {
-                                        if (AOutQu.iQueueSize < OUT_BUFFER_LEN)
-                                        {
-SEND_BYTE_TO_QU:
-                                            AOutQu.Queue[AOutQu.iEntry] = GETCH_BYTE; // add bytes to a queue
-                                            if (++AOutQu.iEntry >= OUT_BUFFER_LEN)
-                                                AOutQu.iEntry = 0;
-                                            AOutQu.iQueueSize++; // this is unar operation == it does not interfere with interrupt service decrement
-
-                                            TXIE = 1;  // placed simbol will be pushed out of the queue by interrupt
+                                        AOutQu.Queue[AOutQu.iEntry] = GETCH_BYTE; // add bytes to a queue
+                                        if (++AOutQu.iEntry >= OUT_BUFFER_LEN)
+                                            AOutQu.iEntry = 0;
+                                        AOutQu.iQueueSize++; // this is unar operation == it does not interfere with interrupt service decrement
+                                        TXIE = 1;  // placed simbol will be pushed out of the queue by interrupt
+                                    } 
 #ifdef RX_FULL
-                                            if (AOutQu.iQueueSize > (OUT_BUFFER_LEN-CRITICAL_BUF_SIZE))
-                                                RX_FULL = 1;
-#endif
-                                        } 
-                                    }
-
+                                    if (AOutQu.iQueueSize > (OUT_BUFFER_LEN-CRITICAL_BUF_SIZE))
+                                        RX_FULL = 1;
+#endif                                    
                                     goto END_INPUT_COM;
                                 }
                            }
@@ -3540,6 +3506,12 @@ RELAY_NOT_GRANTED:         Main.RelayGranted = 0;
                    {
                        if (!Main.RelayPktLenNull) // need to skip <Unit><Unit> to fix the error, or to support <unin><Unin> <data> format of the packet
                            RelayPkt = 0;
+                       if (Main.RelayGranted)
+                       {
+                           Main.RelayGranted = 0;
+                           goto DIRECT_RELAY;
+                       }        
+                       goto INSERT_TO_COM_Q;
                    }
                    else 
                        Main.RelayPktLenNull = 0;
@@ -3614,14 +3586,19 @@ END_INPUT_COM:;
 #ifdef __PIC24H__
        unsigned int work1;
        TXIF = 0;             // for pic24 needs to clean interrupt flag inside software
-       if (!U1STAbits.UTXBF) // is any space in HW output queue ? (if bit == 0 then it is posible to push another byte)
+       while(!U1STAbits.UTXBF) // is any space in HW output queue ? (if bit == 0 then it is posible to push another byte)
 #else
-       if (TXIF)        
+       while (TXIF) 
 #endif
        {
 #ifdef TX_NOT_READY
            if (TX_NOT_READY)  // next unit is not ready to acsept data 
                 goto CLOSE_SEND;
+#endif
+
+#ifdef __PIC24H__
+#else
+           Main.SendComOneByte = _TRMT;
 #endif
            if (OverLoad.iQueueSize)
            {
@@ -3637,7 +3614,7 @@ END_INPUT_COM:;
                     RX_FULL = 0;  // all overloaded data from direct replay can send to output - now previous unit can send data 
                 Main.RelayPktOverload = 0;
                 
-           		if (AOutQu.iQueueSize)
+         		if (AOutQu.iQueueSize)
            		{
                		// load to TXREG will clean TXIF (on some PIC)
                		TXREG = AOutQu.Queue[AOutQu.iExit];
@@ -3653,10 +3630,13 @@ CLOSE_SEND:
                		// otherwise it will be endless
                		// for speed up output - first bytes already send + at the end needs to send UnitAddr
                		TXIE = 0;
+                    break;
                		// transmit buffer has something in it (also for pic24 in a bufer there is a data)
                		// avoid reentry of interrupt
            		}
            }
+           if (!Main.SendComOneByte) 
+               break;
        }
 CONTINUE_WITH_ISR:;
    }
@@ -4579,7 +4559,6 @@ void main()
         Main.RelayGranted = 0;
         Main.RelayPktOverload = 0;
         Main.RelayPktESC = 0;
-
         Main.PrepI2C = 0;
         Main.DoneWithCMD = 1;
 
@@ -4620,6 +4599,7 @@ void main()
 
         I2C_B1.I2CMasterDone = 1;
         RelayPkt = 0;
+        OutPacketUnit = 0;
         AllowMask = 0xff;
         UnitMask1 = 0xff;
         UnitMask2 = 0;
@@ -4863,7 +4843,7 @@ NEEDS_FLASH_PROC:   Main.FlashRQ = 1;
                 CLKDIVbits.DOZEN = 1; // switch clock from 40MOP=>1.25MOP
 #else
 #ifdef _18F2321_18F25K20
-               sleep();
+               //sleep();
 #endif
 #endif
             }
@@ -5010,7 +4990,7 @@ void putch_main(void)
     {
         if (RelayPkt == 0) // nothing is relaying directly
         {
-            if (!TXEN) // no interrupts 
+            if (!TXIE) // no interrupts 
             {                            // on 16LH88,16F884,18F2321 = two bytes on pic24 = 4 bytes
 #ifdef TX_NOT_READY
                 if (!TX_NOT_READY)  // next unit is ready to acsept data  
@@ -5019,34 +4999,37 @@ void putch_main(void)
                     if (AOutQu.iQueueSize != 0)  // something in the queue to be send    
                     {
 #ifdef __PIC24H__
-                        while (!U1STAbits.UTXBF) // on pic24 this bit is empy when at least there is one space in Tx buffer
+                        if (!U1STAbits.UTXBF) // on pic24 this bit is empy when at least there is one space in Tx buffer
 #else
-                        Main.SendComOneByte = 0; // up to 2 bytes can be send on some PIC
-                        while (_TRMT)            // indicator that tramsmit shift register is empty (on pic24 it is also mean that buffer is empty too)
+                        //Main.SendComOneByte = 0; // up to 2 bytes can be send on some PIC
+                        if (_TRMT)            // indicator that tramsmit shift register is empty (on pic24 it is also mean that buffer is empty too)
 #endif
                         {
-                            simbol = AOutQu.Queue[AOutQu.iExit];
-                            if (++AOutQu.iExit >= OUT_BUFFER_LEN)
-                                AOutQu.iExit = 0;
-                            AOutQu.iQueueSize--;
-                            if (AOutQu.iQueueSize == 0)
-                                break;
+DOSEND_SECOND_BYTE:
+                            //simbol = AOutQu.Queue[AOutQu.iExit];
+                            //if (++AOutQu.iExit >= OUT_BUFFER_LEN)
+                            //    AOutQu.iExit = 0;
+                            //AOutQu.iQueueSize--;
 #ifdef __PIC24H__
-                            TXIF = 0; // for pic24 needs to clean uart interrupt in software
+                            //TXIF = 0; // for pic24 needs to clean uart interrupt in software
 #endif
                             TXEN = 1; // just in case ENABLE transmission
-                            TXREG = simbol;   // full up TX buffer to full capacity, also cleans TXIF
+                            //TXREG = simbol;   // full up TX buffer to full capacity, also cleans TXIF
                             TXIE = 1;  // placed simol will be pushed out of the queue by interrupt
+
+                            //if (AOutQu.iQueueSize == 0)
+                            //    break;
 #ifdef __PIC24H__
 #else
-                            if (Main.SendComOneByte)
-                                break;
-                            Main.SendComOneByte = 1;
+                            //if (Main.SendComOneByte)
+                            //    break;
+                            //Main.SendComOneByte = 1;
 #endif
 #ifdef TX_NOT_READY
-                            if (TX_NOT_READY)  // next unit is not ready to acsept data == no more data to send
-                                break;
+                            //if (TX_NOT_READY)  // next unit is not ready to acsept data == no more data to send
+                            //    break;
 #endif
+
                         }
                     }
                 }
@@ -5086,15 +5069,15 @@ void putch(unsigned char simbol)
 
     while (AOutQu.iQueueSize >= OUT_BUFFER_LEN) // doea output queue full ?? then wait till some space will be avalable in output queue
     {
-#ifdef TX_NOT_READY
-        if (!TX_NOT_READY)  // next unit is ready to acsept data == enable interrupt that will force output
-        {
-#ifdef __PIC24H__
-            TXIF = 0; // for pic24 needs to clean uart interrupt in software
-#endif
-            TXEN = 1; // just in case ENABLE transmission and generate interrupt
-        }    
-#endif
+//#ifdef TX_NOT_READY
+//        if (!TX_NOT_READY)  // next unit is ready to acsept data == enable interrupt that will force output
+//        {
+//#ifdef __PIC24H__
+//            TXIF = 0; // for pic24 needs to clean uart interrupt in software
+//#endif
+//            TXEN = 1; // just in case ENABLE transmission and generate interrupt
+//        }    
+//#endif
     }
 SEND_BYTE_TO_QU:
     AOutQu.Queue[AOutQu.iEntry] = simbol; // add bytes to a queue
@@ -5143,9 +5126,6 @@ void putchCom2WithESC(unsigned char simbol)
 {
     if (Main.SendCom2WithEsc)
     {
-WAIT_SPACE_Q:
-        if (AOutQuCom2.iQueueSize >= (OUT_BUFFER_LEN-3)) // is enought space to output ??
-            goto WAIT_SPACE_Q;
         if (simbol == ESC_SYMB)
            goto PUT_ESC;
 
@@ -6020,6 +6000,7 @@ CONTINUE_READ:
                     {
                         putchWithESC(GetSSByte()); // read byte from FLASh will goes to Com
                                                    // if size bigger then 13 bytes it can be delay (putchWithESC waits out queue avalable space)
+                        putch_main(); // that will initiate send 
                     } while(--bByte);
                     DataB3.FlashRead = 0;
                     Main.SendWithEsc = 0;
