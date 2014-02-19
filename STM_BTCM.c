@@ -297,6 +297,7 @@ see www.adobri.com for communication protocol spec
 #else
 // SSCLOCK RA2(pin4), SSDATA_IN RA3(pin5), SSDATA_OUT RA4(pin6), SSCS RA5(pin7)
 
+#ifdef _18F25K20
 #define SSPORT PORTA
 #define SSCLOCK 2
 #define SSDATA_IN 3
@@ -304,9 +305,22 @@ see www.adobri.com for communication protocol spec
 #define SSCS       5
 
 // this is for Cubesat version - 3 FLASH memory processing
-#define SSPORT2  PORTC
-#define SSDATA_OUT2 0
-#define SSDATA_OUT3 1
+//#define SSPORT2  PORTC
+//#define SSDATA_OUT2 0
+//#define SSDATA_OUT3 1
+
+#else
+#define SSPORT PORTA
+#define SSCLOCK 2
+#define SSDATA_IN 3
+#define SSDATA_OUT 4
+#define SSCS       5
+
+// this is for Cubesat version - 3 FLASH memory processing
+//#define SSPORT2  PORTC
+//#define SSDATA_OUT2 0
+//#define SSDATA_OUT3 1
+#endif
 #endif
 /////////////////////////////////////////////////////////////////////////////////
 //   BT definitions
@@ -4402,6 +4416,13 @@ MAIN_EXIT:
 //#define ONEBIT_TMR0_LEN 0x10
 // temp vars will be on bank 1 together with I2C queue
 #pragma rambank RAM_BANK_1
+#ifdef SSPORT
+void SendSSByte(unsigned char bByte);
+unsigned char GetSSByte(void);
+void SendSSByteFAST(unsigned char bByte); // for a values <= 3
+#endif
+
+
 ////////////////////////////////////BANK 1////////////////////////////////////
 //////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////
@@ -4715,6 +4736,61 @@ void main()
 #endif
 
 //    PLLEN = 1;
+
+            // F\x01\x06              == write enable (flash command 06) -> send 0x06
+            // F\x01\0xc7             == erase all flash                 -> send =0xc7
+            // F\x05\x03\x00\x12\x34@\x04 == read 4 bytes from a address 0x001234  -> send 0x03 0x00 0x12 0x34 <- read 4 bytes (must not to cross boundary)
+            // F\x01\x06F\x0c\x02\x00\x11\x22\x00\x00\x00\x00\x00\x00\x00\x00 == write 8 bytes to address 0x001122
+    CS_LOW;
+    SendSSByte(0x06);
+    CS_HIGH;
+    nop();
+    CS_LOW;
+    SendSSByte(0xc7);
+    CS_HIGH;
+    nop();
+
+
+    CS_LOW;
+    SendSSByte(0x06);
+    CS_HIGH;
+    nop();
+    CS_LOW;
+    SendSSByte(0x02);
+    SendSSByte(0x00);
+    SendSSByte(0x00);
+    SendSSByte(0x00);
+
+    SendSSByte(0x01);
+    SendSSByte(0x02);
+    SendSSByte(0x03);
+    SendSSByte(0x04);
+    SendSSByte(0x05);
+    SendSSByte(0x06);
+    SendSSByte(0x07);
+    SendSSByte(0x08);
+    CS_HIGH;
+
+    nop();
+    CS_LOW;
+    SendSSByte(0x03);
+    SendSSByte(0x00);
+    SendSSByte(0x00);
+    SendSSByte(0x00);
+
+    bWork = GetSSByte();
+    bWork = GetSSByte();
+    bWork = GetSSByte();
+    bWork = GetSSByte();
+    bWork = GetSSByte();
+    bWork = GetSSByte();
+    bWork = GetSSByte();
+    bWork = GetSSByte();
+    bWork = GetSSByte();
+    bWork = GetSSByte();
+    CS_HIGH;
+
+
     ShowMessage();
 #ifdef DEBUG_LED_CALL_EARTH
                 DataB0.Timer3SwitchRX = 0;
@@ -4877,11 +4953,11 @@ NEEDS_FLASH_PROC:   Main.FlashRQ = 1;
 /////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////
-#ifdef SSPORT
-void SendSSByte(unsigned char bByte);
-unsigned char GetSSByte(void);
-void SendSSByteFAST(unsigned char bByte); // for a values <= 3
-#endif
+//#ifdef SSPORT
+//void SendSSByte(unsigned char bByte);
+//unsigned char GetSSByte(void);
+//void SendSSByteFAST(unsigned char bByte); // for a values <= 3
+//#endif
 
 
 void enable_uart(void);
@@ -5001,35 +5077,11 @@ void putch_main(void)
 #ifdef __PIC24H__
                         if (!U1STAbits.UTXBF) // on pic24 this bit is empy when at least there is one space in Tx buffer
 #else
-                        //Main.SendComOneByte = 0; // up to 2 bytes can be send on some PIC
                         if (_TRMT)            // indicator that tramsmit shift register is empty (on pic24 it is also mean that buffer is empty too)
 #endif
                         {
-DOSEND_SECOND_BYTE:
-                            //simbol = AOutQu.Queue[AOutQu.iExit];
-                            //if (++AOutQu.iExit >= OUT_BUFFER_LEN)
-                            //    AOutQu.iExit = 0;
-                            //AOutQu.iQueueSize--;
-#ifdef __PIC24H__
-                            //TXIF = 0; // for pic24 needs to clean uart interrupt in software
-#endif
                             TXEN = 1; // just in case ENABLE transmission
-                            //TXREG = simbol;   // full up TX buffer to full capacity, also cleans TXIF
-                            TXIE = 1;  // placed simol will be pushed out of the queue by interrupt
-
-                            //if (AOutQu.iQueueSize == 0)
-                            //    break;
-#ifdef __PIC24H__
-#else
-                            //if (Main.SendComOneByte)
-                            //    break;
-                            //Main.SendComOneByte = 1;
-#endif
-#ifdef TX_NOT_READY
-                            //if (TX_NOT_READY)  // next unit is not ready to acsept data == no more data to send
-                            //    break;
-#endif
-
+                            TXIE = 1;  // placed simbol will be pushed out of the queue by interrupt
                         }
                     }
                 }
@@ -5067,17 +5119,9 @@ void putch(unsigned char simbol)
             return;   // fixing output packet
     }
 
-    while (AOutQu.iQueueSize >= OUT_BUFFER_LEN) // doea output queue full ?? then wait till some space will be avalable in output queue
+    while (AOutQu.iQueueSize >= OUT_BUFFER_LEN) // dose output queue full ?? then wait till some space will be avalable in output queue
     {
-//#ifdef TX_NOT_READY
-//        if (!TX_NOT_READY)  // next unit is ready to acsept data == enable interrupt that will force output
-//        {
-//#ifdef __PIC24H__
-//            TXIF = 0; // for pic24 needs to clean uart interrupt in software
-//#endif
-//            TXEN = 1; // just in case ENABLE transmission and generate interrupt
-//        }    
-//#endif
+
     }
 SEND_BYTE_TO_QU:
     AOutQu.Queue[AOutQu.iEntry] = simbol; // add bytes to a queue
@@ -7597,7 +7641,7 @@ void Reset_device(void)
 //     crystal            OSC2/CLKO/RA6 |10     19| VSS
 // SSDATA_OUT2         RC0/T1OSO/T13CKI |11     18| RC7/RX/DT        <--- Serial RX
 // SSDATA_OUT3           RC1/T1OSI/CCP2 |12     17| RC6/TX/CK        ---> Serial TX
-//                             RC2/CCP1 |13     16| RC5/SDO          ---> Low == Serial RX_FULL (set High on Com queue full)
+//                             RC2/CCP1 |13     16| RC5/SDO          ---> Low == Serial RX_FULL (set High on input Com queue full)
 // dbg blinking LED         RC3/SCK/SCL |14     15| RC4/SDI/SDA      <--- Low == TX_NOT_READY Next serial unit not ready to get data  
 
 
@@ -7618,7 +7662,7 @@ void Reset_device(void)
     //          0            0                        IN                  1
     // RA6 & RA7 == IN Crystal osc
     TRISA = 0b11010000;  //0 = Output, 1 = Input 
-    PORTA = 0b00101110; // high=, Tx_CSN, Tx_SCK/SSCLOCK, Tx_MOSI/SSDATA_IN, , SSCS, low=Tx_CE
+    PORTA = 0b00101010; // Q, Q, SSCS , Rx_MISO+SSDATA_OUT, Tx_MOSI+SSDATA_IN, Tx_SCK +SSCLOCK , Tx_CSN , low=Tx_CE
     // RB0 - external INT Pin 21
     TRISB = 0b00000001;  //0 = Output, 1 = Input 
     PORTB = 0b00000000;  // nothing happened with amplifiers BT_TX,BT_RX=low
@@ -7631,7 +7675,7 @@ void Reset_device(void)
     // SSDATA_OUT2 = IN RC0 pin 11
     // SSDATA_OUT3 = IN RC1 pin 12
     TRISC = 0b10010011;  //0 = Output, 1 = Input 
-    PORTC = 0b01000000;
+    PORTC = 0b01001000;
      
     //RBPU_ = 0;
     //bitclr(OPTION,RBPU_); //Each of the PORTB pins has a weak internal pull-up. A
@@ -8376,11 +8420,15 @@ void SendSSByte(unsigned char bByte)
         // SSCLOCK RA0(pin2), SSDATA_IN RA1(pin3), SSDATA_OUT RA2(pin9), SSCS RA3(pin10)
         //PORTA = 0b00000000;
 #else
+        nop();nop();
         bclr(SSPORT,SSCLOCK);
+        nop();nop();
         bclr(SSPORT,SSDATA_IN);
 #endif
+        nop();nop();
 		if (bittest(bByte,7))
             bset(SSPORT,SSDATA_IN);
+        nop();nop();
 #ifdef _OPTIMIZED_
   #ifdef __PIC24H__
          bByte<<=1;
@@ -8396,7 +8444,9 @@ void SendSSByte(unsigned char bByte)
 #else // not optimized version
         bByte<<=1;
 #endif
+        nop();nop();
         bset(SSPORT,SSCLOCK);
+        nop();nop();
     }
     while (--bWork); // 7*8 = 56 or 8*8 = 64 commands
     bclr(SSPORT,SSCLOCK);
@@ -8500,8 +8550,12 @@ unsigned char GetSSByte(void)
     bWork2 = 0;
     do
     {
+        nop();nop();
         bWork2 <<=1;
+        nop();nop();
         bset(SSPORT,SSCLOCK);
+        nop();nop();
+        nop();nop();
         //nop();
         //bitclr(bWork2,0); // bWork2 is unsigned == zero in low bit garanteed check assembler code to confirm
 //#undef SSDATA_OUT2
@@ -8524,7 +8578,10 @@ FLASH_MAJORITY:
         if (btest(SSPORT_READ,SSDATA_OUT_READ))
             bitset(bWork2,0);
 #endif
+        nop();nop();
         bclr(SSPORT,SSCLOCK);
+        nop();nop();
+        nop();nop();
     }
     while (--bWork);
     return bWork2;
