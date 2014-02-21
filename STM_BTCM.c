@@ -298,10 +298,12 @@ see www.adobri.com for communication protocol spec
 // SSCLOCK RA2(pin4), SSDATA_IN RA3(pin5), SSDATA_OUT RA4(pin6), SSCS RA5(pin7)
 
 #ifdef _18F25K20
-#define SSPORT PORTA
+#define SSPORT LATA
+#define SSPORT_READ PORTA
 #define SSCLOCK 2
 #define SSDATA_IN 3
 #define SSDATA_OUT 4
+#define SSDATA_OUT_READ 4
 #define SSCS       5
 
 // this is for Cubesat version - 3 FLASH memory processing
@@ -325,14 +327,15 @@ see www.adobri.com for communication protocol spec
 /////////////////////////////////////////////////////////////////////////////////
 //   BT definitions
 /////////////////////////////////////////////////////////////////////////////////
-#define PORT_BT PORTA
+#define PORT_BT LATA
+#define PORT_BT_READ PORTA
 #define Tx_CE      0	// RA0 pin 2 // Chip Enable Activates RX or TX mode
 #define Tx_CSN     1	// RA1 pin 3 // SPI Chip Select
 #define Tx_SCK     2    // RA2 pin 4  // SPI Clock
 #define Tx_MOSI    3	// RA3 pin 5  // SPI Slave Data Input
 #define Rx_MISO    4	// RA4 pin 6  // SPI Slave Data Output, with tri-state option
 #define Rx_IRQ     0    // RB0 pin 21 // Maskable interrupt pin. Active low
-#define PORT_AMPL PORTB
+#define PORT_AMPL LATB
 #define BT_TX      1   // RB1 pin 22 BT in transmit mode
 #define BT_RX      2   // RB2 pin 23 BT in receive mode
 
@@ -344,8 +347,8 @@ see www.adobri.com for communication protocol spec
 //     RX_FULL     signals to prev unit to send data
 //     TX_NOT_READY   check next in loop for ready to receive data
 ////////////////////////////////////////////////////////////////////////////////////
-#define RX_FULL PORTC.5
-#define TX_NOT_READY PORTC.4
+#define RX_FULL LATC.5
+#define TX_NOT_READY LATC.4
 
 
 
@@ -4736,7 +4739,7 @@ void main()
 #endif
 
 //    PLLEN = 1;
-
+#if 0
             // F\x01\x06              == write enable (flash command 06) -> send 0x06
             // F\x01\0xc7             == erase all flash                 -> send =0xc7
             // F\x05\x03\x00\x12\x34@\x04 == read 4 bytes from a address 0x001234  -> send 0x03 0x00 0x12 0x34 <- read 4 bytes (must not to cross boundary)
@@ -4789,7 +4792,7 @@ void main()
     bWork = GetSSByte();
     bWork = GetSSByte();
     CS_HIGH;
-
+#endif
 
     ShowMessage();
 #ifdef DEBUG_LED_CALL_EARTH
@@ -5720,7 +5723,7 @@ void CheckStatus(void)
 void GetFromFlash( unsigned char bByte)
 {
     unsigned char bRet;
-    if (btest(SSPORT,SSCS)) // is it HIGH ???
+    if (btest(SSPORT_READ,SSCS)) // is it HIGH ???
     {
         CheckStatus(); 
         SendSSByte(0x03);
@@ -5739,7 +5742,7 @@ void GetFromFlash( unsigned char bByte)
 }
 void Push2Flash( unsigned char bByte)
 {
-    if (btest(SSPORT,SSCS)) // is it HIGH ???
+    if (btest(SSPORT_READ,SSCS)) // is it HIGH ???
     {
         CheckStatus();
         CS_LOW;
@@ -6097,7 +6100,7 @@ CONTINUE_READ:
                 else
                 {
 SEND_AGAIN:         // that is equivalent of a function -- just on some PIC it is not enought stack
-                    if (!btest(SSPORT,SSCS)) // another FLASH write can pause FLASH write intiated by serial 
+                    if (btest(SSPORT,SSCS)) // another FLASH write can pause FLASH write intiated by serial 
                     {
                         if (OldFlashCmd != 0)
                         {
@@ -7644,7 +7647,11 @@ void Reset_device(void)
 //                             RC2/CCP1 |13     16| RC5/SDO          ---> Low == Serial RX_FULL (set High on input Com queue full)
 // dbg blinking LED         RC3/SCK/SCL |14     15| RC4/SDI/SDA      <--- Low == TX_NOT_READY Next serial unit not ready to get data  
 
-
+// /CS  |1   8|  VCC       CS#  |1   8|  VCC       ^S   |1   8|  VCC
+// DO   |2   7|  /HOLD     SO   |2   7|  HOLD#     Q    |2   7|  ~HOLD
+// /WP  |3   6|  CLK       WP#  |3   6|  CLK       ~W   |3   6|  C
+// GND  |4   5|  DI        GND  |4   5|  DI        VSS  |4   5|  D
+///////////////////////// 
     //BT pin assignment
 
     // #define PORT_BT PORTAbits
@@ -8420,15 +8427,11 @@ void SendSSByte(unsigned char bByte)
         // SSCLOCK RA0(pin2), SSDATA_IN RA1(pin3), SSDATA_OUT RA2(pin9), SSCS RA3(pin10)
         //PORTA = 0b00000000;
 #else
-        nop();nop();
         bclr(SSPORT,SSCLOCK);
-        nop();nop();
         bclr(SSPORT,SSDATA_IN);
 #endif
-        nop();nop();
 		if (bittest(bByte,7))
             bset(SSPORT,SSDATA_IN);
-        nop();nop();
 #ifdef _OPTIMIZED_
   #ifdef __PIC24H__
          bByte<<=1;
@@ -8444,9 +8447,7 @@ void SendSSByte(unsigned char bByte)
 #else // not optimized version
         bByte<<=1;
 #endif
-        nop();nop();
         bset(SSPORT,SSCLOCK);
-        nop();nop();
     }
     while (--bWork); // 7*8 = 56 or 8*8 = 64 commands
     bclr(SSPORT,SSCLOCK);
@@ -8550,13 +8551,9 @@ unsigned char GetSSByte(void)
     bWork2 = 0;
     do
     {
-        nop();nop();
         bWork2 <<=1;
-        nop();nop();
         bset(SSPORT,SSCLOCK);
-        nop();nop();
-        nop();nop();
-        //nop();
+        
         //bitclr(bWork2,0); // bWork2 is unsigned == zero in low bit garanteed check assembler code to confirm
 //#undef SSDATA_OUT2
 #ifdef SSDATA_OUT2
@@ -8578,10 +8575,7 @@ FLASH_MAJORITY:
         if (btest(SSPORT_READ,SSDATA_OUT_READ))
             bitset(bWork2,0);
 #endif
-        nop();nop();
         bclr(SSPORT,SSCLOCK);
-        nop();nop();
-        nop();nop();
     }
     while (--bWork);
     return bWork2;
