@@ -307,9 +307,10 @@ see www.adobri.com for communication protocol spec
 #define SSCS       5
 
 // this is for Cubesat version - 3 FLASH memory processing
-//#define SSPORT2  PORTC
-//#define SSDATA_OUT2 0
-//#define SSDATA_OUT3 1
+#define SSPORT2      LATC
+#define SSPORT2_READ  PORTC
+#define SSDATA_OUT2 0
+#define SSDATA_OUT3 1
 
 #else
 #define SSPORT PORTA
@@ -5723,7 +5724,7 @@ void CheckStatus(void)
 void GetFromFlash( unsigned char bByte)
 {
     unsigned char bRet;
-    if (btest(SSPORT_READ,SSCS)) // is it HIGH ???
+    if (btest(SSPORT,SSCS)) // is it HIGH ???
     {
         CheckStatus(); 
         SendSSByte(0x03);
@@ -5742,7 +5743,7 @@ void GetFromFlash( unsigned char bByte)
 }
 void Push2Flash( unsigned char bByte)
 {
-    if (btest(SSPORT_READ,SSCS)) // is it HIGH ???
+    if (btest(SSPORT,SSCS)) // is it HIGH ???
     {
         CheckStatus();
         CS_LOW;
@@ -6233,10 +6234,7 @@ DONE_WITH_FLASH:
              ATCMD = 0;
              if (bByte == 'e') // atdtEARTH
                  ATCMD = MODE_CALL_EARTH;//1;
-#ifndef NO_I2C_PROC
-             else if (bByte == 'L') // atdtLuna
-                 ATCMD = MODE_CALL_LUNA_I2C;//2;
-#endif
+
              else if (bByte == 'l') // atdtluna
                  ATCMD = MODE_CALL_LUNA_COM;//4;
              ATCMDStatus = 6; // on next entry will be 7
@@ -8536,10 +8534,7 @@ void SendSSByteFAST(unsigned char bByte)
     bclr(SSPORT,SSCLOCK);  // 23 commands
 #endif
 }
-#ifndef SSPORT_READ
-#define SSPORT_READ  SSPORT
-#define SSDATA_OUT_READ SSDATA_OUT
-#endif
+
 
 unsigned char GetSSByte(void)
 {
@@ -8560,13 +8555,13 @@ unsigned char GetSSByte(void)
 
         if (btest(SSPORT_READ,SSDATA_OUT))
         {
-            if (btest(SSPORT2,SSDATA_OUT2))
+            if (btest(SSPORT2_READ,SSDATA_OUT2))
                 goto FLASH_MAJORITY;
-            else if (btest(SSPORT2,SSDATA_OUT3))
+            else if (btest(SSPORT2_READ,SSDATA_OUT3))
                 goto FLASH_MAJORITY;
         }
-        else if (btest(SSPORT2,SSDATA_OUT2))
-                 if (btest(SSPORT2,SSDATA_OUT3))
+        else if (btest(SSPORT2_READ,SSDATA_OUT2))
+                 if (btest(SSPORT2_READ,SSDATA_OUT3))
                  {
 FLASH_MAJORITY:
                      bitset(bWork2,0);
@@ -9989,7 +9984,7 @@ unsigned char SendBTcmd(unsigned char cmd)
         else
             PORT_BT.Tx_MOSI = 0;
 		PORT_BT.Tx_SCK = 1;
-        if (bittest(PORT_BT, Rx_MISO))
+        if (bittest(PORT_BT_READ, Rx_MISO))
             Data |= 1;
 
         cmd <<= 1;
@@ -10022,7 +10017,7 @@ unsigned char GetBTbyte(void)
     {
         Data <<= 1;
         PORT_BT.Tx_SCK = 1;
-		if (bittest(PORT_BT,Rx_MISO))
+		if (bittest(PORT_BT_READ,Rx_MISO))
 			Data |= 1;
 
 		PORT_BT.Tx_SCK = 0;
