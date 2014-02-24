@@ -195,17 +195,26 @@ see www.adobri.com for communication protocol spec
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 #define DEBUG_LED
 #ifdef DEBUG_LED
-#define DEBUG_LED_OFF bitclr(PORTC,3)
-#define DEBUG_LED_ON bitset(PORTC,3)
+#define DEBUG_LED_OFF bitclr(LATA,5)
+#define DEBUG_LED_ON bitset(LATA,5)
 ///////////////////////////////////////////////////////////////
 //   for a blinking LED behive like CUBESAT/CRAFT
 //   it is waiting for connection, wait for pkt, and when pkt is Ok it send back to earth reply packet, and blinks
 ///////////////////////////////////////////////////////////////
-//#define DEBUG_LED_CALL_EARTH
+#define DEBUG_LED_CALL_EARTH
+// for test sequence 
+// "5atsx=...CBabbcgg
+// atdtl
+// 5"
+
 ///////////////////////////////////////////////////////////////
 //   for a blinking LED behive like Ground Station, it is constantly sends pktm if received pkt, then it blinks
 ///////////////////////////////////////////////////////////////
-#define DEBUG_LED_CALL_LUNA
+//#define DEBUG_LED_CALL_LUNA
+// for test sequence 
+// "5atsx=...CBabbcgg
+// atdtl
+// 5"
 #endif
 
 
@@ -258,10 +267,10 @@ see www.adobri.com for communication protocol spec
 #define NO_I2C_PROC 1
 // it can be only master support: pic works in master mode only=> uncomment this line if 
 //     no multimaster support on a bus
-#define I2C_ONLY_MASTER 1
+//#define I2C_ONLY_MASTER 1
 
 // master support done via interrupts and firmware - commenting next line and I2C will be a software work
-#define I2C_INT_SUPPORT 1
+//#define I2C_INT_SUPPORT 1
 
 // different processors:
 #ifdef _16F88
@@ -298,19 +307,28 @@ see www.adobri.com for communication protocol spec
 // SSCLOCK RA2(pin4), SSDATA_IN RA3(pin5), SSDATA_OUT RA4(pin6), SSCS RA5(pin7)
 
 #ifdef _18F25K20
-#define SSPORT LATA
-#define SSPORT_READ PORTA
-#define SSCLOCK 2
+#define SSPORT LATC
+#define SSPORT_READ PORTC
+#define SSCLOCK 4
 #define SSDATA_IN 3
-#define SSDATA_OUT 4
-#define SSDATA_OUT_READ 4
+#define SSDATA_OUT 0
+#define SSDATA_OUT_READ 0
 #define SSCS       5
 
 // this is for Cubesat version - 3 FLASH memory processing
+#ifdef DEBUG_LED_CALL_LUNA
 #define SSPORT2      LATC
 #define SSPORT2_READ  PORTC
-#define SSDATA_OUT2 0
-#define SSDATA_OUT3 1
+#define SSDATA_OUT2 1
+#define SSDATA_OUT3 2
+#else
+// deppend on scematics
+//#define SSPORT2      LATC
+//#define SSPORT2_READ  PORTC
+//#define SSDATA_OUT2 1
+//#define SSDATA_OUT3 2
+
+#endif
 
 #else
 #define SSPORT PORTA
@@ -324,6 +342,13 @@ see www.adobri.com for communication protocol spec
 //#define SSDATA_OUT2 0
 //#define SSDATA_OUT3 1
 #endif
+#endif
+
+// carefull!!! on SST25VF032 present write protection bits which are 111 by default
+// and operation write bytes 
+#define SST25VF032 
+#ifdef SST25VF032
+#else
 #endif
 /////////////////////////////////////////////////////////////////////////////////
 //   BT definitions
@@ -348,8 +373,8 @@ see www.adobri.com for communication protocol spec
 //     RX_FULL     signals to prev unit to send data
 //     TX_NOT_READY   check next in loop for ready to receive data
 ////////////////////////////////////////////////////////////////////////////////////
-#define RX_FULL LATC.5
-#define TX_NOT_READY LATC.4
+#define RX_FULL LATB.4
+#define TX_NOT_READY LATB.3
 
 
 
@@ -4739,6 +4764,8 @@ void main()
     RBIF = 0;
 #endif
 
+
+
 //    PLLEN = 1;
 #if 0
             // F\x01\x06              == write enable (flash command 06) -> send 0x06
@@ -4761,6 +4788,7 @@ void main()
     nop();
     CS_LOW;
     SendSSByte(0x02);
+    //SendSSByte(0xad);
     SendSSByte(0x00);
     SendSSByte(0x00);
     SendSSByte(0x00);
@@ -4771,10 +4799,11 @@ void main()
     SendSSByte(0x04);
     SendSSByte(0x05);
     SendSSByte(0x06);
-    SendSSByte(0x07);
-    SendSSByte(0x08);
+    //SendSSByte(0x07);
+    //SendSSByte(0x08);
     CS_HIGH;
-
+#endif
+#if 0
     nop();
     CS_LOW;
     SendSSByte(0x03);
@@ -4793,6 +4822,25 @@ void main()
     bWork = GetSSByte();
     bWork = GetSSByte();
     CS_HIGH;
+
+    nop();
+    CS_LOW;
+    SendSSByte(0x05);
+    bWork = GetSSByte();
+    CS_HIGH;
+    nop();
+//#ifdef SST25VF032
+//    CS_LOW;
+//    SendSSByte(0x50);
+//    CS_HIGH;
+//    nop();
+//    CS_LOW;
+//    SendSSByte(0x01);
+//    SendSSByte(0x00);
+//    CS_HIGH;
+//    nop();
+//#endif
+
 #endif
 
     ShowMessage();
@@ -6770,9 +6818,7 @@ unsigned char CallBkComm(void)
     if (ATCMD & MODE_CONNECT) // was connection esatblished
     {
         if ((ATCMD & MODE_CALL_LUNA_COM) 
-#ifndef NO_I2C_PROC
-             || (ATCMD & MODE_CALL_LUNA_I2C)
-#endif
+
            ) // calling CubSat
         {
 SEND_BT:    
@@ -6875,24 +6921,7 @@ SET_FLAG:
                goto SEND_BT;
         }
     }
-#ifndef NO_I2C_PROC
-    if (Main.ComNotI2C) // prev was COM processing
-    {
-        //Main.ComNotI2C = 1;
-        bReturn = 1;                    // do process data   
-    }
-    else               // prev was I2C processing
-    {
-        if (Main.DoneWithCMD)
-        {
-            Main.ComNotI2C = 1;
-            bReturn = 1;               // do process data
-        }
-    }    
-    return bReturn;
-#else
     return 1;                          // do process data
-#endif
 }
 #ifndef NO_I2C_PROC
 unsigned char CallBkI2C(void)// return 1 == process queue; 0 == do not process; 
@@ -7633,17 +7662,17 @@ void Reset_device(void)
 // Browm*                  MCLR/VPP/RE3 | 1     28| RB7/KBI3/PGD         *white
 // Tx_CE                        RA0/AN0 | 2     27| RB6//KBI2/PGC        *gray
 // Tx_CSN                       RA1/AN1 | 3     26| RB5/KBI1/PGM         *violet
-// Tx_SCK +SSCLOCK  RA2/AN2/VREF-/CVREF | 4     25| RB4/KBI0/AN11
-// Tx_MOSI+SSDATA_IN      RA3/AN3/VREF+ | 5     24| RB3/AN9/CCP2
-// Rx_MISO+SSDATA_OUT   RA4/T0CKI/C1OUT | 6     23| RB2/INT2/AN8          BT_RX
-//   SSCS       RA5/AN4/SS/HLVDIN/C2OUT | 7     22| RB1/INT1/AN10         BT_TX
+// Tx_SCK           RA2/AN2/VREF-/CVREF | 4     25| RB4/KBI0/AN11        ---> Low == Serial RX_FULL (set High on input Com queue full)
+// Tx_MOSI                RA3/AN3/VREF+ | 5     24| RB3/AN9/CCP2         <--- Low == TX_NOT_READY Next serial unit not ready to get data  
+// Rx_MISO              RA4/T0CKI/C1OUT | 6     23| RB2/INT2/AN8          BT_RX
+// dbg blnkLED  RA5/AN4/SS/HLVDIN/C2OUT | 7     22| RB1/INT1/AN10         BT_TX
 //                                  VSS | 8     21| RB0/INT0/FLT0/AN12    Rx_IRQ
 //     crystal            OSC1/CLKI/RA7 | 9     20| VDD
 //     crystal            OSC2/CLKO/RA6 |10     19| VSS
-// SSDATA_OUT2         RC0/T1OSO/T13CKI |11     18| RC7/RX/DT        <--- Serial RX
-// SSDATA_OUT3           RC1/T1OSI/CCP2 |12     17| RC6/TX/CK        ---> Serial TX
-//                             RC2/CCP1 |13     16| RC5/SDO          ---> Low == Serial RX_FULL (set High on input Com queue full)
-// dbg blinking LED         RC3/SCK/SCL |14     15| RC4/SDI/SDA      <--- Low == TX_NOT_READY Next serial unit not ready to get data  
+// SSDATA_OUT          RC0/T1OSO/T13CKI |11     18| RC7/RX/DT        <--- Serial RX
+// SSDATA_OUT2           RC1/T1OSI/CCP2 |12     17| RC6/TX/CK        ---> Serial TX
+// SSDATA_OUT3                 RC2/CCP1 |13     16| RC5/SDO              SSCS
+// SSDATA_IN                RC3/SCK/SCL |14     15| RC4/SDI/SDA          SSCLOCK      
 
 // /CS  |1   8|  VCC       CS#  |1   8|  VCC       ^S   |1   8|  VCC
 // DO   |2   7|  /HOLD     SO   |2   7|  HOLD#     Q    |2   7|  ~HOLD
@@ -7662,25 +7691,34 @@ void Reset_device(void)
     // #define BT_RX      RB2   // RB2 pin 23 BT in receive mode
 
 
-    // SPI output in FLASH mem terminoligy:
-    // SSCLOCK RA2(pin4), SSDATA_IN RA3(pin5), SSDATA_OUT RA4(pin6), SSCS RA5(pin7)
-    //          0            0                        IN                  1
     // RA6 & RA7 == IN Crystal osc
+    // debug LED RA5 pin 7
     TRISA = 0b11010000;  //0 = Output, 1 = Input 
-    PORTA = 0b00101010; // Q, Q, SSCS , Rx_MISO+SSDATA_OUT, Tx_MOSI+SSDATA_IN, Tx_SCK +SSCLOCK , Tx_CSN , low=Tx_CE
+    PORTA = 0b00101110; // Q, Q, SSCS , Rx_MISO, Tx_MOSI, Tx_SCK , Tx_CSN , low=Tx_CE
     // RB0 - external INT Pin 21
-    TRISB = 0b00000001;  //0 = Output, 1 = Input 
+    // RB4 - RX_FULL     pin 25 - out
+    // RB3 - TX_NOT_READY pin 24 - in
+
+    TRISB = 0b00001001;  //0 = Output, 1 = Input 
     PORTB = 0b00000000;  // nothing happened with amplifiers BT_TX,BT_RX=low
 
+	
+    
+    // SPI output in FLASH mem terminoligy:
+    
+    //          0            0                        IN                  1
+    // SSDATA_OUT  =  IN RC0 pin 11
+    // SSDATA_OUT2 =  IN RC1 pin 12
+    // SSDATA_OUT3 =  IN RC2 pin 13
+    // SSDATA_IN   = out RC3 pin 14
+    // SSCLOCK     = out RC4 pin 15
+    // SSCS        = out RC5 pin 16
+    // RC6 - Serial TX Pin 17
     // RC7 - Serial RX  Pin 18
-	// RC6 - Serial TX Pin 17
-    // RC5 - RX_FULL     pin 16 - out
-    // RC4 - TX_NOT_READY pin 15 - in
-    // debug LED RC3 pin 14
-    // SSDATA_OUT2 = IN RC0 pin 11
-    // SSDATA_OUT3 = IN RC1 pin 12
-    TRISC = 0b10010011;  //0 = Output, 1 = Input 
-    PORTC = 0b01001000;
+
+
+    TRISC = 0b10000111;  //0 = Output, 1 = Input 
+    PORTC = 0b01100000;
      
     //RBPU_ = 0;
     //bitclr(OPTION,RBPU_); //Each of the PORTB pins has a weak internal pull-up. A
