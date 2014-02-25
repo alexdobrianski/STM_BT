@@ -201,7 +201,7 @@ see www.adobri.com for communication protocol spec
 //   for a blinking LED behive like CUBESAT/CRAFT
 //   it is waiting for connection, wait for pkt, and when pkt is Ok it send back to earth reply packet, and blinks
 ///////////////////////////////////////////////////////////////
-#define DEBUG_LED_CALL_EARTH
+//#define DEBUG_LED_CALL_EARTH
 // for test sequence 
 // "5atsx=...CBabbcgg
 // atdtl
@@ -210,7 +210,7 @@ see www.adobri.com for communication protocol spec
 ///////////////////////////////////////////////////////////////
 //   for a blinking LED behive like Ground Station, it is constantly sends pktm if received pkt, then it blinks
 ///////////////////////////////////////////////////////////////
-//#define DEBUG_LED_CALL_LUNA
+#define DEBUG_LED_CALL_LUNA
 // for test sequence 
 // "5atsx=...CBabbcgg
 // atdtl
@@ -873,6 +873,8 @@ char PORTE    @ 0xF84;
 #define I2C_SDA 4
 #define I2C_SCL 3
 #define _TRMT TRMT
+#undef UWORD  
+#define UWORD unsigned long
 #endif
 //////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -2265,6 +2267,8 @@ unsigned AddresWasSend:1;
 } I2C;
 
 #pragma rambank RAM_BANK_1
+///////////////////////////////////////BANK 1//////////////////////
+
 // this is in BANK1
 struct _I2CB4_B5{
 unsigned I2Cread:1;
@@ -2287,6 +2291,8 @@ VOLATILE struct BQueue AOutI2CQu;
 #endif
 
 #pragma rambank RAM_BANK_0
+///////////////////////////////////////BANK 0//////////////////////
+
 unsigned char LenI2CRead;
 unsigned char I2CReplyCMD;
 #ifdef __PIC24H__
@@ -2341,6 +2347,8 @@ void eeprom_write(unsigned char addr, unsigned char value);
 /////////////////////////////////////////////////////////////////
 
 
+#pragma rambank RAM_BANK_4
+///////////////////////////////////////BANK 4//////////////////////////
 
 //#define DELAY_BTW_NEXT_DIAL 0x0001
 //#define DELAY_BTW_NEXT_DIAL 0xff01
@@ -4291,7 +4299,19 @@ TMR2_COUNT_DONE:
                                 {
                                     if (AInQu.iQueueSize == 0)
                                     {
+                                        AInQu.Queue[AInQu.iEntry] = '5';
+                                        if (++AInQu.iEntry >= BUFFER_LEN)
+                                            AInQu.iEntry = 0;
+                                        AInQu.iQueueSize++;
+                                        AInQu.Queue[AInQu.iEntry] = '*';
+                                        if (++AInQu.iEntry >= BUFFER_LEN)
+                                            AInQu.iEntry = 0;
+                                        AInQu.iQueueSize++;
                                         AInQu.Queue[AInQu.iEntry] = '?';
+                                        if (++AInQu.iEntry >= BUFFER_LEN)
+                                            AInQu.iEntry = 0;
+                                        AInQu.iQueueSize++;
+                                        AInQu.Queue[AInQu.iEntry] = '5';
                                         if (++AInQu.iEntry >= BUFFER_LEN)
                                             AInQu.iEntry = 0;
                                         AInQu.iQueueSize++;
@@ -4653,7 +4673,7 @@ void main()
         AllowMask = 0xff;
         UnitMask1 = 0xff;
         UnitMask2 = 0;
-        UnitFrom = 0;
+        UnitFrom = '9'; // default unit = 9 TBD on gr stn it is ok but for cube/picosat it must be main comp
 #ifdef SYNC_CLOCK_TIMER
 #ifdef __PIC24H__
         FSR_REGISTER = &Ttilad;
@@ -8659,7 +8679,7 @@ unsigned char CheckPacket(unsigned char*MyData, unsigned char iLen)
         if (i == PACKET_LEN_OFFSET)
         {
             if (PTR_FSR<= BT_TX_MAX_LEN)
-                iCrc = PTR_FSR + sizeof(PacketStart);
+                iCrc = PTR_FSR + PACKET_LEN_OFFSET+1;// + sizeof(PacketStart);
             else
                 goto RETURN_ERROR;
         }
