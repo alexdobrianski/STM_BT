@@ -201,7 +201,7 @@ see www.adobri.com for communication protocol spec
 //   for a blinking LED behive like CUBESAT/CRAFT
 //   it is waiting for connection, wait for pkt, and when pkt is Ok it send back to earth reply packet, and blinks
 ///////////////////////////////////////////////////////////////
-//#define DEBUG_LED_CALL_EARTH
+#define DEBUG_LED_CALL_EARTH
 // for test sequence 
 // "5atsx=...CBabbcgg
 // atdtl
@@ -210,7 +210,7 @@ see www.adobri.com for communication protocol spec
 ///////////////////////////////////////////////////////////////
 //   for a blinking LED behive like Ground Station, it is constantly sends pktm if received pkt, then it blinks
 ///////////////////////////////////////////////////////////////
-#define DEBUG_LED_CALL_LUNA
+//#define DEBUG_LED_CALL_LUNA
 // for test sequence 
 // "5atsx=...CBabbcgg
 // atdtl
@@ -2195,6 +2195,7 @@ unsigned RetransmitTo:1;
 unsigned SendOverLink:1;
 unsigned SendOverLinkAndProc:1;
 unsigned FlashRQ:1;
+unsigned PingRQ:1;
 #endif
 unsigned SendComOneByte:1;
 VOLATILE unsigned OutPacket:1;
@@ -2357,6 +2358,7 @@ void eeprom_write(unsigned char addr, unsigned char value);
 //#define TIME_FOR_PACKET 0xff24
 //#define DELAY_BTW_SEND_PACKET 0xffd3
 #define TO_BTW_CHARS 0xff00
+//#define 0xff58
 
 #define TIME_FOR_PACKET 0xfef4
 #define DELAY_BTW_SEND_PACKET 0xffa3
@@ -4293,7 +4295,8 @@ TMR2_COUNT_DONE:
    #ifdef DEBUG_LED_CALL_LUNA
                         if (ATCMD & MODE_CONNECT)
                         {
-                            if (ESCCount == 0)
+                            Main.PingRQ = 1;
+                            /*if (ESCCount == 0)
                             {
                                 if (!BTFlags.BTNeedsTX)
                                 {
@@ -4317,7 +4320,7 @@ TMR2_COUNT_DONE:
                                         AInQu.iQueueSize++;
                                     }
                                 }
-                            }
+                            }*/
                         }
    #endif
 #endif
@@ -4641,6 +4644,7 @@ void main()
         Main.SendOverLink = 0;
         Main.SendOverLinkAndProc = 0;
         Main.FlashRQ = 0;
+        Main.PingRQ = 0;
 #endif
         //Main.SendWithEsc = 0;
         //Main.CommLoopOK = 0;
@@ -6685,7 +6689,11 @@ void SetTimer0(UWORD iTime)
      T08BIT = 0; // set timer 0 as a word counter
      TMR0ON = 1;
 #else
+#ifdef __18F25K20
+     T0CON = 0b10000111;
+#else
      T0CON = 0b10000110;
+#endif
 #endif
 }
 void SetTimer1(UWORD iTime)
@@ -7356,6 +7364,18 @@ NEXT_TRANSMIT:
             //                                        d) attempt to fix message based on 1 message
             if (ATCMD & MODE_CONNECT) // connection was established == earth get responce from luna
             {
+#ifdef DEBUG_LED_CALL_LUNA
+                if (Main.PingRQ)
+                {
+                     //if (!BTFlags.BTNeedsTX)
+                     {
+                         BTqueueOut[0] = 'P'; BTqueueOut[1] = 'I';BTqueueOut[2] = 'N';BTqueueOut[3] = 'G';
+                         Main.PingRQ = 0;
+                         goto SEND_PKT_TX_MODE;
+                     }
+                }
+#endif
+
             }
             else // no connection yet earth == wait for responce from luna
             {
@@ -7367,6 +7387,7 @@ NEXT_TRANSMIT:
                     BTqueueOut[0] = 'l'; BTqueueOut[1] = 'u';BTqueueOut[2] = 'n';BTqueueOut[3] = 'a';
 
                     ATCMD |= MODE_DIAL;
+SEND_PKT_TX_MODE:
                     SetupBT(SETUP_TX_MODE);
 SEND_PKT_DIAL:
                     BTqueueOut[4] = Addr1;BTqueueOut[5] = Addr2;BTqueueOut[6] = Addr3;
@@ -7410,6 +7431,18 @@ SEND_PKT_DIAL:
             {
                 if (ATCMD & RESPONCE_WAS_SENT) // responce to earth was send
                 {
+#ifdef DEBUG_LED_CALL_EARTH
+                    if (Main.PingRQ)
+                    {
+                         //if (BTqueueOutLen == 0)
+                         {
+                             BTqueueOut[0] = 'p'; BTqueueOut[1] = 'i';BTqueueOut[2] = 'n';BTqueueOut[3] = 'g';
+                             Main.PingRQ = 0;
+                             goto SEND_PKT_TX_MODE;
+                         }
+                    }
+#endif
+
                 }
                 else                           // responce to earth was not send from luna
                 {
@@ -7781,7 +7814,12 @@ void Reset_device(void)
      //           010 = 1:8 Prescale value
      //           001 = 1:4 Prescale value
      //           000 = 1:2 Prescale value
-     T0CON = 0b00000110;
+
+#ifdef __18F25K20
+     T0CON = 0b10000111;
+#else
+     T0CON = 0b10000110;
+#endif
 
     //TMR1ON = 0;
      // 1         bit 7 RD16: 16-Bit Read/Write Mode Enable bit
@@ -7982,7 +8020,12 @@ void Reset_device(void)
 #endif
     // timer0 prescaler
 #ifdef _18F2321_18F25K20
-    T0CON = 6; //prescaler 1 tick = 16mks => 1ms = 63 tic 2ms = 125 value 0xff00 mean 4ms value 0xf424 = 1s
+    //T0CON = 6; //prescaler 1 tick = 16mks => 1ms = 63 tic 2ms = 125 value 0xff00 mean 4ms value 0xf424 = 1s
+#ifdef __18F25K20
+     T0CON = 0b00000111;
+#else
+     T0CON = 0b00000110;
+#endif
 #endif    
     TIMER0_INT_FLG = 0; // clean timer0 interrupt
     TIMER0_INT_ENBL = 0; // diasable timer0 interrupt
@@ -9028,6 +9071,13 @@ SEND_CONNECT:
         else if (MyPacket->Type == 'R') // read request from FLASH/magnetoresistive memory/ferromagnetic memory
         {
         }
+        else if (MyPacket->Type == 'P') // ping packet - now need to send responce right away
+        {
+            Main.PingRQ = 1;
+        }
+        else if (MyPacket->Type == 'p') // responce on ping packet
+        {
+        }
         ATCMD |= MODE_CONNECT;
         
     }
@@ -9036,7 +9086,7 @@ SEND_CONNECT:
         ptrMy+=sizeof(PacketStart);
 #ifdef NON_STANDART_MODEM
         // write good packet into FLASH memory for processing
-        CS_HIGH;  // that will interrupt operations read and write comming from com
+        CS_HIGH;  // that will interrupt FLASH operations read and write initiated from com
 
         PrevLen = NextLen;
         NextLen = ilen;
