@@ -61,7 +61,7 @@
     #define UNIT_MASK_H 0b00000000
 #endif 
 
-
+#ifdef _18F2321
 //#define pAddInc\
 //            FSR_REGISTER ++;\
 //            PTR_FSR+=CARRY_BYTE;\
@@ -263,6 +263,8 @@
             {\
                 PTR_FSR--;\
             }
+#endif //#ifdef _18F2321
+
 
 #define SSPBUF_RX SSPBUF
 #define SSPBUF_TX SSPBUF
@@ -485,6 +487,8 @@ char PORTE    @ 0xF84;
 #define I2C_SDA 4
 #define I2C_SCL 3
 #define _TRMT TRMT
+#undef UWORD  
+#define UWORD unsigned long
 #endif
 //////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -1775,6 +1779,16 @@ struct BQueue
 };
 VOLATILE struct AQueue AInQu;
 VOLATILE struct BQueue AOutQu;
+#ifdef RX_FULL
+#define OVER_BUFFER_LEN 5
+VOLATILE struct OLQueue
+{
+    WORD iEntry;
+    WORD iQueueSize;
+    WORD iExit;
+    unsigned char Queue[OVER_BUFFER_LEN];
+} OverLoad;
+#endif
 #ifdef USE_COM2
 VOLATILE struct AQueue AInQuCom2;
 VOLATILE struct BQueue AOutQuCom2;
@@ -1789,26 +1803,26 @@ unsigned char UnitADR;
 unsigned char UnitFrom;
 unsigned char SendCMD;
 struct _MainB2{
-#ifdef CHECK_NEXT
-unsigned SuspendTX:1;
-unsigned SuspendRetrUnit:1;
-unsigned PauseInQueueFull:1;
-unsigned PauseOutQueueFull:1;
-#endif
+
 unsigned RetransmitTo:1;
 #ifdef NON_STANDART_MODEM
 unsigned SendOverLink:1;
 unsigned SendOverLinkAndProc:1;
 unsigned FlashRQ:1;
+unsigned PingRQ:1;
 #endif
-VOLATILE unsigned SomePacket:1;
+unsigned SendComOneByte:1;
 VOLATILE unsigned OutPacket:1;
 VOLATILE unsigned OutPacketESC:1;
-VOLATILE unsigned OutPacketZeroLen:1;
+VOLATILE unsigned OutPacketLenNull:1;
 
-VOLATILE unsigned CMDProcess:1;
-VOLATILE unsigned CMDProcessCheckESC:1;
-VOLATILE unsigned CMDProcessLastWasUnitAddr:1;
+VOLATILE unsigned GetPkt:1;
+VOLATILE unsigned GetPktESC:1;
+VOLATILE unsigned GetPktLenNull:1;
+VOLATILE unsigned RelayPktLenNull:1;
+VOLATILE unsigned RelayGranted:1;
+VOLATILE unsigned RelayPktOverload:1;
+VOLATILE unsigned RelayPktESC:1;
 unsigned getCMD:1;
 unsigned ESCNextByte:1;
 unsigned LastWasUnitAddr:1;
@@ -1827,10 +1841,10 @@ unsigned DoneWithCMD:1;
 unsigned ComNotI2C:1;
 #endif
 
-VOLATILE unsigned prepStream:1;
-VOLATILE unsigned prepCmd:1;
-VOLATILE unsigned prepESC:1;
-VOLATILE unsigned prepZeroLen:1;
+//VOLATILE unsigned prepStream:1;
+//VOLATILE unsigned prepCmd:1;
+//VOLATILE unsigned InComRetransmit:1;
+//VOLATILE unsigned InComZeroLenMsg:1;
 #ifdef EXT_INT
 VOLATILE unsigned ExtInterrupt:1;
 VOLATILE unsigned ExtInterrupt1:1;
@@ -1841,7 +1855,7 @@ VOLATILE unsigned ExtFirst:1;
 } Main;
 
 VOLATILE unsigned char OutPacketUnit;
-VOLATILE unsigned char RetrUnit;
+VOLATILE unsigned char RelayPkt;
 VOLATILE unsigned char AllowMask;
 VOLATILE unsigned char UnitMask1;
 VOLATILE unsigned char UnitMask2;
@@ -1863,12 +1877,13 @@ unsigned I2CReplyExpected:1;
 unsigned RetransI2ComCSet:1;
 unsigned Timer0Fired:1;
 
-unsigned SendComOneByte:1;
 
 unsigned AddresWasSend:1;
 } I2C;
 
 #pragma rambank RAM_BANK_1
+///////////////////////////////////////BANK 1//////////////////////
+
 // this is in BANK1
 struct _I2CB4_B5{
 unsigned I2Cread:1;
@@ -1891,6 +1906,8 @@ VOLATILE struct BQueue AOutI2CQu;
 #endif
 
 #pragma rambank RAM_BANK_0
+///////////////////////////////////////BANK 0//////////////////////
+
 unsigned char LenI2CRead;
 unsigned char I2CReplyCMD;
 #ifdef __PIC24H__

@@ -3,11 +3,11 @@
 /////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////
-#ifdef SSPORT
-void SendSSByte(unsigned char bByte);
-unsigned char GetSSByte(void);
-void SendSSByteFAST(unsigned char bByte); // for a values <= 3
-#endif
+//#ifdef SSPORT
+//void SendSSByte(unsigned char bByte);
+//unsigned char GetSSByte(void);
+//void SendSSByteFAST(unsigned char bByte); // for a values <= 3
+//#endif
 
 
 void enable_uart(void);
@@ -15,9 +15,12 @@ void enable_uart(void);
 void enable_I2C(void);
 #endif
 void EnableTMR1(void);
+
+// old version
+#if 0
 void putch(unsigned char simbol)
 {
-    while(Main.SomePacket) // wait to output to be clean == no packet in serial output
+    while(Main.SomeInputPacket) // wait to output to be clean == no packet in serial output
     ;
     // monitor output packets and set Main.OutPacket accordinly
     if (Main.OutPacketESC)
@@ -51,9 +54,9 @@ void putch(unsigned char simbol)
     }
     if (AOutQu.iQueueSize == 0)  // if this is a com and queue is empty then needs to directly send byte(s) 
     {                            // on 16LH88,16F884,18F2321 = two bytes on pic24 = 4 bytes
-#ifdef CHECK_NEXT
+#ifdef TX_NOT_READY
 CHECK_NEXT_UNIT:        
-        if (CHECK_NEXT)  // next unit is not ready to acsept data 
+        if (TX_NOT_READY)  // next unit is not ready to acsept data 
         {
              // TBD: probably requare TimeOut???
              goto CHECK_NEXT_UNIT; 
@@ -75,16 +78,16 @@ CHECK_NEXT_UNIT:
         if (_TRMT)            // indicator that tramsmit shift register is empty (on pic24 it is also mean that buffer is empty too)
         {
             TXEN = 1;
-            I2C.SendComOneByte = 0;
+            Main.SendComOneByte = 0;
             TXREG = simbol; // this will clean TXIF on 88,884 and 2321
         }
         else // case when something has allready send directly
         {
 
-            if (!I2C.SendComOneByte)      // one byte was send already 
+            if (!Main.SendComOneByte)      // one byte was send already 
             {
                 TXREG = simbol;           // this will clean TXIF 
-                I2C.SendComOneByte = 1;
+                Main.SendComOneByte = 1;
             }
             else                     // two bytes was send on 88,884,2321 and up to 4 was send on pic24
                 goto SEND_BYTE_TO_QU; // placing simbol into queue will also enable uart interrupt
@@ -105,7 +108,81 @@ SEND_BYTE_TO_QU:
         } 
     }
 }
+#else
+void putch_main(void)
+{
+    unsigned char simbol;
+    if (!Main.RelayGranted) // relay was granted == keep everything in the queue
+    {
+        if (RelayPkt == 0) // nothing is relaying directly
+        {
+            if (!TXIE) // no interrupts 
+            {                            // on 16LH88,16F884,18F2321 = two bytes on pic24 = 4 bytes
+#ifdef TX_NOT_READY
+                if (!TX_NOT_READY)  // next unit is ready to acsept data  
+#endif
+                {
+                    if (AOutQu.iQueueSize != 0)  // something in the queue to be send    
+                    {
+#ifdef __PIC24H__
+                        if (!U1STAbits.UTXBF) // on pic24 this bit is empy when at least there is one space in Tx buffer
+#else
+                        if (_TRMT)            // indicator that tramsmit shift register is empty (on pic24 it is also mean that buffer is empty too)
+#endif
+                        {
+                            TXEN = 1; // just in case ENABLE transmission
+                            TXIE = 1;  // placed simbol will be pushed out of the queue by interrupt
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+void putch(unsigned char simbol)
+{
+    if (OutPacketUnit != 0)
+    {
+        if (Main.OutPacketESC)
+            Main.OutPacketESC = 0;
+        else if (simbol == ESC_SYMB)
+            Main.OutPacketESC = 1;
+        else if (simbol == OutPacketUnit)
+        {
+            if (!Main.OutPacketLenNull)
+                OutPacketUnit = 0;
+        }
+        else
+            Main.OutPacketLenNull = 0;
+    }
+    else
+    {
+        if (simbol <= MAX_ADR)
+        {            
+            if (simbol >= MIN_ADR) // msg to relay
+            {
+                OutPacketUnit = simbol;
+                Main.OutPacketLenNull = 1;
+            }
+        }
+        else
+            return;   // fixing output packet
+    }
 
+    while (AOutQu.iQueueSize >= OUT_BUFFER_LEN) // dose output queue full ?? then wait till some space will be avalable in output queue
+    {
+
+    }
+SEND_BYTE_TO_QU:
+    AOutQu.Queue[AOutQu.iEntry] = simbol; // add bytes to a queue
+    if (++AOutQu.iEntry >= OUT_BUFFER_LEN)
+        AOutQu.iEntry = 0;
+    AOutQu.iQueueSize++; // this is unar operation == it does not interfere with interrupt service decrement
+    //if (!Main.PrepI2C)      // and allow transmit interrupt
+    //    TXIE = 1;  // placed simol will be pushed out of the queue by interrupt
+}
+
+#endif
 #ifdef USE_COM2
 #ifdef __PIC24H__
 void putchCom2(unsigned char simbol)
@@ -143,9 +220,6 @@ void putchCom2WithESC(unsigned char simbol)
 {
     if (Main.SendCom2WithEsc)
     {
-WAIT_SPACE_Q:
-        if (AOutQuCom2.iQueueSize >= (OUT_BUFFER_LEN-3)) // is enought space to output ??
-            goto WAIT_SPACE_Q;
         if (simbol == ESC_SYMB)
            goto PUT_ESC;
 

@@ -230,6 +230,7 @@ CONTINUE_READ:
                     {
                         putchWithESC(GetSSByte()); // read byte from FLASh will goes to Com
                                                    // if size bigger then 13 bytes it can be delay (putchWithESC waits out queue avalable space)
+                        putch_main(); // that will initiate send 
                     } while(--bByte);
                     DataB3.FlashRead = 0;
                     Main.SendWithEsc = 0;
@@ -282,7 +283,7 @@ CONTINUE_READ:
                 else
                 {
 SEND_AGAIN:         // that is equivalent of a function -- just on some PIC it is not enought stack
-                    if (!btest(SSPORT,SSCS)) // another FLASH write can pause FLASH write intiated by serial 
+                    if (btest(SSPORT,SSCS)) // another FLASH write can pause FLASH write intiated by serial 
                     {
                         if (OldFlashCmd != 0)
                         {

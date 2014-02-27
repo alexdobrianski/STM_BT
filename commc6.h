@@ -30,21 +30,22 @@
         //Main = 0;
         Main.getCMD = 0;
         Main.ESCNextByte = 0;
-        Main.CMDProcess = 0;
-        Main.CMDProcessCheckESC = 0;
+        Main.OutPacket = 0;
+        Main.OutPacketESC = 0;
+        Main.OutPacketLenNull = 0;
 
+        Main.GetPkt = 0;
+        Main.GetPktESC = 0;
+        Main.GetPktLenNull = 0;
+        Main.RelayPktLenNull = 0;
+        Main.RelayGranted = 0;
+        Main.RelayPktOverload = 0;
+        Main.RelayPktESC = 0;
         Main.PrepI2C = 0;
         Main.DoneWithCMD = 1;
 
-        Main.prepStream = 1;
-        Main.prepCmd = 0;
-        Main.prepESC = 0;
-        Main.prepZeroLen = 0;
-
-        Main.SomePacket = 0;
-        Main.OutPacket = 0;
+        //Main.OutPacket = 0;
         Main.OutPacketESC = 0;
-        Main.OutPacketZeroLen = 0;
         Main.LockToQueue = 0;
 
         Main.RetransmitTo = 0;
@@ -52,6 +53,7 @@
         Main.SendOverLink = 0;
         Main.SendOverLinkAndProc = 0;
         Main.FlashRQ = 0;
+        Main.PingRQ = 0;
 #endif
         //Main.SendWithEsc = 0;
         //Main.CommLoopOK = 0;
@@ -77,18 +79,14 @@
 
 
 #endif
-#ifdef CHECK_NEXT
-        Main.SuspendTX = 0;
-        Main.SuspendRetrUnit = 0;
-        Main.PauseInQueueFull = 0;
-        Main.PauseOutQueueFull = 0;
-#endif
+
         I2C_B1.I2CMasterDone = 1;
-        RetrUnit = 0;
+        RelayPkt = 0;
+        OutPacketUnit = 0;
         AllowMask = 0xff;
         UnitMask1 = 0xff;
         UnitMask2 = 0;
-        UnitFrom = 0;
+        UnitFrom = '9'; // default unit = 9 TBD on gr stn it is ok but for cube/picosat it must be main comp
 #ifdef SYNC_CLOCK_TIMER
 #ifdef __PIC24H__
         FSR_REGISTER = &Ttilad;
