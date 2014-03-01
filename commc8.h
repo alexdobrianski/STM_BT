@@ -481,6 +481,7 @@ void SendSSByte(unsigned char bByte)
          bByte<<=1;
   #else
    #ifdef      _18F2321_18F25K20
+            /// needs to chek what bank is active now
             #asm
               RLCF bByte,1,1
             #endasm
@@ -580,10 +581,7 @@ void SendSSByteFAST(unsigned char bByte)
     bclr(SSPORT,SSCLOCK);  // 23 commands
 #endif
 }
-#ifndef SSPORT_READ
-#define SSPORT_READ  SSPORT
-#define SSDATA_OUT_READ SSDATA_OUT
-#endif
+
 
 unsigned char GetSSByte(void)
 {
@@ -597,20 +595,20 @@ unsigned char GetSSByte(void)
     {
         bWork2 <<=1;
         bset(SSPORT,SSCLOCK);
-        //nop();
+        
         //bitclr(bWork2,0); // bWork2 is unsigned == zero in low bit garanteed check assembler code to confirm
 //#undef SSDATA_OUT2
 #ifdef SSDATA_OUT2
 
         if (btest(SSPORT_READ,SSDATA_OUT))
         {
-            if (btest(SSPORT2,SSDATA_OUT2))
+            if (btest(SSPORT2_READ,SSDATA_OUT2))
                 goto FLASH_MAJORITY;
-            else if (btest(SSPORT2,SSDATA_OUT3))
+            else if (btest(SSPORT2_READ,SSDATA_OUT3))
                 goto FLASH_MAJORITY;
         }
-        else if (btest(SSPORT2,SSDATA_OUT2))
-                 if (btest(SSPORT2,SSDATA_OUT3))
+        else if (btest(SSPORT2_READ,SSDATA_OUT2))
+                 if (btest(SSPORT2_READ,SSDATA_OUT3))
                  {
 FLASH_MAJORITY:
                      bitset(bWork2,0);
