@@ -489,6 +489,7 @@ UWORD Tmr3LoadLowCopy;
 unsigned char OutSyncCounter;
 unsigned char ESCCount;
 unsigned char AfterESCChar;
+unsigned char CountFQ3;
 #endif
 #else
 struct _Data_B0{
@@ -1020,7 +1021,9 @@ void main()
     ATCMD = MODE_CALL_LUNA_COM;
     ATCMD |= INIT_BT_NOT_DONE;
     INT0_ENBL = 1;
+    
 #endif
+    CountFQ3 = 2;
     //bitset(PORTA,4);
     //bitset(PORTA,3);
     //bitset(SSPCON,4);  // set clock high;
@@ -1567,9 +1570,9 @@ unsigned char DoFqRXSwitch(void)
     unsigned char bByte;
     
     //TMR3ON = 0; // stop TMR3 for a little bit
-    // or may be not this call comes after INT == that mean inside timer3 it will be not advansed
+    // or may be not this call comes after INT == that mean inside timer3 it will be not advanced
     // counter SkipPtr prevents from this
-    // second place it is a timer0 == this is before timer3 startd to work
+    // second place it is a timer0 == this is before timer3 started to work
     if (++FqRXCount>=3)
     {
         FqRXCount = 0;
@@ -2112,7 +2115,8 @@ NEXT_TRANSMIT:
 #ifdef DEBUG_LED_CALL_LUNA
                 if (Main.PingRQ)
                 {
-                     //if (!BTFlags.BTNeedsTX)
+                     if (BTType & 0x01)// on rx only
+                     if (RXreceiveFQ == 0) // only if it is listening on FQ1
                      {
                          BTqueueOut[0] = 'P'; BTqueueOut[1] = 'I';BTqueueOut[2] = 'N';BTqueueOut[3] = 'G';
                          Main.PingRQ = 0;
@@ -3173,6 +3177,7 @@ SEND_CONNECT:
         }
         else if (MyPacket->Type == 'p') // responce on ping packet
         {
+            //Main.PingRQ = 1;
         }
         ATCMD |= MODE_CONNECT;
         

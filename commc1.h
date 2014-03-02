@@ -1652,7 +1652,11 @@ TMR2_COUNT_DONE:
    #ifdef DEBUG_LED_CALL_LUNA
                         if (ATCMD & MODE_CONNECT)
                         {
-                            Main.PingRQ = 1;
+                            if (--CountFQ3==0)
+                            {
+                                Main.PingRQ = 1;
+                                CountFQ3 = 2;
+                            }
                         }
    #endif
 #endif
