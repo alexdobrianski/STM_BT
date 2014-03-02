@@ -1653,31 +1653,6 @@ TMR2_COUNT_DONE:
                         if (ATCMD & MODE_CONNECT)
                         {
                             Main.PingRQ = 1;
-                            /*if (ESCCount == 0)
-                            {
-                                if (!BTFlags.BTNeedsTX)
-                                {
-                                    if (AInQu.iQueueSize == 0)
-                                    {
-                                        AInQu.Queue[AInQu.iEntry] = '5';
-                                        if (++AInQu.iEntry >= BUFFER_LEN)
-                                            AInQu.iEntry = 0;
-                                        AInQu.iQueueSize++;
-                                        AInQu.Queue[AInQu.iEntry] = '*';
-                                        if (++AInQu.iEntry >= BUFFER_LEN)
-                                            AInQu.iEntry = 0;
-                                        AInQu.iQueueSize++;
-                                        AInQu.Queue[AInQu.iEntry] = '?';
-                                        if (++AInQu.iEntry >= BUFFER_LEN)
-                                            AInQu.iEntry = 0;
-                                        AInQu.iQueueSize++;
-                                        AInQu.Queue[AInQu.iEntry] = '5';
-                                        if (++AInQu.iEntry >= BUFFER_LEN)
-                                            AInQu.iEntry = 0;
-                                        AInQu.iQueueSize++;
-                                    }
-                                }
-                            }*/
                         }
    #endif
 #endif
@@ -1709,6 +1684,16 @@ TMR2_COUNT_DONE:
             //Main.ExtFirst =1;
             
 #ifdef BT_TX
+//#define MEASURE_EXACT_TX_TIME 1
+#ifdef MEASURE_EXACT_TX_TIME
+            // in debug mode only!!!
+            if (DataB0.Timer1Meausre)
+            {
+                Tmr1LoadHigh = 0xffff - Tmr1High; // this will
+                Tmr1LoadLow = 0xffff - TIMER1;      // timer1 interupt reload values 
+                DataB0.Timer1Meausre = 1;
+            }
+#endif
             // communication BT - on interrupt needs goto standby state
             // may be for RX it is owerkill but for TX it is definetly == in TX it should not stay longer
             // TBD: also may be need to switch off transmitter or receiver
@@ -1744,9 +1729,12 @@ TMR2_COUNT_DONE:
                             TMR3ON = 0;                            // stop timer3 for a moment 
                             Tmr3LoadLowCopy =0xFFFF - TIMER3;      // timer3 interupt reload values 
                             Tmr3LoadLowCopy += 52;                 // ofset from begining of a interrupt routine
+                            if (Tmr3LoadLowCopy <= MEDIAN_TIME)
+                                Tmr3High++;
                             Tmr3LoadLow = Tmr3LoadLowCopy - MEDIAN_TIME;
                             TMR3H = (Tmr3LoadLow>>8);
                             TMR3L = (unsigned char)(Tmr3LoadLow&0xFF);
+                            Tmr3LoadLow = Tmr3LoadLowCopy;
                             //TMR3L = 0;//xff;
                             TMR3ON = 1; // continue run
                             Tmr3TOHigh = Tmr3LoadHigh = 0xffff - Tmr3High;

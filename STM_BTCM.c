@@ -64,18 +64,24 @@ see www.adobri.com for communication protocol spec
 //FQ2              
 //FQ3
 //
+// mesurement of TTT can be done on uncommenting MEASURE_EXACT_TX_TIME, need to account that it is transfer of 32 bytes in DEBUG_LED mode
 // protocol diagram for mode TX3 & RX3
 // for 2321 time TTT == RRR == 0x2ADD = 10973 op = 0.001371625 sec
-//          time 123456789AB = (TO= 93*128 = 11904 op = 0.001488 sec ) + (Packet prep = 18445) = 0x768D = 30349 = 0.003793625 sec
+//          time 123456789AB = (TX = 10973 op = 0.001371625)+(TO= 93*128 = 11904 op = 0.001488)+(Packet prep = 7472) = total = 30349 = 0.003793625 sec
+// for 25K20time TTT == RRR ==        = 7051 op = 0.000459 sec
+//          time 123456789AB = (TX = 7344 op = 0.0004406875 sec)+(TO= 47*256 = 12032 op = 0.000752 sec ) + (Packet prep = 7724) = total = 26807 = 0.0016754375sec
+// 2mbt25K20time TTT == RRR ==        = 4595 op = 0.0002871875 sec
+//          time 123456789AB = (TX = 4595 op = 0.0002871875 sec)+(TO= 47*256 = 12032 op = 0.000752 sec ) + (Packet prep = 7695) = total = 24322 = 0.001520125sec
 // i.e. time line :
-// int =         0x2ACB == TTT time
-// set timeout = 0x2BD4 == TO   
+// int =         10955/7051/4595 == TTT time
+// set timeout = 11220 == TO   
 // before TX     0x5AB5 Transmit preperation !!!!!! == 1BAA = 7082 op
 // TX set = 0x765F
 // for receiver:
 // time "123456789AB" - Time X = time "7654321"
 // X = 0x3500= X > 0x2ACB
 #define MEDIAN_TIME 0x4000
+// #define DELAY_BTW_SEND_PACKET 0xffa3
 // transmitter:
 //    111       222        333        111        222        333        111        222        333        111        222        333        111        222        333        111
 //XXXtTTToooYYYtTTTZZZ____tTTT___________XXX____tTTTYYY____tTTTZZZ____tTTT____________________________XXX_________tTTTYYY____tTTTZZZ____tTTT
@@ -186,6 +192,38 @@ see www.adobri.com for communication protocol spec
 #define BT_TIMER1 1
 #define BT_TIMER3 1
 
+//// for 18F2321
+////#define DELAY_BTW_NEXT_DIAL 0xe001
+//// for 18F25K20
+//#define DELAY_BTW_NEXT_DIAL 0xe001
+//
+//// for 18F2321
+////#define TO_BTW_CHARS 0xff00
+//// for 18F25K20
+//#define TO_BTW_CHARS 0xffDE
+////#define 0xff58
+//
+//// 442mks+xxx=2247(1799??)/898mks == 2693/1340 = count 169/83 
+//// addon needs to be added
+//// for 18F2321
+////#define TIME_FOR_PACKET 0xfef4
+//// for 18F25K20
+//#define TIME_FOR_PACKET 0xffad
+////#define TIME_FOR_PACKET 0xff52
+////#define TIME_FOR_PACKET 0xff42
+//// for 18F2321
+////#define DELAY_BTW_SEND_PACKET 0xffa3
+//// for 18F25K20
+//#define DELAY_BTW_SEND_PACKET 0xffd0
+
+//////////////////////////////////////////////////////
+#define DELAY_BTW_NEXT_DIAL 0xe001
+#define TO_BTW_CHARS 0xff00
+
+#define TIME_FOR_PACKET 0xfef4
+//#define DELAY_BTW_SEND_PACKET 0xffa3
+#define DELAY_BTW_SEND_PACKET 0xffd1
+/////////////////////////////////////////////////////
 
 //#define __DEBUG
 //#define SHOW_RX_TX
@@ -390,28 +428,6 @@ see www.adobri.com for communication protocol spec
 #pragma rambank RAM_BANK_4
 ///////////////////////////////////////BANK 4//////////////////////////
 
-// for 18F2321
-//#define DELAY_BTW_NEXT_DIAL 0xe001
-// for 18F25K20
-#define DELAY_BTW_NEXT_DIAL 0xe001
-
-// for 18F2321
-//#define TO_BTW_CHARS 0xff00
-// for 18F25K20
-#define TO_BTW_CHARS 0xffDE
-//#define 0xff58
-
-// 442mks+xxx=2247(1799??)/898mks == 2693/1340 = count 169/83 
-// addon needs to be added
-// for 18F2321
-//#define TIME_FOR_PACKET 0xfef4
-// for 18F25K20
-//#define TIME_FOR_PACKET 0xffad
-#define TIME_FOR_PACKET 0xff52
-// for 18F2321
-//#define DELAY_BTW_SEND_PACKET 0xffa3
-// for 18F25K20
-#define DELAY_BTW_SEND_PACKET 0xffd8
 
 
 
@@ -1464,7 +1480,7 @@ void SetTimer0(UWORD iTime)
      T08BIT = 0; // set timer 0 as a word counter
      TMR0ON = 1;
 #else
-#ifdef __18F25K20
+#ifdef _18F25K20
      T0CON = 0b10000111;
 #else
      T0CON = 0b10000110;
@@ -1768,48 +1784,6 @@ unsigned char CallBkMain(void) // 0 = do continue; 1 = process queues
 MAIN_INT:
             Main.ExtInterrupt = 0;
 
-/* ////////////////////////////////////////////////////////////////////////         debug code  
-            if (BTStatus & 0x40)
-            {
-                if (FqRXCount)
-                {
-                    if (FqRXCount == 1)
-                       putch('1');
-                    else
-                       putch('2');
- 
-                }
-                else
-                    putch('0');
-            }
-            if (BTStatus & 0x20)
-            {
-                if (FqTXCount)
-                {
-                    if (FqTXCount == 1)
-                       putch('b');
-                    else
-                       putch('c');
- 
-                }
-                else
-                    putch('a');
-            }
-            if (BTStatus & 0x20)
-            {
-                if (TXSendOverFQ)
-                {
-                    if (TXSendOverFQ == 1)
-                       putch('b');
-                    else
-                       putch('c');
- 
-                }
-                else
-                    putch('a');
-            }
-    //////////////////////////////////////////////////////////////////end debug code
-*/
             if (BTStatus & 0x40) // RX interrupt
             {
                 if (BTType & 0x01) // RX
@@ -1852,11 +1826,7 @@ AFTER_PROCESS:
                                 }
                                 else // no connection yet == this is RX after transmit dial packet
                                 {
-                                    if ((ATCMD & MODE_CALL_LUNA_COM) 
-#ifndef NO_I2C_PROC
-                                         || (ATCMD & MODE_CALL_LUNA_I2C)
-#endif
-                                       ) // earth calls cubsat
+                                    if ((ATCMD & MODE_CALL_LUNA_COM)) // earth calls cubsat
                                        SetTimer0(DELAY_BTW_NEXT_DIAL); // 0x0000 == 4 sec till next attempt for earth to dial luna
                                 }
                             }
@@ -2023,11 +1993,7 @@ TO_ON_FQ3:
                             
                             }
                         }
-                        if ((ATCMD & MODE_CALL_LUNA_COM) 
-#ifndef NO_I2C_PROC
-                            || (ATCMD & MODE_CALL_LUNA_I2C)
-#endif
-                           ) // earth calls cubsat
+                        if ((ATCMD & MODE_CALL_LUNA_COM)) // earth calls cubsat
                         {
                             if (ATCMD & MODE_CONNECT) // was connection esatblished
                             {
@@ -2594,7 +2560,7 @@ void Reset_device(void)
      //           001 = 1:4 Prescale value
      //           000 = 1:2 Prescale value
 
-#ifdef __18F25K20
+#ifdef _18F25K20
      T0CON = 0b10000111;
 #else
      T0CON = 0b10000110;
@@ -2800,7 +2766,7 @@ void Reset_device(void)
     // timer0 prescaler
 #ifdef _18F2321_18F25K20
     //T0CON = 6; //prescaler 1 tick = 16mks => 1ms = 63 tic 2ms = 125 value 0xff00 mean 4ms value 0xf424 = 1s
-#ifdef __18F25K20
+#ifdef _18F25K20
      T0CON = 0b00000111;
 #else
      T0CON = 0b00000110;
@@ -3696,7 +3662,7 @@ SEND_GOOD:      BTbyteCRC(BTqueueOutCopy[i]);
         SendBTbyte(CRC&0x00ff);  
         SendBTbyte(0xff);  
         //   max len  header              CRC  end  Len
-        i =    32    -sizeof(PacketStart) -2    -1  -BTqueueOutCopyLen;
+        i =    32    -6 -2    -1  -BTqueueOutCopyLen;
 #ifdef SAVE_SPACE
         while (i > 0) 
         {
@@ -4093,7 +4059,15 @@ void SetupBT(unsigned char SetupBtMode)
 
        bitclr(PORT_BT,Tx_CSN);
        SendBTbyte(0x26); // 0010  0110 command W_REGISTER to register 00110 == RF_SETUP
-       SendBTbyte(0b00100110);  // 0 - continues carrier; 0; 1(0-force PLL)0 - 250 kbs;11 - 0dBm ; 0
+       //SendBTbyte(0b00100110);  // 0 - continues carrier; 0; 1(0-force PLL)0 - 250 kbs;11 - 0dBm ; 0
+                                // Only 000          - allowed, (001 and it is twice time of the TX packet) 
+                                //         0         - Force PLL lock signal. Only used in test 
+                                //          0        - Air Data Rate 1Mbps (‘1’ – 2Mbps)
+                                //           11      - Set RF output power in TX mode '00' – -18dBm '01' – -12dBm '10' – -6dBm '11' – 0dBm
+                                //             0     - Setup LNA gain The LNA gain makes it possible to reduce 
+                                //                     the current consumption in RX mode with 0.8mA at the cost of
+                                //                     1.5dB reduction in receiver sensitivity
+       SendBTbyte(0b00000110);
        bitset(PORT_BT,Tx_CSN);
  
        bitclr(PORT_BT,Tx_CSN); // SPI Chip Select // address 
