@@ -222,10 +222,11 @@ see www.adobri.com for communication protocol spec
 #define TO_BTW_CHARS 0xff00
 
 #define TIME_FOR_PACKET 0xff98
+#define TIME_FOR_PACKET0 0xe123
 //#define DELAY_BTW_SEND_PACKET 0xffa3
 #define DELAY_BTW_SEND_PACKET 0xffd1
 /////////////////////////////////////////////////////
-
+//#define _OLD_VERSION 1
 //#define __DEBUG
 //#define SHOW_RX_TX
 //#define SHOW_RX
@@ -1919,8 +1920,12 @@ AFTER_PROCESS:
                             //SetTimer0(0xff58); // 442mks+xxx=2247(1799??)/898mks == 2693/1340 = count 169/83 
 SET_TIMER_AND_PROC:
                         if (!DataB0.Tmr3DoneMeasureFq1Fq2) // FQ1-FQ2 time measurement by timer3 was not done 
-                            SetTimer0(TIME_FOR_PACKET);//Time4Packet); // count 220 = 3520 mks == why?
-
+                        {
+                            if (RXreceiveFQ == 1)
+                               SetTimer0(TIME_FOR_PACKET0);
+                            else
+                               SetTimer0(TIME_FOR_PACKET);//Time4Packet); // count 220 = 3520 mks == why?
+                        }
 PROCESS_DATA:
                         ProcessBTdata();  // call will be processed only one (first) time 
                         if (RXreceiveFQ == 0) // pkt was ok on FQ3
@@ -2108,30 +2113,31 @@ NEXT_TRANSMIT:
                 ATCMD &= (0xff ^MODE_DIAL); // this will repeat dial cubsat attempt
             else if (Timer1Id == TO_BTW_CHARS)
                 BTFlags.BTNeedsTX = 1;
+            else if (TIME_FOR_PACKET0)
+                goto LABEL_TO_RX;
             else if (Timer1Id == TIME_FOR_PACKET)
             {
+LABEL_TO_RX:
                 if (CheckSuddenRX())
                     goto MAIN_INT;
 
                 SwitchFQ(DoFqRXSwitch());// if it was RX over FQ2 than value RXreceiveFQ ==1
                 BTCE_high();
+                if (RXreceiveFQ == 0) 
+                {
+                    RXreceiveFQ = 1;
+                    SetTimer0(TIME_FOR_PACKET);
+                }
                 if (RXreceiveFQ == 1) // timeout over FQ2
                 {
                     RXreceiveFQ = 2;
-                    SetTimer0(TIME_FOR_PACKET);//SetTimer0(0xff58); //442mks+xxx=2247(1799??)/898mks == 2693/1340 = count 169/83 
+                    SetTimer0(TIME_FOR_PACKET); 
                 }
                 else if (RXreceiveFQ == 2) // timeout over FQ3
                 {
                     // done with timeouts == may be packet possible to fix ? - it can be packet over FQ1 or two packets over FQ1 + FQ2
 TO_ON_FQ3:
                     RXreceiveFQ = 0;
-                    if (BTokMsg == 0xff) // needs to fix packet FQ1 or FQ1+FQ2
-                    {
-                        // TBD fixes messages 
-#ifdef EARTH_PROCESS_BAD_MESSAGES
-                        // TBD fixes received messages on earth over second COM port to be compiled on PIC24
-#endif
-                    }
                     if ((ATCMD & MODE_CALL_LUNA_COM)) // earth calls cubsat
                     {
                         if (ATCMD & MODE_CONNECT) // was connection esatblished
@@ -2142,35 +2148,14 @@ TO_ON_FQ3:
                             SetTimer0(DELAY_BTW_NEXT_DIAL); // 0x0000 == 4 sec till next attempt for earth to dial luna 
                         }
                     }
+                    else
+                        SetTimer0(TIME_FOR_PACKET0);
                 }
             }
-            else if (BTType & 0x01) // RX
+            else if (Timer1Id == DELAY_BTW_SEND_PACKET) // timeout on TX in a progress == was send FQ1 or FQ2 packets
             {
-                
-PROCESS_TO:
-                if (RXreceiveFQ == 0) 
-                {
-                    //if (ATCMD & MODE_CONNECT) // connection was established possible timer is btw char
-                    //{
-                    //    //goto SET_TO_BTW_CHARS;
-                    //    if (ATCMD & SOME_DATA_OUT_BUFFER)
-                    //        BTFlags.BTNeedsTX = 1;
-                    //}
-                    //else // no connection yet == this is RX after transmit dial packet
-                    //    ATCMD &= (0xff ^MODE_DIAL); // this will repeat dial cubsat attempt
-                }
-                else // case when time btw FQ1 -> FQ2 did not catched == stay with timer over TMR0
-                {
-                    
-                }
-            }
-            else if (BTType == 2) // timeout on TX in a progress == was send FQ1 or FQ2 packets
-            {
-                if (TXSendOverFQ) // FQ2 or FQ3
-                {
 NEXT_TRANSMIT:
-                    TransmitBTdata();
-                }
+                TransmitBTdata();
             }
         }
 #endif
@@ -2232,13 +2217,14 @@ NEXT_TRANSMIT:
                 BTCE_high();
                 if (DataB0.Timer3OutSyncRQ)
                 {
+                     DataB0.Tmr3DoneMeasureFq1Fq2 = 0;
                      // switching from round robin to plain FQ1
-                     if (FqRXCount ==0)
-                     {
-                         DataB0.Timer3OutSyncRQ = 0;
-                         DataB0.Tmr3RxFqSwitchLost = 1;
-                         DataB0.Timer3SwitchRX = 0;
-                     } 
+                     //if (FqRXCount ==0)
+                     //{
+                     //    DataB0.Timer3OutSyncRQ = 0;
+                     //    DataB0.Tmr3RxFqSwitchLost = 1;
+                     //    DataB0.Timer3SwitchRX = 0;
+                     //} 
                 }
 
                 if (RXreceiveFQ) // receiving over FQ2 or FQ3 and timeout on that FQ
@@ -2252,14 +2238,14 @@ NEXT_TRANSMIT:
                 // case when it is listenning over FQ1 == needs to switch FQ1 over FQ2 to continue listening
                 else
                 {
-#ifdef SHOW_RX_TX
-   #ifdef SHOW_RX
-                    if (FqRXCount ==0)
-                       DEBUG_LED_ON;
-                    else
-                       DEBUG_LED_OFF;
-   #endif
-#endif
+//#ifdef SHOW_RX_TX
+//   #ifdef SHOW_RX
+//                    if (FqRXCount ==0)
+//                       ;//DEBUG_LED_ON;
+//                    else
+//                       DEBUG_LED_OFF;
+//   #endif
+//#endif
                 }
             }
         }
@@ -2411,6 +2397,7 @@ SEND_PKT_DIAL:
                 if (ATCMD & INIT_BT_NOT_DONE)
                 { 
                     SetupBT(SETUP_RX_MODE);
+                    SetTimer0(TIME_FOR_PACKET0);
                     ATCMD &= (INIT_BT_NOT_DONE^0xff);
                 }
             }

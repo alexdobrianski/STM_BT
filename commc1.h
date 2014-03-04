@@ -1698,8 +1698,8 @@ TMR2_COUNT_DONE:
                                 CountFQ3 = 2;
                             }
                         }
-                    }
    #endif
+                    }
 #endif
                 }
 #endif
