@@ -1459,15 +1459,6 @@ TMR0_DONE:
                     //Tmr1High = 0;
                     //goto SWITCH_FQ;
                     DataB0.Timer1DoTX = 0;
-                }
-                //else
-                //{
-                    //TIMER1 = Tmr1LoadLow;  
-                    TMR1H = (unsigned char)(Tmr1LoadLow>>8);
-                    TMR1L = (unsigned char)(Tmr1LoadLow&0xff);
-                    //DataB0.Timer1Inturrupt = 1; // and relaod timer
-                    Tmr1TOHigh = Tmr1LoadHigh;
-//#define SHOW_RX
                     if (++FqTXCount>=3)
                     {
                        FqTXCount = 0;
@@ -1478,7 +1469,6 @@ TMR0_DONE:
                        DEBUG_LED_ON;
    #endif
 #endif
-
                     }
                     else
                     {
@@ -1487,13 +1477,24 @@ TMR0_DONE:
 //   #else
                       DEBUG_LED_OFF;
 //   #endif
-//#endif
-
+//#endif              
                         if (FqTXCount == 1)
                             FqTX = Freq2;
                         else
                             FqTX = Freq3;
                     }
+                }
+                //else
+                //{
+                    //TIMER1 = Tmr1LoadLow;  
+                    TMR1H = (unsigned char)(Tmr1LoadLow>>8);
+                    TMR1L = (unsigned char)(Tmr1LoadLow&0xff);
+                    //DataB0.Timer1Inturrupt = 1; // and relaod timer
+                    Tmr1TOHigh = Tmr1LoadHigh;
+//#define SHOW_RX
+                    //if (FqTXCount == 0)
+                    //    DEBUG_LED_OFF;
+
                 //}
             }
         }
@@ -1627,51 +1628,7 @@ TMR2_COUNT_DONE:
                 TMR3L = (unsigned char)(Tmr3LoadLow&0xff);
                 Tmr3TOHigh = Tmr3LoadHigh;
                 Tmr3LoadLow = Tmr3LoadLowCopy;
-#if _OLD_VERSION
-                if (SkipPtr)
-                {
-                   SkipPtr--;
-                }
-                else
-                {
-                    DataB0.Tmr3Inturrupt = 1;
-                    if (++FqRXCount>=3)
-                    {
-                        FqRXCount = 0;
-                        FqRX = Freq1;
-                        if (OutSyncCounter)
-                        {
-                             // this will produce request to switch off Round-Robin to one FQ listening
-                            if (DataB0.AlowSwitchFq1ToFq3)
-                               if (--OutSyncCounter == 0)
-                               {
-                                  DataB0.Timer3OutSyncRQ = 1;
-                               }
-                        }
-#ifdef DEBUG_LED
-                        DEBUG_LED_OFF;
-   #ifdef DEBUG_LED_CALL_LUNA
-                        if (ATCMD & MODE_CONNECT)
-                        {
-                            if (--CountFQ3==0)
-                            {
-                                Main.PingRQ = 1;
-                                CountFQ3 = 2;
-                            }
-                        }
-   #endif
-#endif
 
-                    }
-                    else
-                    {
-                        if (FqRXCount == 1)
-                           FqRX = Freq2;
-                        else
-                           FqRX = Freq3;
-                    }
-                }
-#else   /////////////////////////////////new version
                 if (SkipPtr)
                 {
                    SkipPtr = 0;  // no timer3 (RX) interrupt == interrupt will be processed in first place
@@ -1684,7 +1641,6 @@ TMR2_COUNT_DONE:
                         if (--OutSyncCounter == 0)
                             DataB0.Timer3OutSyncRQ = 1;
                     }
-     
 #ifdef DEBUG_LED 
                     if (FqRXCount == 2)
                     {
@@ -1702,7 +1658,6 @@ TMR2_COUNT_DONE:
                     }
 #endif
                 }
-#endif
             }
         }
         
@@ -1735,58 +1690,6 @@ TMR2_COUNT_DONE:
             // may be for RX it is owerkill but for TX it is definetly == in TX it should not stay longer
             // TBD: also may be need to switch off transmitter or receiver
             //BTCE_low();  // Chip Enable Activates RX or TX mode (now disable)
-#if _OLD_VERSION            
-            if (BTType & 0x01) // it was RX operation
-            {
-                if (DataB0.Timer3SwitchRX)
-                    bitclr(PORT_BT,Tx_CE);	// Chip Enable (Activates RX or TX mode) == now standby
-
-                if (DataB0.Tmr3DoneMeasureFq1Fq2) // receive set
-                {
-                    SkipPtr++; // set of next frquency will be in CallBackMain
-                    AdjustTimer3 = TIMER3;
-                    DataB0.Timer3Ready2Sync = 1;
-                }
-                else // needs to monitor FQ1 and FQ2 receive time
-                {
-                    if (RXreceiveFQ == 0) // it is receive over Fq1 == need to start timer3 to record time btw Fq1 and FQ2
-                    {
-                        DataB0.Tmr3DoMeausreFq1_Fq2 = 1;
-                        TMR3H = 0;
-                        TMR3L = 0;
-                        TMR3IF = 0;
-                        TMR3IE = 1;
-                        Tmr3High  = 0;
-                        T3CON = 0b10000001;
-                    }
-                    else if (RXreceiveFQ == 1) // it was receive over Fq2
-                    {
-                        if (DataB0.Tmr3DoMeausreFq1_Fq2) // timer for a measure was started ??
-                        {
-                            TMR3ON = 0;                            // stop timer3 for a moment 
-                            Tmr3LoadLowCopy =0xFFFF - TIMER3;      // timer3 interupt reload values 
-                            Tmr3LoadLowCopy += 52;                 // ofset from begining of a interrupt routine
-                            if (Tmr3LoadLowCopy <= MEDIAN_TIME)
-                                Tmr3High++;
-                            Tmr3LoadLow = Tmr3LoadLowCopy - MEDIAN_TIME;
-                            TMR3H = (Tmr3LoadLow>>8);
-                            TMR3L = (unsigned char)(Tmr3LoadLow&0xFF);
-                            Tmr3LoadLow = Tmr3LoadLowCopy;
-                            //TMR3L = 0;//xff;
-                            TMR3ON = 1; // continue run
-                            Tmr3TOHigh = Tmr3LoadHigh = 0xffff - Tmr3High;
-                            DataB0.Tmr3DoMeausreFq1_Fq2 = 0;           // switch in timer3 interrupt routine from "measure time FQ1-FQ2"
-                            DataB0.Tmr3Run = 1;               // to "run timer3 on BT RX"
-                            DataB0.Tmr3Inturrupt = 0;         // when "measured time FQ1-FQ2" passed it will be timer3 interrupt
-                            //SkipPtr =1;
-                            DataB0.Tmr3RxFqSwitchLost = 0;
-                        }
-                    }
-                }
-                if (!DataB0.Tmr3RxFqSwitchLost)
-                    OutSyncCounter = 125; // 2.5 sec no packets == switch for out of sync
-            }
-#else /////////////////////new version
             if (BTType & 0x01) // it was RX operation
             {
                 if (DataB0.Timer3SwitchRX)
@@ -1800,7 +1703,7 @@ TMR2_COUNT_DONE:
                 }
                 else // needs to monitor FQ1 and FQ2 receive time
                 {
-                    if (RXreceiveFQ == 0) // it is receive over Fq1 == need to start timer3 to record time btw Fq1 and FQ2
+                    if (FqRXCount == 0) // it is receive over Fq1 == need to start timer3 to record time btw Fq1 and FQ2
                     {
                         DataB0.Tmr3DoMeausreFq1_Fq2 = 1;
                         TMR3H = 0;
@@ -1810,7 +1713,7 @@ TMR2_COUNT_DONE:
                         Tmr3High  = 0;
                         T3CON = 0b10000001;
                     }
-                    else if (RXreceiveFQ == 1) // it was receive over Fq2
+                    else if (FqRXCount == 1) // it was receive over Fq2
                     {
                         if (DataB0.Tmr3DoMeausreFq1_Fq2) // timer for a measure was started ??
                         {
@@ -1837,7 +1740,7 @@ TMR2_COUNT_DONE:
                 if (!DataB0.Tmr3RxFqSwitchLost)
                     OutSyncCounter = 125; // 2.5 sec no packets == switch for out of sync
             }
-#endif
+
             else // TX operation
                 bitclr(PORT_BT,Tx_CE);	// Chip Enable (Activates RX or TX mode) == now standby
 #endif
