@@ -1452,6 +1452,7 @@ TMR0_DONE:
                 if (DataB0.Timer1DoTX) // was a request to TX data on that frquency
                 {
                     PORT_AMPL.BT_TX = 1;
+                    DataB0.TXSendDone = 0;
                     bitset(PORT_BT,Tx_CE);
                     //DataB0.Timer1Count = 0; // switch off req round robin
                     //DataB0.Timer1Meausre = 1; // and set timer measure
@@ -1740,9 +1741,11 @@ TMR2_COUNT_DONE:
                 if (!DataB0.Tmr3RxFqSwitchLost)
                     OutSyncCounter = 125; // 2.5 sec no packets == switch for out of sync
             }
-
             else // TX operation
+            {
                 bitclr(PORT_BT,Tx_CE);	// Chip Enable (Activates RX or TX mode) == now standby
+                DataB0.TXSendDone = 1;
+            }
 #endif
         }
     }
