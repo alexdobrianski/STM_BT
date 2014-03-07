@@ -54,6 +54,7 @@
         Main.SendOverLinkAndProc = 0;
         Main.FlashRQ = 0;
         Main.PingRQ = 0;
+        Main.PingRSPRQ = 0;
 #endif
         //Main.SendWithEsc = 0;
         //Main.CommLoopOK = 0;

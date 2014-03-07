@@ -244,7 +244,7 @@ see www.adobri.com for communication protocol spec
 ///////////////////////////////////////////////////////////////
 #define DEBUG_LED_CALL_EARTH
 // for test sequence 
-/// "5atsx=...CBabbcgg
+//// "5atsx=...CBabbcgg
 // atdtl
 // 5"
 
@@ -455,8 +455,13 @@ unsigned TransmitESC:1;
 unsigned RXLoopAllowed:1;
 unsigned RXLoopBlocked:1;
 unsigned TXSendDone:1;
+unsigned RXMessageWasOK:1;
 #endif
 } DataB0;
+#ifdef DEBUG_LED
+unsigned char DebugLedCount;
+#endif
+
 unsigned char FqTXCount;
 unsigned char FqTX;
 //unsigned char TXSendOverFQ;
@@ -773,6 +778,7 @@ void InitModem(void)
     DataB0.RXLoopAllowed = 1;
     DataB0.RXLoopBlocked = 0;
     DataB0.TXSendDone = 0;
+    DataB0.RXMessageWasOK = 0;
 
     Timer1Id = 0;
 }
@@ -907,6 +913,7 @@ void main()
 
 #ifdef DEBUG_LED
     DEBUG_LED_OFF;
+    DebugLedCount = 0;
 #endif
 
 #ifndef __PIC24H__
@@ -1619,9 +1626,7 @@ unsigned char CallBkComm(void)
 #endif
     if (ATCMD & MODE_CONNECT) // was connection esatblished
     {
-        if ((ATCMD & MODE_CALL_LUNA_COM) 
-
-           ) // calling CubSat
+        if (ATCMD & MODE_CALL_LUNA_COM) // calling CubSat
         {
 SEND_BT:    
             // TBD this is a place where ++++ can be checked for disconnect == needs to accumulate data in InQueu and on ++++ disconnect from remote
@@ -1779,7 +1784,8 @@ unsigned char DoFqRXSwitch(void)
 }
 unsigned char DoFqTXSwitch(void)
 {
-    unsigned char bByte;
+
+    //unsigned char bByte;
     
     //TMR3ON = 0; // stop TMR3 for a little bit
     // or may be not this call comes after INT == that mean inside timer3 it will be not advanced
@@ -1803,10 +1809,10 @@ unsigned char DoFqTXSwitch(void)
         else
             FqTX = Freq3;
     }
-    bByte = FqTX;
+    //bByte = FqTX;
     // TBD may be needs to adjust timer 3 ???
     //TMR3ON = 1;
-    return bByte;
+    return FqTX;//bByte;
 }
 void SwitchFQ(unsigned char iFQ)
 {
@@ -1951,7 +1957,12 @@ AFTER_PROCESS:
                        //putch('-');
                         if (FqRXCount == 0) // pkt was not ok on FQ3
                         {
-                            DEBUG_LED_OFF;
+                            if (DebugLedCount)
+                            {
+                                if (--DebugLedCount ==0)
+                                    DEBUG_LED_OFF;
+                            }
+                            
                             // and fix did not helped == missfortune ! == but may be something can be done?
                             goto AFTER_PROCESS;
                         }
@@ -2005,7 +2016,9 @@ AFTER_PROCESS:
                     }
                     else // finished with FQ3 now needs go back to RX mode
                     {
-                    
+                        if (ATCMD & RESPONCE_WAS_SENT)                            ;
+                        else
+                            ATCMD &= (RESPONCE_WAS_SENT ^0xff);
                         SwitchToRXdata();
                         //putch('=');
                         if (ATCMD & MODE_CONNECT) // connection was established == earth get responce from luna
@@ -2033,7 +2046,12 @@ SET_TO_BTW_CHARS:
         {
             I2C.Timer0Fired = 0;
             if (Timer1Id == DELAY_BTW_NEXT_DIAL)
-                ATCMD &= (0xff ^MODE_DIAL); // this will repeat dial cubsat attempt
+            {
+                if (ATCMD & MODE_CONNECT) 
+                    ;
+                else
+                    ATCMD &= (0xff ^MODE_DIAL); // this will repeat dial cubsat attempt
+            }
             else if (Timer1Id == TO_BTW_CHARS)
                 BTFlags.BTNeedsTX = 1;
             else if (Timer1Id == TIME_FOR_PACKET0)
@@ -2046,13 +2064,15 @@ LABEL_TO_RX:
 
                 SwitchFQ(DoFqRXSwitch());// if it was RX over FQ2 than value RXreceiveFQ ==1
                 if (FqRXCount == 0)
-                if (DataB0.RXLoopAllowed)
                 {
-                    BTCE_high();
-                    DataB0.RXLoopBlocked = 0;
+                    if (DataB0.RXLoopAllowed)
+                    {
+                        BTCE_high();
+                        DataB0.RXLoopBlocked = 0;
+                    }
+                    else
+                        DataB0.RXLoopBlocked = 1;
                 }
-                else
-                    DataB0.RXLoopBlocked = 1;
                 if (FqRXCount == 1) 
                 {
                     //RXreceiveFQ = 1;
@@ -2068,7 +2088,7 @@ LABEL_TO_RX:
                     // done with timeouts == may be packet possible to fix ? - it can be packet over FQ1 or two packets over FQ1 + FQ2
 TO_ON_FQ3:
                     //RXreceiveFQ = 0;
-                    if ((ATCMD & MODE_CALL_LUNA_COM)) // earth calls cubsat
+                    if (ATCMD & MODE_CALL_LUNA_COM) // earth calls cubsat
                     {
                         if (ATCMD & MODE_CONNECT) // was connection esatblished
                         {
@@ -2094,9 +2114,6 @@ NEXT_TRANSMIT:
             DataB0.Tmr3Inturrupt = 0;
             if (BTType == 1) // RX mode
             {
-                //if (CheckSuddenRX())
-                //    goto MAIN_INT;
-                    
                 SwitchFQ(DoFqRXSwitch()); // if it was RX over FQ1 than value RXreceiveFQ ==0
                 if (FqRXCount == 0)
                     if (DataB0.RXLoopAllowed) // if it was request to TX then need to switch off round-robin
@@ -2109,35 +2126,14 @@ NEXT_TRANSMIT:
                 if (DataB0.Timer3OutSyncRQ)
                 {
                      DataB0.Tmr3DoneMeasureFq1Fq2 = 0;
-                     // switching from round robin to plain FQ1
-                     //if (FqRXCount ==0)
-                     //{
-                     //    DataB0.Timer3OutSyncRQ = 0;
-                     //    DataB0.Tmr3RxFqSwitchLost = 1;
-                     //    DataB0.Timer3SwitchRX = 0;
-                     //} 
                 }
 
-                //if (RXreceiveFQ) // receiving over FQ2 or FQ3 and timeout on that FQ
-                //{
                     if (FqRXCount==0) // FQ3 == timeout
                     {
                         goto TO_ON_FQ3;
                     }
                     
-                //}
-                //// case when it is listenning over FQ1 == needs to switch FQ1 over FQ2 to continue listening
-                //else
-                //{
-//#ifdef SHOW_RX_TX
-//   #ifdef SHOW_RX
-//                    if (FqRXCount ==0)
-//                       ;//DEBUG_LED_ON;
-//                    else
-//                       /;
-//   #endif
-//#endif
-                //}
+
             }
         }
 
@@ -2190,11 +2186,13 @@ NEXT_TRANSMIT:
                 if (Main.PingRQ)
                 {
                      if (BTType & 0x01)// on rx only
-                     if (FqRXCount == 0) // only if it is listening on FQ1
                      {
-                         BTqueueOut[0] = 'P'; BTqueueOut[1] = 'I';BTqueueOut[2] = 'N';BTqueueOut[3] = 'G';
-                         Main.PingRQ = 0;
-                         goto SEND_PKT_TX_MODE;
+                         if (FqRXCount == 0) // only if it is listening on FQ1
+                         {
+                             BTqueueOut[0] = 'P'; BTqueueOut[1] = 'I';BTqueueOut[2] = 'N';BTqueueOut[3] = 'G';
+                             Main.PingRQ = 0;
+                             goto SEND_PKT_TX_MODE;
+                         }
                      }
                 }
 #endif
@@ -2261,13 +2259,16 @@ SEND_PKT_DIAL:
                 if (ATCMD & RESPONCE_WAS_SENT) // responce to earth was send
                 {
 #ifdef DEBUG_LED_CALL_EARTH
-                    if (Main.PingRQ)
+                    if (Main.PingRSPRQ)
                     {
-                         //if (BTqueueOutLen == 0)
+                         if (BTType & 0x01)// on rx only
                          {
-                             BTqueueOut[0] = 'p'; BTqueueOut[1] = 'i';BTqueueOut[2] = 'n';BTqueueOut[3] = 'g';
-                             Main.PingRQ = 0;
-                             goto SEND_PKT_TX_MODE;
+                             if (FqRXCount == 0) // only if it is listening on FQ1
+                             {
+                                 BTqueueOut[0] = 'p'; BTqueueOut[1] = 'i';BTqueueOut[2] = 'n';BTqueueOut[3] = 'g';
+                                 Main.PingRSPRQ = 0;
+                                 goto SEND_PKT_TX_MODE;
+                             }
                          }
                     }
 #endif
@@ -2295,6 +2296,8 @@ SEND_PKT_DIAL:
                     FqRXCount = 0;
                     SwitchToRXdata();
                     DataB0.RXLoopBlocked =0;
+                    DataB0.RXMessageWasOK = 0;
+                    DataB0.Tmr3DoneMeasureFq1Fq2 = 0;
                 }
             }
         }
@@ -3184,8 +3187,10 @@ void ProcessBTdata(void)
     unsigned char ilen;
     struct PacketStart *MyPacket;
     unsigned int BeginAddr;
+
     if (BTFlags.BT3fqProcessed)
         return;
+
     BTFlags.BT3fqProcessed = 1; // packet(s) is(are) fine == process done == flag to avoid process duplication packets
 
     if (BTokMsg ==1) //msg2
@@ -3196,7 +3201,11 @@ void ProcessBTdata(void)
 
     ilen = MyPacket->BTpacketLen;//ptrMy[6];
 #ifdef DEBUG_LED
-    DEBUG_LED_ON;
+    if (DebugLedCount == 0)
+    {
+        DEBUG_LED_ON;
+        DebugLedCount = 10;
+    }
 #endif
     if (MyPacket->BTpacket == PCKT_DIAL)// (ptrMy[5] & PCKT_DIAL) // receved packet = dial call
     {
@@ -3242,7 +3251,10 @@ void ProcessBTdata(void)
                 if (ATCMD & MODE_CONNECT) // connection was already established
                 {
                     // dial message from the earth - frquensies can be adjusted
-                    ATCMD &= (RESPONCE_WAS_SENT ^0xff);
+                     if (ATCMD & RESPONCE_WAS_SENT)
+                         ;
+                     else
+                         ATCMD &= (RESPONCE_WAS_SENT ^0xff);
                 }
                 else
                 {
@@ -3259,7 +3271,7 @@ SEND_CONNECT:
         }
         else if (MyPacket->Type == 'P') // ping packet - now need to send responce right away
         {
-            Main.PingRQ = 1;
+            Main.PingRSPRQ = 1;
         }
         else if (MyPacket->Type == 'p') // responce on ping packet
         {
@@ -3423,8 +3435,8 @@ unsigned char ReceiveBTdata(void)
     unsigned char WasRXCount;
     unsigned char *ptrMy =&BTqueueIn[0] ;
     //CRC=0;
-
-    if (DataB0.Timer3SwitchRX)
+    DataB0.RXMessageWasOK = 0;
+    //if (DataB0.Timer3SwitchRX)
         BTCE_low();  // Chip Enable Activates RX or TX mode (now disable)
     if (FqRXCount == 0) // received over FQ1
     {
@@ -3490,6 +3502,7 @@ unsigned char ReceiveBTdata(void)
             }
             // stop timer 3 == mesaurements will be done on next two good packets over FQ1 and FQ2
             TMR3ON = 0;
+            DataB0.Tmr3DoMeausreFq1_Fq2 = 0;
         }
     }
     else //if (DataB0.Tmr3DoneMeasureFq1Fq2)  // FQ1-FQ2 time measurement was done successfully
@@ -3511,6 +3524,7 @@ LOOKS_GOOD:  WasRXCount = FqRXCount;
         {
             if (CheckPacket(ptrMy, bret) == 0)    // now possible to do CRC check ???
             {
+                DataB0.RXMessageWasOK = 1;
                 BTokMsg = WasRXCount;
                 if (DataB0.Tmr3DoneMeasureFq1Fq2)  // FQ1-FQ2 timeing was measured by timer3 (RX)
                 {
@@ -3793,10 +3807,11 @@ SEND_GOOD:      BTbyteCRC(BTqueueOutCopy[i]);
 
         if (DataB0.Timer1Done3FQ)
         {
-SWITCH_ANOTHER:
+//SWITCH_ANOTHER:
+            
             SwitchFQ(FqTX); // in that call for TX over FQ1 value of TXSendOverFQ == 1
             DataB0.Timer1DoTX = 1; // timer 1 will initiate transmit
-            goto TRANSMIT_NOW;
+            goto TRANSMIT_ON_TMR1_INT;
         }
         else
         {
@@ -3827,12 +3842,15 @@ SWITCH_ANOTHER:
 
                 }
             }
-            SwitchFQ(DoFqTXSwitch());
+            SwitchFQ(FqTX);
+            DoFqTXSwitch();
 #endif
 TRANSMIT_NOW:
+            DataB0.TXSendDone = 0;
             PORT_AMPL.BT_TX = 1;              // TX amplifier : TBD: is it enought time to start amplifier?
             BTCE_high(); // Chip Enable Activates RX or TX mode (now TX mode) 
         }
+TRANSMIT_ON_TMR1_INT:
         INT0_ENBL = 1;
         TMR1ON = 1; // start temporary stoped timer (if it was stopped!)
         TMR0ON = 0; // during transmit no interrupt on timer 0

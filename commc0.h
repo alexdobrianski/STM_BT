@@ -1810,6 +1810,7 @@ unsigned SendOverLink:1;
 unsigned SendOverLinkAndProc:1;
 unsigned FlashRQ:1;
 unsigned PingRQ:1;
+unsigned PingRSPRQ:1;
 #endif
 unsigned SendComOneByte:1;
 VOLATILE unsigned OutPacket:1;
