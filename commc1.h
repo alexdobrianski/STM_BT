@@ -1747,6 +1747,9 @@ TMR2_COUNT_DONE:
             {
                 bitclr(PORT_BT,Tx_CE);	// Chip Enable (Activates RX or TX mode) == now standby
                 DataB0.TXSendDone = 1;
+#ifdef DEBUG_SIM
+                PORT_AMPL.BT_TX = 0;
+#endif
             }
 #endif
         }

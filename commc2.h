@@ -139,6 +139,21 @@ void putch_main(void)
         }
     }
 }
+#ifdef DEBUG_SIM
+void putch0(unsigned char simbol)
+{
+    while (AOutQu.iQueueSize >= OUT_BUFFER_LEN) // dose output queue full ?? then wait till some space will be avalable in output queue
+    {
+
+    }
+SEND_BYTE_TO_QU:
+    AOutQu.Queue[AOutQu.iEntry] = simbol; // add bytes to a queue
+    if (++AOutQu.iEntry >= OUT_BUFFER_LEN)
+        AOutQu.iEntry = 0;
+    AOutQu.iQueueSize++; // this is unar operation == it does not interfere with interrupt service decrement
+}
+
+#endif
 void putch(unsigned char simbol)
 {
     if (OutPacketUnit != 0)

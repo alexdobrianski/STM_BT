@@ -63,7 +63,7 @@ see www.adobri.com for communication protocol spec
 //FQ1 Listen rrr            rrr             rrr
 //FQ2              
 //FQ3
-//
+///
 // mesurement of TTT can be done on uncommenting MEASURE_EXACT_TX_TIME, need to account that it is transfer of 32 bytes in DEBUG_LED mode
 // protocol diagram for mode TX3 & RX3
 // for 2321 time TTT == RRR == 0x2ADD = 10973 op = 0.001371625 sec
@@ -80,7 +80,9 @@ see www.adobri.com for communication protocol spec
 // for receiver:
 // time "123456789AB" - Time X = time "7654321"
 // X = 0x3500= X > 0x2ACB
-#define MEDIAN_TIME 0x4000
+//#define MEDIAN_TIME 0x4000
+//#define MEDIAN_TIME 0x2000
+#define MEDIAN_TIME 0x1000
 // #define DELAY_BTW_SEND_PACKET 0xffa3
 // transmitter:
 //    111       222        333        111        222        333        111        222        333        111        222        333        111        222        333        111
@@ -218,7 +220,7 @@ see www.adobri.com for communication protocol spec
 
 //////////////////////////////////////////////////////
 // to properly process Timer0 interrupt needs to has all timer set values different
-#define DELAY_BTW_NEXT_DIAL 0xe001
+#define DELAY_BTW_NEXT_DIAL 0xfeec
 #define TO_BTW_CHARS 0xff00
 
 #define TIME_FOR_PACKET 0xff98
@@ -231,6 +233,7 @@ see www.adobri.com for communication protocol spec
 //#define SHOW_RX_TX
 //#define SHOW_RX
 //#define FLASH_POWER_DOWN 1
+//#define DEBUG_SIM 1
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 // define blinking LED on pin 14 (RC3)
 /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -817,12 +820,19 @@ unsigned char ReadTypePkt;
 
 void Erace4K(unsigned char Adr2B);
 #endif
+#ifdef DEBUG_SIM
+unsigned int Sendbtcmd;
+#endif
 
 void main()
 {
     unsigned char bWork;
 
     Reset_device();
+#ifdef DEBUG_SIM
+     Sendbtcmd = 0;
+#endif
+
     // needs to check what is it:
     //if (TO) // Power up or MCLR
     {
@@ -1050,7 +1060,11 @@ void main()
 
 
 // for pic18f2321
+#ifdef DEBUG_SIM
+#define SPBRG_SPEED 1
+#else
 #define SPBRG_SPEED SPBRG_57600_64MHZ
+#endif
 //#define SPBRG_SPEED SPBRG_38400_32MHZ
 //#define SPBRG_SPEED SPBRG_19200_32MHZ
 // for pic24hj64gp502
@@ -1898,7 +1912,7 @@ MAIN_INT:
             if (BTStatus & 0x40) // RX interrupt
             {
                 //if (BTType & 0x01) // RX
-                {
+                //{
                     //putch('r');
                     // receve timing OK message dial
                     // <receive = 442mks><6mks IRQ> <1051/525 mks process on each FQ><ok msg 102/51mks>
@@ -1972,7 +1986,7 @@ AFTER_PROCESS:
                                 SetTimer0(TIME_FOR_PACKET);//Time4Packet); // count 220 = 3520 mks
                         }
                     }
-                }
+                //}
                 //else // RX interrupt in a moment of TX operation
                 //{
                 //}
@@ -1983,7 +1997,7 @@ AFTER_PROCESS:
             {
                 
                 //if (BTType & 0x02) // TX mode
-                {
+                //{
                     // transmit timing with setup:
                     // <setup = 401.mks> <upload = 960/480 mks> <transmit = 442mks><IRQ 6mks> <dealy XXX>
                     // transmit timeing without setup:
@@ -2016,9 +2030,11 @@ AFTER_PROCESS:
                     }
                     else // finished with FQ3 now needs go back to RX mode
                     {
-                        if (ATCMD & RESPONCE_WAS_SENT)                            ;
-                        else
-                            ATCMD &= (RESPONCE_WAS_SENT ^0xff);
+                        if (ATCMD & MODE_CALL_EARTH)
+                        {
+                            if (!(ATCMD & RESPONCE_WAS_SENT))
+                                ATCMD &= (RESPONCE_WAS_SENT ^0xff);
+                        }
                         SwitchToRXdata();
                         //putch('=');
                         if (ATCMD & MODE_CONNECT) // connection was established == earth get responce from luna
@@ -2035,7 +2051,7 @@ SET_TO_BTW_CHARS:
                         else
                             SetTimer0(DELAY_BTW_NEXT_DIAL); // 0x0000 == 4 sec till next attempt for earth to dial luna
                     }
-                }
+                //}
                 //else // TX interrupt in a moment of RX operation
                 //{
                 //}
@@ -2047,9 +2063,7 @@ SET_TO_BTW_CHARS:
             I2C.Timer0Fired = 0;
             if (Timer1Id == DELAY_BTW_NEXT_DIAL)
             {
-                if (ATCMD & MODE_CONNECT) 
-                    ;
-                else
+                if (!(ATCMD & MODE_CONNECT)) 
                     ATCMD &= (0xff ^MODE_DIAL); // this will repeat dial cubsat attempt
             }
             else if (Timer1Id == TO_BTW_CHARS)
@@ -2494,7 +2508,11 @@ void Reset_device(void)
                          //    00 = Primary oscillato
 
    // 18F25K20
+#ifdef DEBUG_SIM
    OSCCON = 0b11110000; //OSCILLATOR CONTROL REGISTER (ADDRESS 8Fh)
+#else
+   OSCCON = 0b11111000; //OSCILLATOR CONTROL REGISTER (ADDRESS 8Fh)
+#endif
                          //bit 7 IDLEN: Idle Enable bit
                          //   1         = Device enters Idle mode on SLEEP instruction
                          //   0         = Device enters Sleep mode on SLEEP instruction
@@ -2591,7 +2609,7 @@ void Reset_device(void)
     // RB3 - TX_NOT_READY pin 24 - in
 
     TRISB = 0b00001001;  //0 = Output, 1 = Input 
-    PORTB = 0b00000000;  // nothing happened with amplifiers BT_TX,BT_RX=low
+    PORTB = 0b00000001;  // nothing happened with amplifiers BT_TX,BT_RX=low
 
 	
     
@@ -3402,6 +3420,12 @@ void BTCE_low(void)
 {
     bitclr(PORT_BT,Tx_CE);	// Chip Enable Activates RX or TX mode (now disable)
 }
+#ifdef DEBUG_SIM
+void BTCE_highTX(void)
+{
+    bitset(PORT_BT,Tx_CE);	// Chip Enable Activates RX or TX mode (now TX mode) 
+}
+#endif 
 void BTCE_high(void)
 {
     bitset(PORT_BT,Tx_CE);	// Chip Enable Activates RX or TX mode (now TX mode) 
@@ -3699,12 +3723,12 @@ void TransmitBTdata(void)
         bitclr(PORT_BT,Tx_CSN);
         BTStatus= SendBTcmd(0xa0); // 1010  0000 command W_TX_PAYLOAD to register 00101 == RF_CH
         
-        //BTbyteCRC(0xaa);// preambul offset 0
-        //BTbyteCRC(0xaa);// preambul offset 1
-        //BTbyteCRC(0xaa);// preambul offset 2
-        BTbyteCRC(Addr1);  // addr1 offset 1
-        BTbyteCRC(Addr2);  // addr2 offset 2
-        BTbyteCRC(Addr3);  // addr3   // done for a case of missing first preambul+addr offset 3
+        BTbyteCRC(0xaa);// preambul offset 0
+        BTbyteCRC(0xaa);// preambul offset 1
+        BTbyteCRC(0xaa);// preambul offset 2
+        //BTbyteCRC(Addr1);  // addr1 offset 1
+        //BTbyteCRC(Addr2);  // addr2 offset 2
+        //BTbyteCRC(Addr3);  // addr3   // done for a case of missing first preambul+addr offset 3
         BTbyteCRC(BTpktCopy);  // sequence/packet offset 3
         BTbyteCRC(FqTXCount);  // current frequency offset 4
         BTbyteCRC(BTqueueOutCopyLen);  // length   offset 5
@@ -3848,7 +3872,11 @@ SEND_GOOD:      BTbyteCRC(BTqueueOutCopy[i]);
 TRANSMIT_NOW:
             DataB0.TXSendDone = 0;
             PORT_AMPL.BT_TX = 1;              // TX amplifier : TBD: is it enought time to start amplifier?
+#ifdef DEBUG_SIM
+            BTCE_highTX();
+#else
             BTCE_high(); // Chip Enable Activates RX or TX mode (now TX mode) 
+#endif
         }
 TRANSMIT_ON_TMR1_INT:
         INT0_ENBL = 1;
@@ -4165,8 +4193,25 @@ void wCRCupdt(int bByte)
         }
     }
 }
+unsigned char SendCMD;
 unsigned char SendBTcmd(unsigned char cmd)
 {
+#ifdef DEBUG_SIM
+    unsigned char Data=1;
+    putch0(cmd);
+    switch(Sendbtcmd)
+    {
+    case 0:Data = 0x7e;break;
+    case 1:Data = 0x6e;break;
+    case 2:Data = 0x4e;break;
+    case 3:Data = 0x0e;break;
+    case 7:Data = 0x20;break;
+    case 10:Data = 0x20;break;
+    case 13:Data = 0x20;break;
+    }
+    Sendbtcmd++;
+    return (Data);
+#else
 	int i= 8;
     unsigned char Data = 0;
     do 
@@ -4183,11 +4228,16 @@ unsigned char SendBTcmd(unsigned char cmd)
         cmd <<= 1;
 		PORT_BT.Tx_SCK = 0;
     } while(--i);
-    return Data;
-}
 
+    return Data;
+#endif
+}
 void SendBTbyte(unsigned char cmd)
 {
+#ifdef DEBUG_SIM
+    putch0(cmd);
+    SendCMD = cmd; 
+#else
 	int i = 8;
     do 
     {
@@ -4199,10 +4249,15 @@ void SendBTbyte(unsigned char cmd)
         cmd <<= 1;
 		PORT_BT.Tx_SCK = 0;
     } while(--i);
+#endif
 }
 
 unsigned char GetBTbyte(void)
 {
+#ifdef DEBUG_SIM
+    unsigned int Data = 0;
+    putch0(Data);
+#else
 	int i = 8;
     unsigned int Data = 0;
     do 
@@ -4214,6 +4269,7 @@ unsigned char GetBTbyte(void)
 
 		PORT_BT.Tx_SCK = 0;
     } while(--i);
+#endif
     return Data;
 }
 

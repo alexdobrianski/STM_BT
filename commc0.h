@@ -1225,7 +1225,11 @@ void CsHigh(void);
 #pragma config OSC=INTIO2
 #else
 //#pragma config[1] = 0x08
+#ifdef DEBUG_SIM
+#pragma config[1] = 0x08
+#else
 #pragma config[1] = 0x06
+#endif
 #endif
 // CONFIG2L: CONFIGURATION REGISTER 2 LOW (BYTE ADDRESS 300002h)
 // bit 7-5 Unimplemented: Read as ‘0’
