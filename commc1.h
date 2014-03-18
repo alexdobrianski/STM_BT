@@ -1454,38 +1454,26 @@ TMR0_DONE:
                     PORT_AMPL.BT_TX = 1;
                     DataB0.TXSendDone = 0;
                     bitset(PORT_BT,Tx_CE);
-                    //DataB0.Timer1Count = 0; // switch off req round robin
-                    //DataB0.Timer1Meausre = 1; // and set timer measure
-                    //TMR1 = 0;
-                    //Tmr1High = 0;
-                    //goto SWITCH_FQ;
                     DataB0.Timer1DoTX = 0;
-                    if (++FqTXCount>=3)
-                    {
-                       FqTXCount = 0;
-                       FqTX = Freq1;
-                    }
-                    else
-                    {
-
-                        if (FqTXCount == 1)
-                            FqTX = Freq2;
-                        else
-                            FqTX = Freq3;
-                    }
+                }        
+                if (++FqTXCount>=3)
+                {
+                    FqTXCount = 0;
+                    FqTX = Freq1;
                 }
-                //else
-                //{
-                    //TIMER1 = Tmr1LoadLow;  
-                    TMR1H = (unsigned char)(Tmr1LoadLow>>8);
-                    TMR1L = (unsigned char)(Tmr1LoadLow&0xff);
-                    //DataB0.Timer1Inturrupt = 1; // and relaod timer
-                    Tmr1TOHigh = Tmr1LoadHigh;
-//#define SHOW_RX
-                    //if (FqTXCount == 0)
-                    //    DEBUG_LED_OFF;
-
-                //}
+                else
+                {
+                   if (FqTXCount == 1)
+                       FqTX = Freq2;
+                   else
+                       FqTX = Freq3;
+                }
+                
+                //TIMER1 = Tmr1LoadLow;  
+                TMR1H = (unsigned char)(Tmr1LoadLow>>8);
+                TMR1L = (unsigned char)(Tmr1LoadLow&0xff);
+                //DataB0.Timer1Inturrupt = 1; // and relaod timer
+                Tmr1TOHigh = Tmr1LoadHigh;
             }
         }
         

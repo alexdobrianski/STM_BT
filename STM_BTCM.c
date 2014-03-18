@@ -2034,8 +2034,8 @@ AFTER_PROCESS:
                         DataB0.RXLoopBlocked = 0;
                         DataB0.RXLoopAllowed = 1;
 
-
-                        SwitchToRXdata();
+                        if (!(ATCMD & SOME_DATA_OUT_BUFFER)) // if nothing in BT buffer then switch to RX 
+                            SwitchToRXdata();
                         //putch('=');
                         if (!(ATCMD & MODE_CONNECT)) // connection was not established == earth get responce from luna
                             SetTimer0(DELAY_BTW_NEXT_DIAL); // 0x0000 == 4 sec till next attempt for earth to dial luna
@@ -2139,18 +2139,26 @@ NEXT_TRANSMIT:
         {
             if (BTFlags.BTNeedsTX) // needs to transmit buffer ether because timeout btw char or because buffer is full or data ready to trabnsmit
             {
-                if (DataB0.RXLoopBlocked) // only when round-robin RX blocked
+                if (DataB0.Timer1Count) // first TX on  FQ1 & FQ@ was done == timer 1 is set
                 {
-                    if (FqRXCount == 0) // only when next TX will be on Fq1
+                    if (DataB0.RXLoopBlocked) // only when round-robin RX blocked
                     {
-                        BTCE_low();
-                        TransmitBTdata();
-                        ATCMD &= (0xff ^SOME_DATA_OUT_BUFFER);
-                        BTFlags.BTNeedsTX = 0;
+                        if (FqRXCount == 0) // only when next TX will be on Fq1
+                        {
+INIT_TX:
+                            BTCE_low();
+                            TransmitBTdata();
+                            ATCMD &= (0xff ^SOME_DATA_OUT_BUFFER);
+                            BTFlags.BTNeedsTX = 0;
+                        }
                     }
-                }
-                else
-                    DataB0.RXLoopAllowed = 0;
+                    else
+                        DataB0.RXLoopAllowed = 0;
+                 }
+                 else // first time TX over FQ1 was not set yet == needs to send  
+                 {
+                     goto INIT_TX;
+                 }
             }
         }
         
