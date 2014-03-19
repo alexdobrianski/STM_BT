@@ -1661,6 +1661,7 @@ TMR2_COUNT_DONE:
             
 #ifdef BT_TX
 //#define MEASURE_EXACT_TX_TIME 1
+// for debug to get real value on int0 - but using value is in TransmittBT function
 #ifdef MEASURE_EXACT_TX_TIME
             // in debug mode only!!!
             if (DataB0.Timer1Meausre)

@@ -69,7 +69,7 @@ see www.adobri.com for communication protocol spec
 // for 2321 time TTT == RRR == 0x2ADD = 10973 op = 0.001371625 sec
 //          time 123456789AB = (TX = 10973 op = 0.001371625)+(TO= 93*128 = 11904 op = 0.001488)+(Packet prep = 7472) = total = 30349 = 0.003793625 sec
 // for 25K20time TTT == RRR ==        = 7051 op = 0.000459 sec
-//          time 123456789AB = (TX = 7344 op = 0.0004406875 sec)+(TO= 47*256 = 12032 op = 0.000752 sec ) + (Packet prep = 7724) = total = 26807 = 0.0016754375sec
+//          time 123456789AB = (TX = 7344 op = 0.0004406875 sec)+(TO= 47*256 = 12032 op = 0.000752 sec ) + (Packet prep = 7724) = total = 27100 = 0.00169375sec
 // 2mbt25K20time TTT == RRR ==        = 4595 op = 0.0002871875 sec
 //          time 123456789AB = (TX = 4595 op = 0.0002871875 sec)+(TO= 47*256 = 12032 op = 0.000752 sec ) + (Packet prep = 7695) = total = 24322 = 0.001520125sec
 // i.e. time line :
@@ -228,13 +228,16 @@ see www.adobri.com for communication protocol spec
 #define TIME_FOR_PACKET0 0xe123
 //#define DELAY_BTW_SEND_PACKET 0xffa3
 #define DELAY_BTW_SEND_PACKET 0xffd1
+#define MAX_TX_POSSIBLE 0xE0bf
+#define MIN_TX_POSSIBLE 0xB9AF
+
 /////////////////////////////////////////////////////
 //#define _OLD_VERSION 1
 //#define __DEBUG
 //#define SHOW_RX_TX
 //#define SHOW_RX
 //#define FLASH_POWER_DOWN 1
-//#define DEBUG_SIM 1
+#define DEBUG_SIM 1
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 // define blinking LED on pin 14 (RC3)
 /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -246,7 +249,7 @@ see www.adobri.com for communication protocol spec
 //   for a blinking LED behive like CUBESAT/CRAFT
 //   it is waiting for connection, wait for pkt, and when pkt is Ok it send back to earth reply packet, and blinks
 ///////////////////////////////////////////////////////////////
-#define DEBUG_LED_CALL_EARTH
+//#define DEBUG_LED_CALL_EARTH
 // for test sequence 
 //// "5atsx=...CBabbcgg
 // atdtl
@@ -255,7 +258,7 @@ see www.adobri.com for communication protocol spec
 ///////////////////////////////////////////////////////////////
 //   for a blinking LED behive like Ground Station, it is constantly sends pktm if received pkt, then it blinks
 ///////////////////////////////////////////////////////////////
-//#define DEBUG_LED_CALL_LUNA
+#define DEBUG_LED_CALL_LUNA
 // for test sequence 
 // "5atsx=...CBabbcgg
 // atdtl
@@ -474,6 +477,7 @@ UWORD TIMER0 @ 0xFD6;
 UWORD TIMER1 @ 0xFCE;
 UWORD TIMER3 @ 0xFB2;
 #endif
+UWORD Time1Left;
 
 UWORD Timer1Id;
 
@@ -886,7 +890,6 @@ void main()
     BTqueueOutLen = 0;
     //BTInturrupt = 0;
     BTFlags.BTFirstInit = 0;
-    BTFlags.BTNeedsTX = 0;
     BTokMsg = 0xff;
     PktCount = 0;
     SkipPtr = 0;
@@ -1719,22 +1722,12 @@ PUSH_TO_BT_QUEUE:
                 BTqueueOut[BTqueueOutLen] = bByte;//
                 if (++BTqueueOutLen >= BT_TX_MAX_LEN) // buffer full
                     goto SET_FLAG;
-                else // still present space in buffer wait for a next char
-                {
-                    if (FqRXCount == 0) // only if lstenning on FQ1
-                    {
-                        if (BTType & 0x01) // only in  RX mode set timer
-                           SetTimer0(TO_BTW_CHARS);//0xff00);
-                    }
-                }
             }
             else // no space in buffer but chars is coming == left it in queue in hope that they will not owerfrlow buffer
             {
                 // if BT in RX mode set request to transmit
                 // in this moment (before transmit happened) input queue is blocked before TX set 
 SET_FLAG:
-                if (BTType & 0x01) // only in  RX mode set flag
-                    BTFlags.BTNeedsTX = 1;
             }
             return 0; // this will block retreiving data from com queue
         }
@@ -1952,18 +1945,7 @@ PROCESS_DATA:
                         if (FqRXCount == 0) // pkt was ok on FQ3
                         {
 AFTER_PROCESS:                            
-                            if (ATCMD & MODE_CONNECT) // connection was established == earth get responce from luna
-                            {
-                                // need to set timeout if input data 
-                                if (ATCMD & SOME_DATA_OUT_BUFFER) // data was collected to transmit
-                                {
-                                    if (BTqueueOutLen >= BT_TX_MAX_LEN) // buffer full 
-                                        BTFlags.BTNeedsTX = 1;
-                                    else 
-                                        SetTimer0(TO_BTW_CHARS);//0xff00); // set timeout btw char
-                                }
-                            }
-                            else // no connection yet == this is RX after transmit dial packet
+                            if (!(ATCMD & MODE_CONNECT)) // connection was established == earth get responce from luna
                             {
                                 if ((ATCMD & MODE_CALL_LUNA_COM)) // earth calls cubsat
                                    SetTimer0(DELAY_BTW_NEXT_DIAL); // 0x0000 == 4 sec till next attempt for earth to dial luna
@@ -2004,22 +1986,15 @@ AFTER_PROCESS:
                         // TX initiated by TMR1 interrupt and Transmit function just prepear everything
                         // but flag usefull for initial calculation of time btw FQ1-FQ@
                         // SKIP_CALC_TX_TIME can use precalculated values 
-                        if (DataB0.Timer1Done3FQ)
+                        if (DataB0.Timer1Count)
                             goto NEXT_TRANSMIT;
                         // difference btw receive process (442mks + 6 + + 102/51 + 2653/1327 = 3207/1826 mks) and transmit upload (<upload = 960/480 mks> <transmit = 442mks> <IRQ 6mks>+xxx) xxx= 2247(1799??)/898 mks = 141(112??)/56 counts on 32MHz with 128 prescaler
                         //SetTimer0(0xff73); // delay to accomodate tranmsmit and receive process difference send waits when recive will be done
                         //SetTimer0(0xff73); // <= failure
-                        //SetTimer0(0xff53);
-                        //SetTimer0(0xff33);
-                        //SetTimer0(0xff13);
-                        //SetTimer0(0xfef0);
                         //SetTimer0(0xff93); // <== OK
-                        //SetTimer0(0xff93);
-                        //SetTimer0(0xffa3);
-                        //SetTimer0(0xffc3);
                         //SetTimer0(0xffd3); // <== OK
                         if (FqTXCount == 1)
-                            SetTimer0(DELAY_BTW_SEND_PACKET);
+                            SetTimer0(DELAY_BTW_SEND_PACKET);  // that control delay to accomodate RX processing message 
                         else
                             goto NEXT_TRANSMIT;
                         //putch('x');
@@ -2031,14 +2006,18 @@ AFTER_PROCESS:
                             if (!(ATCMD & RESPONCE_WAS_SENT))
                                 ATCMD &= (RESPONCE_WAS_SENT ^0xff);
                         }
-                        DataB0.RXLoopBlocked = 0;
-                        DataB0.RXLoopAllowed = 1;
 
-                        if (!(ATCMD & SOME_DATA_OUT_BUFFER)) // if nothing in BT buffer then switch to RX 
+                        if (!(ATCMD & SOME_DATA_OUT_BUFFER)) // if nothing in BT output queue then switch to RX 
+                        {
+                            DataB0.RXLoopBlocked = 0;
+                            DataB0.RXLoopAllowed = 1;
+
                             SwitchToRXdata();
-                        //putch('=');
-                        if (!(ATCMD & MODE_CONNECT)) // connection was not established == earth get responce from luna
-                            SetTimer0(DELAY_BTW_NEXT_DIAL); // 0x0000 == 4 sec till next attempt for earth to dial luna
+                            //putch('=');
+                            if (!(ATCMD & MODE_CONNECT)) // connection was not established == earth get responce from luna
+                                SetTimer0(DELAY_BTW_NEXT_DIAL); // 0x0000 == 4 sec till next attempt for earth to dial luna
+                        }
+                        // othrwise it will be TX - bytes are ready in BT output queue     
                     }
             }
         }
@@ -2051,8 +2030,6 @@ AFTER_PROCESS:
                 if (!(ATCMD & MODE_CONNECT)) 
                     ATCMD &= (0xff ^MODE_DIAL); // this will repeat dial cubsat attempt
             }
-            else if (Timer1Id == TO_BTW_CHARS)
-                BTFlags.BTNeedsTX = 1;
             else if (Timer1Id == TIME_FOR_PACKET0)
                 goto LABEL_TO_RX;
             else if (Timer1Id == TIME_FOR_PACKET)
@@ -2137,28 +2114,39 @@ NEXT_TRANSMIT:
         // check does it needs to transmit something?
         if (ATCMD & SOME_DATA_OUT_BUFFER)
         {
-            if (BTFlags.BTNeedsTX) // needs to transmit buffer ether because timeout btw char or because buffer is full or data ready to trabnsmit
+            if (DataB0.Timer1Count) // first TX on  FQ1 & FQ@ was done == timer 1 is set
             {
-                if (DataB0.Timer1Count) // first TX on  FQ1 & FQ@ was done == timer 1 is set
+                if (DataB0.RXLoopBlocked) // only when round-robin RX blocked
                 {
-                    if (DataB0.RXLoopBlocked) // only when round-robin RX blocked
+                    if (FqRXCount == 0) // only when next TX will be on Fq1
                     {
-                        if (FqRXCount == 0) // only when next TX will be on Fq1
+                        Time1Left = TIMER1;
+#define MAX_TX_POSSIBLE 0xE0bf
+#define MIN_TX_POSSIBLE 0xB9AF
+                        // value 0xffff-8000 =0xE0bf - that is max value when TX will be possible
+                        // (TO= 93*128 = 11904 op = 0.001488)+(Packet prep = 7472=0.000467)
+                        // 1 char = 0.0002sec TO= 93*128 = 11904 == 3.75 char
+                        // allow to get 3 char 0.0002*3 *16,000,000= 9600 cycles
+                        // 0xffff - (8000+10000) = 0xB9AF
+                        // all time btw FQ1 FQ2 is 26807 = 0.0016754375 = 8.3 char all 3 freq = 25 char
+                        if (Time1Left< MAX_TX_POSSIBLE)
                         {
+                            if (Time1Left > MIN_TX_POSSIBLE)
+                            {
 INIT_TX:
-                            BTCE_low();
-                            TransmitBTdata();
-                            ATCMD &= (0xff ^SOME_DATA_OUT_BUFFER);
-                            BTFlags.BTNeedsTX = 0;
+                                BTCE_low();
+                                TransmitBTdata();
+                                ATCMD &= (0xff ^SOME_DATA_OUT_BUFFER);
+                            }
                         }
                     }
-                    else
-                        DataB0.RXLoopAllowed = 0;
-                 }
-                 else // first time TX over FQ1 was not set yet == needs to send  
-                 {
-                     goto INIT_TX;
-                 }
+                }
+                else
+                    DataB0.RXLoopAllowed = 0;
+            }
+            else // first time TX over FQ1 was not set yet == needs to send  
+            {
+                goto INIT_TX;
             }
         }
         
@@ -2222,6 +2210,9 @@ SEND_PKT_TX_MODE:
                         FqRXCount = 0;
                         FqRX = Freq1;
                         FqRXCount = 0;
+#ifdef DEBUG_SIM
+                        putch_main();
+#endif
                         SwitchToRXdata();
                         SetTimer0(TIME_FOR_PACKET0);
                     }
@@ -2232,7 +2223,6 @@ SEND_PKT_DIAL:
                     BTqueueOut[7] = Freq1;BTqueueOut[8] = Freq2;BTqueueOut[9] = Freq3;
                     BTpkt = PCKT_DIAL;
                     BTqueueOutLen = 10;
-                    BTFlags.BTNeedsTX = 1;
                     ATCMD |= SOME_DATA_OUT_BUFFER;
 
                 } 
@@ -3827,7 +3817,7 @@ SEND_GOOD:      BTbyteCRC(BTqueueOutCopy[i]);
         INT0_FLG = 0;
         Main.ExtInterrupt = 0;
 
-        if (DataB0.Timer1Done3FQ)
+        if (DataB0.Timer1Count)
         {
 //SWITCH_ANOTHER:
             
@@ -3858,7 +3848,6 @@ SEND_GOOD:      BTbyteCRC(BTqueueOutCopy[i]);
                     Tmr1LoadLow = 0xffff - TIMER1;      // timer1 interupt reload values 
                     Tmr1TOHigh = Tmr1LoadHigh;
                     SetTimer1(Tmr1LoadLow);
-                    DataB0.Timer1Done3FQ = 1; 
                     DataB0.Timer1Meausre = 0;
                     DataB0.Timer1Count = 1;
 
@@ -4207,9 +4196,9 @@ unsigned char SendBTcmd(unsigned char cmd)
     case 1:Data = 0x6e;break;
     case 2:Data = 0x4e;break;
     case 3:Data = 0x0e;break;
-    case 7:Data = 0x20;break;
-    case 10:Data = 0x20;break;
-    case 13:Data = 0x20;break;
+    case 9:Data = 0x20;break;
+    case 12:Data = 0x20;break;
+    case 15:Data = 0x20;break;
     }
     Sendbtcmd++;
     return (Data);
