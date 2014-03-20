@@ -118,6 +118,10 @@ INTERRUPT int_server( void)
    unsigned char work2;
 // redefinitions
 #define GETCH_BYTE work2
+#ifdef BT_TX
+   INTTimer1 = TIMER1;
+   INTTimer1HCount = Timer1HCount;
+#endif
 #endif
 #ifndef NO_I2C_PROC
    //////////////////////////////////////////////////////////////////////////////////////////
@@ -1449,6 +1453,7 @@ TMR0_DONE:
         {
             if ((++Tmr1TOHigh) == 0)
             {
+
                 if (DataB0.Timer1DoTX) // was a request to TX data on that frquency
                 {
                     PORT_AMPL.BT_TX = 1;
@@ -1468,12 +1473,16 @@ TMR0_DONE:
                    else
                        FqTX = Freq3;
                 }
-                
-                //TIMER1 = Tmr1LoadLow;  
                 TMR1H = (unsigned char)(Tmr1LoadLow>>8);
                 TMR1L = (unsigned char)(Tmr1LoadLow&0xff);
                 //DataB0.Timer1Inturrupt = 1; // and relaod timer
                 Tmr1TOHigh = Tmr1LoadHigh;
+                //TIMER1 = Tmr1LoadLow;  
+                Timer1HCount++; // become 0 each 111.0016 sec
+                DistMeasure.TXbTmr1H = DistMeasure.TXaTmr1H;
+                DistMeasure.TXbTmr1 = DistMeasure.TXaTmr1;
+                DistMeasure.TXaTmr1H = INTTimer1HCount;
+                DistMeasure.TXaTmr1 = INTTimer1;
             }
         }
         
@@ -1669,6 +1678,8 @@ TMR2_COUNT_DONE:
                 Tmr1LoadHigh = 0xffff - Tmr1High; // this will
                 Tmr1LoadLow = 0xffff - TIMER1;      // timer1 interupt reload values 
                 DataB0.Timer1Meausre = 1;
+                Timer1HCount = 0;
+                TimerHHCount = 0; 
             }
 #endif
             // communication BT - on interrupt needs goto standby state
@@ -1685,6 +1696,13 @@ TMR2_COUNT_DONE:
                     SkipPtr = 1; // timeout in timer3 (RX) will be blocked
                     AdjustTimer3 = TIMER3;
                     DataB0.Timer3Ready2Sync = 1;
+                    if (FqRXCount == 0)
+                    {
+                        DistMeasure.RXbTmr1H = DistMeasure.RXaTmr1H;
+                        DistMeasure.RXbTmr1 = DistMeasure.RXaTmr1;
+                        DistMeasure.RXaTmr1H = INTTimer1HCount;
+                        DistMeasure.RXaTmr1 = INTTimer1;
+                    }
                 }
                 else // needs to monitor FQ1 and FQ2 receive time
                 {

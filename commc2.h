@@ -142,9 +142,9 @@ void putch_main(void)
 #ifdef DEBUG_SIM
 void putch0(unsigned char simbol)
 {
-    while (AOutQu.iQueueSize >= OUT_BUFFER_LEN) // dose output queue full ?? then wait till some space will be avalable in output queue
+    while (AOutQu.iQueueSize >= (OUT_BUFFER_LEN-1)) // dose output queue full ?? then wait till some space will be avalable in output queue
     {
-
+        putch_main();
     }
 SEND_BYTE_TO_QU:
     AOutQu.Queue[AOutQu.iEntry] = simbol; // add bytes to a queue
@@ -184,9 +184,9 @@ void putch(unsigned char simbol)
             return;   // fixing output packet
     }
 
-    while (AOutQu.iQueueSize >= OUT_BUFFER_LEN) // dose output queue full ?? then wait till some space will be avalable in output queue
+    while (AOutQu.iQueueSize >= (OUT_BUFFER_LEN-1)) // dose output queue full ?? then wait till some space will be avalable in output queue
     {
-
+        putch_main();
     }
 SEND_BYTE_TO_QU:
     AOutQu.Queue[AOutQu.iEntry] = simbol; // add bytes to a queue

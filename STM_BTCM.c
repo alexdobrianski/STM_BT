@@ -230,6 +230,12 @@ see www.adobri.com for communication protocol spec
 #define DELAY_BTW_SEND_PACKET 0xffd1
 #define MAX_TX_POSSIBLE 0xE0bf
 #define MIN_TX_POSSIBLE 0xB9AF
+                        // value 0xffff-8000 =0xE0bf - that is max value when TX will be possible
+                        // (TO= 93*128 = 11904 op = 0.001488)+(Packet prep = 7472=0.000467)
+                        // 1 char = 0.0002sec TO= 93*128 = 11904 == 3.75 char
+                        // allow to get 3 char 0.0002*3 *16,000,000= 9600 cycles
+                        // 0xffff - (8000+10000) = 0xB9AF
+                        // all time btw FQ1 FQ2 is 26807 = 0.0016754375 = 8.3 char, all 3 freq = 25 char
 
 /////////////////////////////////////////////////////
 //#define _OLD_VERSION 1
@@ -487,6 +493,24 @@ UWORD Tmr1High; // to count for a 536 sec with presision of 0.000000125s== 1/4mk
 UWORD Tmr1LoadLow;  // timer1 interupt reload values 
 UWORD Tmr1LoadHigh; // this will 
 UWORD Tmr1TOHigh;   // this overload value will generate interrupts and reload timer
+
+UWORD INTTimer1;
+UWORD INTTimer1HCount;
+
+
+UWORD Timer1HCount;
+
+struct _DistMeasure{
+UWORD RXaTmr1;
+UWORD RXaTmr1H;
+UWORD RXbTmr1;
+UWORD RXbTmr1H;
+UWORD TXaTmr1;
+UWORD TXaTmr1H;
+UWORD TXbTmr1;
+UWORD TXbTmr1H;
+} DistMeasure;
+
 
 #ifdef BT_TIMER3
 unsigned char FqRXCount;
@@ -894,6 +918,7 @@ void main()
     PktCount = 0;
     SkipPtr = 0;
     ESCCount = 0;
+
 #ifdef SKIP_CALC_TX_TIME
     TMR1ON = 0;              // stop timer measure it time btw send Fq1 -> Fq2
     DataB0.Timer1Done3FQ = 1; 
@@ -904,6 +929,8 @@ void main()
     Tmr1LoadLow = 0x8975;      // timer1 interupt reload values 
     Tmr1TOHigh = Tmr1LoadHigh;
     SetTimer1(Tmr1LoadLow);
+#else
+    DataB0.Timer1Count = 0;
 #endif
 
 #ifdef NON_STANDART_MODEM
@@ -1065,7 +1092,7 @@ void main()
 
 // for pic18f2321
 #ifdef DEBUG_SIM
-#define SPBRG_SPEED 1
+#define SPBRG_SPEED 2
 #else
 #define SPBRG_SPEED SPBRG_57600_64MHZ
 #endif
@@ -1604,7 +1631,7 @@ unsigned char CheckSuddenRX(void)
     bitclr(PORT_BT,Tx_CSN); // SPI Chip Select
     BTStatus=SendBTcmd(0xff); //cmd = 0xff; = 1111 1111 command NOP to read STATUS register
     bitset(PORT_BT,Tx_CSN); // set high
-    if (BTStatus & 0x20) // it is unprocessed interrupt on RX
+    if (BTStatus & 0x40) // it is unprocessed interrupt on RX
     {
         Main.ExtInterrupt = 1;
         return 1;
@@ -2029,6 +2056,7 @@ AFTER_PROCESS:
             {
                 if (!(ATCMD & MODE_CONNECT)) 
                     ATCMD &= (0xff ^MODE_DIAL); // this will repeat dial cubsat attempt
+                // RX now on FQ1 listening indefinatly
             }
             else if (Timer1Id == TIME_FOR_PACKET0)
                 goto LABEL_TO_RX;
@@ -2116,37 +2144,58 @@ NEXT_TRANSMIT:
         {
             if (DataB0.Timer1Count) // first TX on  FQ1 & FQ@ was done == timer 1 is set
             {
-                if (DataB0.RXLoopBlocked) // only when round-robin RX blocked
+                // does RX get FQ1 and FQ2 packets ? if YES then TMR3 switches RX and loop can be blocked
+                if (DataB0.Tmr3DoneMeasureFq1Fq2)
                 {
-                    if (FqRXCount == 0) // only when next TX will be on Fq1
+                    if (DataB0.RXLoopBlocked) // only when round-robin RX blocked
                     {
-                        Time1Left = TIMER1;
-#define MAX_TX_POSSIBLE 0xE0bf
-#define MIN_TX_POSSIBLE 0xB9AF
-                        // value 0xffff-8000 =0xE0bf - that is max value when TX will be possible
-                        // (TO= 93*128 = 11904 op = 0.001488)+(Packet prep = 7472=0.000467)
-                        // 1 char = 0.0002sec TO= 93*128 = 11904 == 3.75 char
-                        // allow to get 3 char 0.0002*3 *16,000,000= 9600 cycles
-                        // 0xffff - (8000+10000) = 0xB9AF
-                        // all time btw FQ1 FQ2 is 26807 = 0.0016754375 = 8.3 char all 3 freq = 25 char
-                        if (Time1Left< MAX_TX_POSSIBLE)
+                        if (FqTXCount == 0) // only when next TX will be on Fq1
                         {
-                            if (Time1Left > MIN_TX_POSSIBLE)
+                            Time1Left = TIMER1;
+                            // value 0xffff-8000 =0xE0bf - that is max value when TX will be possible
+                            // (TO= 93*128 = 11904 op = 0.001488)+(Packet prep = 7472=0.000467)
+                            // 1 char = 0.0002sec TO= 93*128 = 11904 == 3.75 char
+                            // allow to get 3 char 0.0002*3 *16,000,000= 9600 cycles
+                            // 0xffff - (8000+10000) = 0xB9AF
+                            // all time btw FQ1 FQ2 is 26807 = 0.0016754375 = 8.3 char all 3 freq = 25 char
+                            if (Time1Left< MAX_TX_POSSIBLE)
                             {
+                                if (BTqueueOutLen >= BT_TX_MAX_LEN)
+                                    goto INIT_TX;
+                                if (Time1Left > MIN_TX_POSSIBLE)
+                                {
 INIT_TX:
-                                BTCE_low();
-                                TransmitBTdata();
-                                ATCMD &= (0xff ^SOME_DATA_OUT_BUFFER);
+                                    BTCE_low();
+                                    TransmitBTdata();
+                                    ATCMD &= (0xff ^SOME_DATA_OUT_BUFFER);
+                                }
                             }
                         }
                     }
+                    else
+                        DataB0.RXLoopAllowed = 0;
                 }
-                else
-                    DataB0.RXLoopAllowed = 0;
+                else // RX is not measured time btw FQ1 and FQ2 sequensed RX
+                {
+                    if (FqRXCount == 0) // only when next TX will be on Fq1
+                    {
+                        // for check it will stop listenning ->BTCE_low()
+                        if (CheckSuddenRX())  // just by luck or delay it was RX of the packet
+                            goto MAIN_INT;
+                        goto INIT_TX;
+                    }
+                }
             }
             else // first time TX over FQ1 was not set yet == needs to send  
             {
-                goto INIT_TX;
+                if (BTType == 1)
+                {
+                    if (FqRXCount == 0)
+                    {
+                        TMR0ON = 0;
+                	    goto INIT_TX;
+                    }
+                }    
             }
         }
         
@@ -2210,11 +2259,8 @@ SEND_PKT_TX_MODE:
                         FqRXCount = 0;
                         FqRX = Freq1;
                         FqRXCount = 0;
-#ifdef DEBUG_SIM
-                        putch_main();
-#endif
                         SwitchToRXdata();
-                        SetTimer0(TIME_FOR_PACKET0);
+                        //SetTimer0(TIME_FOR_PACKET0);
                     }
 SEND_PKT_DIAL:
                     BTqueueOut[4] = Addr1;BTqueueOut[5] = Addr2;BTqueueOut[6] = Addr3;
@@ -3909,13 +3955,9 @@ void SwitchToRXdata(void)
     BTStatus= SendBTcmd(0x20); // 001 0  0000 W_REGISTER to register 00000 == Configuration Register
     SendBTbyte(0x33);
     bitset(PORT_BT,Tx_CSN); // SPI Chip Select
-    if (BTStatus & 0x60)
-        Main.ExtInterrupt = 1;
-
 
     PORT_AMPL.BT_RX = 1;              // on RX amplifier
     //INT0_FLG = 0;
-    Main.ExtInterrupt = 0;
     
     BTokMsg = 0xff;
     BTCE_high(); // Chip Enable Activates RX or TX mode (now RX mode) 
@@ -3927,7 +3969,6 @@ void SwitchToRXdata(void)
     if (BTStatus & 0x40) // was RX during TX attempt == then needs to read what it was
     {
         Main.ExtInterrupt = 1;
-        //BTInturrupt = BTStatus;
     }
 }
 
@@ -4196,9 +4237,14 @@ unsigned char SendBTcmd(unsigned char cmd)
     case 1:Data = 0x6e;break;
     case 2:Data = 0x4e;break;
     case 3:Data = 0x0e;break;
-    case 9:Data = 0x20;break;
-    case 12:Data = 0x20;break;
-    case 15:Data = 0x20;break;
+    case 9:Data = 0x20;break; // FQ1 TX
+    case 12:Data = 0x20;break; // FQ2 TX
+    case 15:Data = 0x20;break; // FQ3 TX done
+    case 0x16:Data = 0x20;break; // FQ1 TX done
+    case 0x19:Data = 0x20;break; // FQ1 TX done
+    case 0x1C:Data = 0x20;break; // FQ1 TX done
+    case 0x1F:Data = 0x40;break; // FQ1 RX from sudent RX
+
     }
     Sendbtcmd++;
     return (Data);
@@ -4248,6 +4294,31 @@ unsigned char GetBTbyte(void)
 #ifdef DEBUG_SIM
     unsigned int Data = 0;
     putch0(Data);
+    switch(Sendbtcmd)
+    {
+    case 0x20:Data = 28;break;  // RX FQ1 Length
+    case 0x22:Data = 0xaa;break; // continue preambule
+    case 0x23:Data = 0xaa;break;
+    case 0x24:Data = 0xaa;break;
+    case 0x25:Data = 0xf0;break; // dial pkt
+    case 0x26:Data = 0x00;break; // RX FQ count
+    case 0x27:Data = 0x0a;break; // len of the data
+    case 0x28:Data = 'e';break; 
+    case 0x29:Data = 'a';break; 
+    case 0x2a:Data = 'r';break; 
+    case 0x2b:Data = 'z';break; 
+    case 0x2c:Data = 0xaa;break;
+    case 0x2d:Data = 0xaa;break;
+    case 0x2e:Data = 0xaa;break;
+    case 0x2f:Data = 0x0a;break; // FQ1
+    case 0x30:Data = 0x1b;break; // FQ1
+    case 0x31:Data = 0x46;break; // FQ1
+    case 0x32:Data = 0xbc;break; // FQ1
+    case 0x33:Data = 0x03;break; // FQ1
+    case 0x34:Data = 0xff;break; // FQ1
+    }
+    Sendbtcmd++;
+
 #else
 	int i = 8;
     unsigned int Data = 0;
