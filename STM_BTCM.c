@@ -225,7 +225,7 @@ see www.adobri.com for communication protocol spec
 #define TO_BTW_CHARS 0xff00
 
 #define TIME_FOR_PACKET 0xff98
-#define TIME_FOR_PACKET0 0xe123
+#define TIME_FOR_PACKET0 0xff97
 //#define DELAY_BTW_SEND_PACKET 0xffa3
 #define DELAY_BTW_SEND_PACKET 0xffd1
 #define MAX_TX_POSSIBLE 0xE0bf
@@ -1589,7 +1589,7 @@ void SetTimer3(UWORD iTime)
      TMR3ON = 0;
      TMR3H = (unsigned char)(iTime>>8);
      TMR3L = (unsigned char)(iTime&0xff);
-     //TIMER3 = iTime;
+     TMR3CS = 0;//TIMER3 = iTime;
      TMR3IF = 0; // clean timer1 interrupt
      TMR3IE = 1;  // enable timer1 interrupt
      // 1            bit 7 RD16: 16-Bit Read/Write Mode Enable bit
@@ -2064,8 +2064,35 @@ AFTER_PROCESS:
             {
 LABEL_TO_RX:    // for check it will stop listenning ->BTCE_low()
                 if (CheckSuddenRX())  // just by luck or delay it was RX of the packet
+                {
+                    if (FqRXCount == 1) // it can be a case: RX interrupt was missed on FQ2 RX 
+                        if (DataB0.Tmr3DoMeausreFq1_Fq2) // timer for a measure was started ??
+                        {
+                            if (DataB0.RXMessageWasOK)
+                            {
+                                TMR3ON = 0;                            // stop timer3 for a moment 
+                                Tmr3LoadLowCopy =0xFFFF - TIMER3;      // timer3 interupt reload values 
+                                Tmr3LoadLowCopy += 52;                 // ofset from begining of a interrupt routine
+                                if (Tmr3LoadLowCopy <= MEDIAN_TIME)
+                                    Tmr3High++;
+                                Tmr3LoadLow = Tmr3LoadLowCopy - MEDIAN_TIME;
+                                TMR3H = (Tmr3LoadLow>>8);
+                                TMR3L = (unsigned char)(Tmr3LoadLow&0xFF);
+                                Tmr3LoadLow = Tmr3LoadLowCopy;
+                                //TMR3L = 0;//xff;
+                                TMR3ON = 1; // continue run
+                                Tmr3TOHigh = Tmr3LoadHigh = 0xffff - Tmr3High;
+                                DataB0.Tmr3DoMeausreFq1_Fq2 = 0;           // switch in timer3 interrupt routine from "measure time FQ1-FQ2"
+                                DataB0.Tmr3Run = 1;               // to "run timer3 on BT RX"
+                                DataB0.Tmr3Inturrupt = 0;         // when "measured time FQ1-FQ2" passed it will be timer3 interrupt
+                                //SkipPtr =1;
+                                DataB0.Tmr3RxFqSwitchLost = 0;
+                            }
+                            else
+                                DataB0.Tmr3DoMeausreFq1_Fq2 = 0;
+                        }
                     goto MAIN_INT;
-
+                }
                 SwitchFQ(DoFqRXSwitch());// FqRXCount points on next FQ after switch
                 if (FqRXCount == 0)
                 {
@@ -2146,7 +2173,8 @@ NEXT_TRANSMIT:
             {
                 // does RX get FQ1 and FQ2 packets ? if YES then TMR3 switches RX and loop can be blocked
                 if (DataB0.Tmr3DoneMeasureFq1Fq2)
-                {
+                {   ////////////////////////////////////////////////////////////////////////////////////////////
+                    // case 1 == TX FQ1-FQ2 done and RX FQ1-FQ2 was successfull
                     if (DataB0.RXLoopBlocked) // only when round-robin RX blocked
                     {
                         if (FqTXCount == 0) // only when next TX will be on Fq1
@@ -2176,24 +2204,44 @@ INIT_TX:
                         DataB0.RXLoopAllowed = 0;
                 }
                 else // RX is not measured time btw FQ1 and FQ2 sequensed RX
-                {
+                {   /////////////////////////////////////////////////////////////////////////////////////////////
+                    // case 2 == TX FQ1-FQ2 done and RX FQ1-FQ2 was NOT successfull
                     if (FqRXCount == 0) // only when next TX will be on Fq1
                     {
                         // for check it will stop listenning ->BTCE_low()
                         if (CheckSuddenRX())  // just by luck or delay it was RX of the packet
+                        {
+                            // interrupt for some reason was missed
+                            DataB0.Tmr3DoMeausreFq1_Fq2 = 1;
+                            SetTimer3(0);
                             goto MAIN_INT;
+                        }    
                         goto INIT_TX;
                     }
                 }
             }
-            else // first time TX over FQ1 was not set yet == needs to send  
+            else // first time TX over FQ1-FQ2 was not set yet == needs to send  
             {
-                if (BTType == 1)
-                {
-                    if (FqRXCount == 0)
+                if (DataB0.Tmr3DoneMeasureFq1Fq2)
+                {   //////////////////////////////////////////////////////////////////////////////////////////////
+                    // case 3 == TX was not done but RX FQ1-FQ2 was successfull
+                    if (DataB0.RXLoopBlocked) // only when round-robin RX blocked
                     {
-                        TMR0ON = 0;
-                	    goto INIT_TX;
+                        goto INIT_TX;
+                    }
+                    else
+                        DataB0.RXLoopAllowed = 0;
+                }
+                else
+                {   //////////////////////////////////////////////////////////////////////////////////////////////
+                    // case 4 == TX was not done and no RX FQ1-FQ2
+                    if (BTType == 1)
+                    {
+                        if (FqRXCount == 0)
+                        {
+                            TMR0ON = 0;
+                	        goto INIT_TX;
+                        }
                     }
                 }    
             }
@@ -4244,7 +4292,7 @@ unsigned char SendBTcmd(unsigned char cmd)
     case 0x19:Data = 0x20;break; // FQ1 TX done
     case 0x1C:Data = 0x20;break; // FQ1 TX done
     case 0x1F:Data = 0x40;break; // FQ1 RX from sudent RX
-
+    case 0x3F:Data = 0x40;break; // FQ1 RX from sudent RX
     }
     Sendbtcmd++;
     return (Data);
@@ -4316,6 +4364,27 @@ unsigned char GetBTbyte(void)
     case 0x32:Data = 0xbc;break; // FQ1
     case 0x33:Data = 0x03;break; // FQ1
     case 0x34:Data = 0xff;break; // FQ1
+
+    case 0x40:Data = 28;break;  // RX FQ1 Length
+    case 0x42:Data = 0xaa;break; // continue preambule
+    case 0x43:Data = 0xaa;break;
+    case 0x44:Data = 0xaa;break;
+    case 0x45:Data = 0xf0;break; // dial pkt
+    case 0x46:Data = 0x01;break; // RX FQ count
+    case 0x47:Data = 0x0a;break; // len of the data
+    case 0x48:Data = 'e';break; 
+    case 0x49:Data = 'a';break; 
+    case 0x4a:Data = 'r';break; 
+    case 0x4b:Data = 'z';break; 
+    case 0x4c:Data = 0xaa;break;
+    case 0x4d:Data = 0xaa;break;
+    case 0x4e:Data = 0xaa;break;
+    case 0x4f:Data = 0x0a;break; // FQ1
+    case 0x50:Data = 0x1b;break; // FQ1
+    case 0x51:Data = 0x46;break; // FQ1
+    case 0x52:Data = 0xbf;break; // FQ1
+    case 0x53:Data = 0x76;break; // FQ1
+    case 0x54:Data = 0xff;break; // FQ1
     }
     Sendbtcmd++;
 
