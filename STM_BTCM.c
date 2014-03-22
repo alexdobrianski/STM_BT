@@ -243,7 +243,7 @@ see www.adobri.com for communication protocol spec
 //#define SHOW_RX_TX
 //#define SHOW_RX
 //#define FLASH_POWER_DOWN 1
-#define DEBUG_SIM 1
+//#define DEBUG_SIM 1
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 // define blinking LED on pin 14 (RC3)
 /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -513,6 +513,7 @@ UWORD TXbTmr1H;
 
 
 #ifdef BT_TIMER3
+unsigned char WasRXCount;
 unsigned char FqRXCount;
 unsigned char FqRX;
 
@@ -1957,47 +1958,7 @@ MAIN_INT:
                     if (ReceiveBTdata()) // packet CRC was OK == that mean FQ2 FQ3 can be tailored and noice canselation can be adjusted
                     {                    // on FQ3 packet will be attempt to fix errors RXreceiveFQ advanced to next frequency
                                          // after call RXreceiveFQ set to next listenning FQ  
-                        //{
-                            //SetTimer0(0xff58); // 442mks+xxx=2247(1799??)/898mks == 2693/1340 = count 169/83 
-SET_TIMER_AND_PROC:
-                        if (!DataB0.Tmr3DoneMeasureFq1Fq2) // FQ1-FQ2 time measurement by timer3 was not done 
-                        {
-                            if (FqRXCount == 1)
-                               SetTimer0(TIME_FOR_PACKET0);
-                            else
-                               SetTimer0(TIME_FOR_PACKET);//Time4Packet); // count 220 = 3520 mks == why?
-                        }
-PROCESS_DATA:
-                        ProcessBTdata();  // call will be processed only one (first) time 
-                        if (FqRXCount == 0) // pkt was ok on FQ3
-                        {
-AFTER_PROCESS:                            
-                            if (!(ATCMD & MODE_CONNECT)) // connection was established == earth get responce from luna
-                            {
-                                if ((ATCMD & MODE_CALL_LUNA_COM)) // earth calls cubsat
-                                   SetTimer0(DELAY_BTW_NEXT_DIAL); // 0x0000 == 4 sec till next attempt for earth to dial luna
-                            }
-                        }
-                    }
-                    else // on receive over FQ1 FQ2 FQ3 if paket is not OK
-                    {
-                       //putch('-');
-                        if (FqRXCount == 0) // pkt was not ok on FQ3
-                        {
-                            if (DebugLedCount)
-                            {
-                                if (--DebugLedCount ==0)
-                                    DEBUG_LED_OFF;
-                            }
-                            
-                            // and fix did not helped == missfortune ! == but may be something can be done?
-                            goto AFTER_PROCESS;
-                        }
-                        else 
-                        {
-                            if (!DataB0.Tmr3DoneMeasureFq1Fq2) // adjust time btw packets
-                                SetTimer0(TIME_FOR_PACKET);//Time4Packet); // count 220 = 3520 mks
-                        }
+                        ProcessBTdata(); // call will be processed only one (first) time 
                     }
             }
 
@@ -2020,11 +1981,7 @@ AFTER_PROCESS:
                         //SetTimer0(0xff73); // <= failure
                         //SetTimer0(0xff93); // <== OK
                         //SetTimer0(0xffd3); // <== OK
-                        if (FqTXCount == 1)
-                            SetTimer0(DELAY_BTW_SEND_PACKET);  // that control delay to accomodate RX processing message 
-                        else
-                            goto NEXT_TRANSMIT;
-                        //putch('x');
+                        SetTimer0(DELAY_BTW_SEND_PACKET);  // that control delay to accomodate RX processing time 
                     }
                     else // finished with FQ3 now needs go back to RX mode
                     {
@@ -2058,83 +2015,12 @@ AFTER_PROCESS:
                     ATCMD &= (0xff ^MODE_DIAL); // this will repeat dial cubsat attempt
                 // RX now on FQ1 listening indefinatly
             }
-            else if (Timer1Id == TIME_FOR_PACKET0)
-                goto LABEL_TO_RX;
-            else if (Timer1Id == TIME_FOR_PACKET)
-            {
-LABEL_TO_RX:    // for check it will stop listenning ->BTCE_low()
-                if (CheckSuddenRX())  // just by luck or delay it was RX of the packet
-                {
-                    if (FqRXCount == 1) // it can be a case: RX interrupt was missed on FQ2 RX 
-                        if (DataB0.Tmr3DoMeausreFq1_Fq2) // timer for a measure was started ??
-                        {
-                            if (DataB0.RXMessageWasOK)
-                            {
-                                TMR3ON = 0;                            // stop timer3 for a moment 
-                                Tmr3LoadLowCopy =0xFFFF - TIMER3;      // timer3 interupt reload values 
-                                Tmr3LoadLowCopy += 52;                 // ofset from begining of a interrupt routine
-                                if (Tmr3LoadLowCopy <= MEDIAN_TIME)
-                                    Tmr3High++;
-                                Tmr3LoadLow = Tmr3LoadLowCopy - MEDIAN_TIME;
-                                TMR3H = (Tmr3LoadLow>>8);
-                                TMR3L = (unsigned char)(Tmr3LoadLow&0xFF);
-                                Tmr3LoadLow = Tmr3LoadLowCopy;
-                                //TMR3L = 0;//xff;
-                                TMR3ON = 1; // continue run
-                                Tmr3TOHigh = Tmr3LoadHigh = 0xffff - Tmr3High;
-                                DataB0.Tmr3DoMeausreFq1_Fq2 = 0;           // switch in timer3 interrupt routine from "measure time FQ1-FQ2"
-                                DataB0.Tmr3Run = 1;               // to "run timer3 on BT RX"
-                                DataB0.Tmr3Inturrupt = 0;         // when "measured time FQ1-FQ2" passed it will be timer3 interrupt
-                                //SkipPtr =1;
-                                DataB0.Tmr3RxFqSwitchLost = 0;
-                            }
-                            else
-                                DataB0.Tmr3DoMeausreFq1_Fq2 = 0;
-                        }
-                    goto MAIN_INT;
-                }
-                SwitchFQ(DoFqRXSwitch());// FqRXCount points on next FQ after switch
-                if (FqRXCount == 0)
-                {
-                    if (DataB0.RXLoopAllowed)
-                    {
-                        BTCE_high(); // continue listeniong on next FQ 
-                        DataB0.RXLoopBlocked = 0;
-                    }
-                    else                         // do not initate listenning - just switching FQ
-                        DataB0.RXLoopBlocked = 1;// listenning was blocked
-                }
-                if (FqRXCount == 1) 
-                {
-                    //RXreceiveFQ = 1;
-                    SetTimer0(TIME_FOR_PACKET);
-                }
-                if (FqRXCount == 2) // timeout over FQ2
-                {
-                    //RXreceiveFQ = 2;
-                    SetTimer0(TIME_FOR_PACKET); 
-                }
-                else if (FqRXCount == 0) // timeout over FQ3
-                {
-                    // done with timeouts == may be packet possible to fix ? - it can be packet over FQ1 or two packets over FQ1 + FQ2
-TO_ON_FQ3:
-                    //RXreceiveFQ = 0;
-                    if (ATCMD & MODE_CALL_LUNA_COM) // earth calls cubsat
-                    {
-                        if (!(ATCMD & MODE_CONNECT)) // was connection esatblished
-                            SetTimer0(DELAY_BTW_NEXT_DIAL); // 0x0000 == 4 sec till next attempt for earth to dial luna 
-                    }
-                    else
-                        SetTimer0(TIME_FOR_PACKET0);
-                }
-            }
             else if (Timer1Id == DELAY_BTW_SEND_PACKET) // timeout on TX in a progress == was send FQ1 or FQ2 packets
             {
 NEXT_TRANSMIT:
                 TransmitBTdata();
             }
         }
-
         else if (DataB0.Tmr3Inturrupt) // time to switch frequency on RX operation
         {
             DataB0.Tmr3Inturrupt = 0;
@@ -2148,20 +2034,18 @@ NEXT_TRANSMIT:
                 {
                     if (DataB0.RXLoopAllowed) // if it was request to TX then need to switch off round-robin
                     {
-                        BTCE_high();          // continue listeniong on next FQ
+                        BTCE_high();          // continue listeniong on FQ1
                         DataB0.RXLoopBlocked = 0;
                     }
                     else                          // do not initate listenning
                         DataB0.RXLoopBlocked = 1; // listenning was blocked
-                } 
+                }
+                else
+                    BTCE_high();          // continue listeniong on FQ1
+ 
                 if (DataB0.Timer3OutSyncRQ)
                 {
                      DataB0.Tmr3DoneMeasureFq1Fq2 = 0;
-                }
-
-                if (FqRXCount==0) // FQ3 == timeout
-                {
-                    goto TO_ON_FQ3;
                 }
             }
         }
@@ -2215,7 +2099,8 @@ INIT_TX:
                             DataB0.Tmr3DoMeausreFq1_Fq2 = 1;
                             SetTimer3(0);
                             goto MAIN_INT;
-                        }    
+                        }
+                        BTCE_low();
                         goto INIT_TX;
                     }
                 }
@@ -3537,9 +3422,9 @@ unsigned char ReceiveBTdata(void)
    //unsigned char iCrc;
     unsigned char i;
     unsigned char bByte;
-    unsigned char WasRXCount;
     unsigned char *ptrMy =&BTqueueIn[0] ;
     //CRC=0;
+    WasRXCount = FqRXCount;
     DataB0.RXMessageWasOK = 0;
     //if (DataB0.Timer3SwitchRX)
         BTCE_low();  // Chip Enable Activates RX or TX mode (now disable)
@@ -3602,18 +3487,19 @@ unsigned char ReceiveBTdata(void)
         {
             if (i == 0)
             {
-                DataB0.Tmr3DoneMeasureFq1Fq2 = 1;
-                goto LOOKS_GOOD;
+                DataB0.Tmr3DoneMeasureFq1Fq2 = 1; // that set TMR3 to properly switch RX 
+                goto LOOKS_GOOD;                  // from that moment RX switched by TMR3
             }
-            // stop timer 3 == mesaurements will be done on next two good packets over FQ1 and FQ2
+            // stop TMR3 == mesaurements will be done on next two good packets over FQ1 and FQ2
+            FqRXCount = 0;
+            FqRX = Freq1;
+            SwitchFQ(FqRX);
             TMR3ON = 0;
-            DataB0.Tmr3DoMeausreFq1_Fq2 = 0;
+            BTCE_high(); // Enable Activates RX on FQ1 
+            return 0;
         }
     }
-    else //if (DataB0.Tmr3DoneMeasureFq1Fq2)  // FQ1-FQ2 time measurement was done successfully
-    {
-    }
-LOOKS_GOOD:  WasRXCount = FqRXCount;
+LOOKS_GOOD:  
     // that switch will update BTStatus and switch frequency
     SwitchFQ(DoFqRXSwitch()); // if it was RX over FQ1 than value RXreceiveFQ ==0
 
@@ -3625,38 +3511,24 @@ LOOKS_GOOD:  WasRXCount = FqRXCount;
 
     if (BTokMsg == 0xff) // if paket was not recevet yet correctly (i.e. FQ1 not evaluated, or FQ1 was bad, or FQ1 FQ2 was bad)
     {
-        if (i == 0)  // if packet possible to fix (and was fixed by shift)
+        if (i == 0)  // if packet possible to fix (and/or it was fixed by shift)
         {
             if (CheckPacket(ptrMy, bret) == 0)    // now possible to do CRC check ???
             {
-                DataB0.RXMessageWasOK = 1;
+                if (WasRXCount == 0)      // set OK messaghe only on FQ1
+                    DataB0.RXMessageWasOK = 1;
+
                 BTokMsg = WasRXCount;
                 if (DataB0.Tmr3DoneMeasureFq1Fq2)  // FQ1-FQ2 timeing was measured by timer3 (RX)
                 {
 ADJUST_TMR3:
                     AdjTimer3();
-
                     // TBD that is not working but idea is: when packet received frequency number is in the packet 
                     //i = ptrMy[4];
                     //if (i > RXreceiveFQ)
                     //{
                     //    RXreceiveFQ = i;
                     //}
-
-                    // lost sync of the packets (2 sec)
-                    /*
-                    if (DataB0.Tmr3RxFqSwitchLost)
-                    {
-                        DataB0.Tmr3RxFqSwitchLost = 0;
-                        DataB0.Timer3SwitchRX = 1;
-                        // round-robin already switched - just need to start from FQ1
-                        TMR3ON = 0;
-                        FqRXCount = 1;
-                        i = Freq2;
-                        TMR3ON = 1;
-                        SwitchFQ(i);
-                    }
-                    */
                 }
             }
         }
@@ -3666,13 +3538,16 @@ ADJUST_TMR3:
         if (DataB0.Tmr3DoneMeasureFq1Fq2)
         {
             if (CheckPacket(ptrMy, bret) == 0)
+            {
                 AdjTimer3();
+            }
         }    
     }
-
+    
     // huck - but who cares? = len of a packet in offset of 28 
 
     ptrMy[LEN_OFFSET_INPUT_BUF] = bret;;
+
     if (WasRXCount == 2) // recevie over FQ3
     {
         //RXreceiveFQ = 0;
@@ -3691,18 +3566,6 @@ ADJUST_TMR3:
                 if (BTokMsg == 0)
                 {
                     AdjTimer3();
-                    /*
-                    if (DataB0.Tmr3RxFqSwitchLost)
-                    {
-                        DataB0.Tmr3RxFqSwitchLost = 0;
-                        DataB0.Timer3SwitchRX = 1;
-                        // round-robin already switched - just need to start from FQ1
-                        TMR3ON = 0;
-                        FqRXCount = 1;
-                        i = Freq2;
-                        TMR3ON = 1;
-                        SwitchFQ(i);
-                    }*/
                 }
                 //BTokMsg = 0x80  | CheckPacket(BTqueueIn, BTqueueInLen);
             }
@@ -3717,29 +3580,6 @@ ADJUST_TMR3:
             }
         }
     }
-    //else
-    //{
-        //if (RXreceiveFQ == 1) // recevie over FQ1
-        //{
-        //    BTqueueInLen = bret;
-        //}
-        //else // receive over FQ2
-        //{
-        //    BTqueueInLen2 = bret;
-        //    // quick check that packet is OK (not a garbage)
-        //    /*if (DataB0.Time3JustDone)
-        //    {
-        //        DataB0.Time3JustDone = 0;
-        //        Time4Packet = (Tmr3LoadHigh<<9);
-        //        Time4Packet |= ((unsigned char)Tmr3LoadLow)<<1;
-        //        if (Tmr3LoadLow & 0x8000)
-        //            Time4Packet |= 0x0100;
-        //        if (Tmr3LoadLow & 0x80)
-        //            Time4Packet |= 1;
-        //    }*/
-        //
-        //}
-    //}
 DONE_RX:
     if (BTStatus & 0x40) // another unprocessed RX in a queue
     {

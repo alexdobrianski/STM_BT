@@ -1440,7 +1440,7 @@ TMR0_DONE:
 
     /////////////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////////////
-    IF_TMR1IF //if (TMR1IF)  // update clock
+    IF_TMR1IF //if (TMR1IF)  // update clock   TX
     {
         TMR1IF = 0;
         //TmrAllConter++; 
@@ -1673,7 +1673,7 @@ TMR2_COUNT_DONE:
 // for debug to get real value on int0 - but using value is in TransmittBT function
 #ifdef MEASURE_EXACT_TX_TIME
             // in debug mode only!!!
-            if (DataB0.Timer1Meausre)
+            if (DataB0.Timer1Meausre)  // TX measure
             {
                 Tmr1LoadHigh = 0xffff - Tmr1High; // this will
                 Tmr1LoadLow = 0xffff - TIMER1;      // timer1 interupt reload values 
@@ -1720,7 +1720,7 @@ TMR2_COUNT_DONE:
                     {
                         if (DataB0.Tmr3DoMeausreFq1_Fq2) // timer for a measure was started ??
                         {
-                            if (DataB0.RXMessageWasOK)
+                            if (DataB0.RXMessageWasOK) // that can be only: RX FQ1 was OK ; RX INT on FQ2
                             {
                                 TMR3ON = 0;                            // stop timer3 for a moment 
                                 Tmr3LoadLowCopy =0xFFFF - TIMER3;      // timer3 interupt reload values 
