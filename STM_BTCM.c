@@ -255,7 +255,7 @@ see www.adobri.com for communication protocol spec
 //   for a blinking LED behive like CUBESAT/CRAFT
 //   it is waiting for connection, wait for pkt, and when pkt is Ok it send back to earth reply packet, and blinks
 ///////////////////////////////////////////////////////////////
-//#define DEBUG_LED_CALL_EARTH
+#define DEBUG_LED_CALL_EARTH
 // for test sequence 
 //// "5atsx=...CBabbcgg
 // atdtl
@@ -264,7 +264,7 @@ see www.adobri.com for communication protocol spec
 ///////////////////////////////////////////////////////////////
 //   for a blinking LED behive like Ground Station, it is constantly sends pktm if received pkt, then it blinks
 ///////////////////////////////////////////////////////////////
-#define DEBUG_LED_CALL_LUNA
+//#define DEBUG_LED_CALL_LUNA
 // for test sequence 
 // "5atsx=...CBabbcgg
 // atdtl
@@ -1865,8 +1865,6 @@ DO_SWITCHFQ:
               SendBTbyte(iFQ);  // set channel = FQ1
               //BTFQcurr = iFQ;
               bitset(PORT_BT,Tx_CSN);
-              if (BTStatus & 0x60)
-                  Main.ExtInterrupt = 1;
     //    }
     //    else                         // Mode  switchRX ==1 && switchTX ==0
     //    {
@@ -2061,8 +2059,10 @@ NEXT_TRANSMIT:
                     // case 1 == TX FQ1-FQ2 done and RX FQ1-FQ2 was successfull
                     if (DataB0.RXLoopBlocked) // only when round-robin RX blocked
                     {
+TIMING_CHEK:
                         if (FqTXCount == 0) // only when next TX will be on Fq1
                         {
+
                             Time1Left = TIMER1;
                             // value 0xffff-8000 =0xE0bf - that is max value when TX will be possible
                             // (TO= 93*128 = 11904 op = 0.001488)+(Packet prep = 7472=0.000467)
@@ -2100,8 +2100,7 @@ INIT_TX:
                             SetTimer3(0);
                             goto MAIN_INT;
                         }
-                        BTCE_low();
-                        goto INIT_TX;
+                        goto TIMING_CHEK;
                     }
                 }
             }
@@ -2255,7 +2254,7 @@ SEND_PKT_DIAL:
                 }
                 else                           // responce to earth was not send from luna
                 {
-                    if (FqTXCount==0)
+                    if (FqRXCount==0)
                     {
                         BTqueueOut[0] = 'e';BTqueueOut[1] = 'a';BTqueueOut[2] = 'r';BTqueueOut[3] = 'z';
                         ATCMD |= RESPONCE_WAS_SENT;
@@ -3713,13 +3712,14 @@ SEND_GOOD:      BTbyteCRC(BTqueueOutCopy[i]);
 #endif
         bitset(PORT_BT,Tx_CSN);
     
-     
-      // clean TX interrupt before send
-      bitclr(PORT_BT,Tx_CSN);
-      SendBTbyte(0x27); // 0010 0111 command W_REGISTER =register is status = clean TX interrupt
-      SendBTbyte(0x20); // clean TX interrupt
-      bitset(PORT_BT,Tx_CSN);
-
+      if (BTStatus & 0x20)
+      {
+          // clean TX interrupt before send
+          bitclr(PORT_BT,Tx_CSN);
+          SendBTbyte(0x27); // 0010 0111 command W_REGISTER =register is status = clean TX interrupt
+          SendBTbyte(0x20); // clean TX interrupt
+          bitset(PORT_BT,Tx_CSN);
+      }
                  // data in Configuration Register
                  // 0101 0010  
                  //  1       MASK_RX_DR Mask interrupt caused by RX_DR
@@ -3813,13 +3813,14 @@ void SwitchToRXdata(void)
     BTCE_low(); // Chip Enable Activates RX or TX mode (now disable)
     BTType = 1; // type RX
 
-    SwitchFQ(FqRX); // switch back FQ1
-
-    bitclr(PORT_BT,Tx_CSN); // SPI Chip Select // pipe 0
-    SendBTbyte(0x27); // 0010  0111 command W_REGISTER to register 00111 == STATUS
-    SendBTbyte(0x20); // clean TX interrupt
-    bitset(PORT_BT,Tx_CSN);
-
+    SwitchFQ(FqRX); // switch back FQ1; BTStatus updated
+    if (BTStatus & 0x20)  // must be interrupt TX on last FQ3
+    {
+        bitclr(PORT_BT,Tx_CSN); // SPI Chip Select // pipe 0
+        SendBTbyte(0x27); // 0010  0111 command W_REGISTER to register 00111 == STATUS
+        SendBTbyte(0x20); // clean TX interrupt
+        bitset(PORT_BT,Tx_CSN);
+    }
                  // data in Configuration Register
                  // 0011 0011  
                  //  0       MASK_RX_DR Mask interrupt caused by RX_DR
