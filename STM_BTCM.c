@@ -255,7 +255,7 @@ see www.adobri.com for communication protocol spec
 //   for a blinking LED behive like CUBESAT/CRAFT
 //   it is waiting for connection, wait for pkt, and when pkt is Ok it send back to earth reply packet, and blinks
 ///////////////////////////////////////////////////////////////
-#define DEBUG_LED_CALL_EARTH
+//#define DEBUG_LED_CALL_EARTH
 // for test sequence 
 //// "5atsx=...CBabbcgg
 // atdtl
@@ -264,7 +264,7 @@ see www.adobri.com for communication protocol spec
 ///////////////////////////////////////////////////////////////
 //   for a blinking LED behive like Ground Station, it is constantly sends pktm if received pkt, then it blinks
 ///////////////////////////////////////////////////////////////
-//#define DEBUG_LED_CALL_LUNA
+#define DEBUG_LED_CALL_LUNA
 // for test sequence 
 // "5atsx=...CBabbcgg
 // atdtl
