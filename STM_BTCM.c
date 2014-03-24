@@ -221,7 +221,7 @@ see www.adobri.com for communication protocol spec
 //////////////////////////////////////////////////////
 // to properly process Timer0 interrupt needs to has all timer set values different
 //#define DELAY_BTW_NEXT_DIAL 0xfeec
-#define DELAY_BTW_NEXT_DIAL 0xff0c
+#define DELAY_BTW_NEXT_DIAL 0xe00c
 #define TO_BTW_CHARS 0xff00
 
 #define TIME_FOR_PACKET 0xff98
@@ -469,6 +469,7 @@ unsigned RXLoopAllowed:1;
 unsigned RXLoopBlocked:1;
 unsigned TXSendDone:1;
 unsigned RXMessageWasOK:1;
+unsigned RXPktIsBad;
 #endif
 } DataB0;
 #ifdef DEBUG_LED
@@ -527,7 +528,7 @@ UWORD Tmr3High; // to count for a 536 sec with presision of 0.000000125s== 1/4mk
 UWORD Tmr3LoadLow;  // timer3 interupt reload values 
 UWORD Tmr3LoadHigh;
 UWORD Tmr3TOHigh; 
-unsigned char SkipPtr;
+unsigned char SkipRXTmr3;
 UWORD AdjustTimer3;
 UWORD Tmr3LoadLowCopy;
 unsigned char OutSyncCounter;
@@ -917,7 +918,7 @@ void main()
     BTFlags.BTFirstInit = 0;
     BTokMsg = 0xff;
     PktCount = 0;
-    SkipPtr = 0;
+    SkipRXTmr3 = 0;
     ESCCount = 0;
 
 #ifdef SKIP_CALC_TX_TIME
@@ -1627,7 +1628,7 @@ unsigned char CheckSuddenRX(void)
 {
     //if (DataB0.Timer3SwitchRX)
     //{
-        BTCE_low();  // Chip Enable Activates RX (now disable) == standby
+    BTCE_low();  // Chip Enable Activates RX (now disable) == standby
     //}
     bitclr(PORT_BT,Tx_CSN); // SPI Chip Select
     BTStatus=SendBTcmd(0xff); //cmd = 0xff; = 1111 1111 command NOP to read STATUS register
@@ -1796,7 +1797,7 @@ unsigned char DoFqRXSwitch(void)
     
     //TMR3ON = 0; // stop TMR3 for a little bit
     // or may be not this call comes after INT == that mean inside timer3 it will be not advanced
-    // counter SkipPtr prevents from this
+    // counter SkipRXTmr3 prevents from this
     // second place it is a timer0 == this is before timer3 started to work
     //
     ///////////////////////////////////////////////////////////////////////
@@ -1828,7 +1829,7 @@ unsigned char DoFqTXSwitch(void)
     
     //TMR3ON = 0; // stop TMR3 for a little bit
     // or may be not this call comes after INT == that mean inside timer3 it will be not advanced
-    // counter SkipPtr prevents from this
+    // counter SkipRXTmr3 prevents from this
     // second place it is a timer0 == this is before timer3 started to work
     //
     ///////////////////////////////////////////////////////////////////////
@@ -1922,9 +1923,21 @@ unsigned char CallBkMain(void) // 0 = do continue; 1 = process queues
 {
     unsigned char bWork;
     if (INT0_ENBL)
-    {             
+    {   
+MAIN_INT_ENTRY:          
         if (Main.ExtInterrupt) // received interrupt == it can be TX or RX from BT
         {
+            if (DataB0.RXPktIsBad)  //that error happens only on read operation now!!!
+            {
+                bitclr(PORT_BT,Tx_CSN);
+                SendBTbyte(0x27); // 0010 0111 command W_REGISTER =register is status = clean RX interrupt
+                SendBTbyte(0x40); // clean RX interrupt
+                bitset(PORT_BT,Tx_CSN);
+                Main.ExtInterrupt = 0;
+                BTCE_high();          // continue listeniong on FQ1
+                goto MAIN_INT_ENTRY;
+            }
+
             // what it was ?
             //BTCE_low();  // Chip Enable Activates RX or TX mode (now disable)
 
@@ -1936,31 +1949,31 @@ MAIN_INT:
 
             if (BTStatus & 0x40) // RX interrupt
             {
-                    //putch('r');
-                    // receve timing OK message dial
-                    // <receive = 442mks><6mks IRQ> <1051/525 mks process on each FQ><ok msg 102/51mks>
-                    // <receive = 442mks><6mks IRQ> <1051/525 mks process on each FQ><not msg 102/51mks>
-                    // <receive = 442mks><6mks IRQ> <1051/525 mks process on each FQ><ok msg 102/51mks>|<ok msg data 1602/801mks>
-                    // max process = 442mks + 6 + + 102/51 + 2653/1327 = 3207/1826 mks
-                    // on FQ3 with max correction :
-                    // <receive = 442mks><6mks IRQ> <1051/525 mks process on each FQ><correction 3447/1723mks>ok msg 102/51mks>|<ok msg data 1602/801mks>
-                    TMR0ON = 0;
+                //putch('r');
+                // receve timing OK message dial
+                // <receive = 442mks><6mks IRQ> <1051/525 mks process on each FQ><ok msg 102/51mks>
+                // <receive = 442mks><6mks IRQ> <1051/525 mks process on each FQ><not msg 102/51mks>
+                // <receive = 442mks><6mks IRQ> <1051/525 mks process on each FQ><ok msg 102/51mks>|<ok msg data 1602/801mks>
+                // max process = 442mks + 6 + + 102/51 + 2653/1327 = 3207/1826 mks
+                // on FQ3 with max correction :
+                // <receive = 442mks><6mks IRQ> <1051/525 mks process on each FQ><correction 3447/1723mks>ok msg 102/51mks>|<ok msg data 1602/801mks>
+                TMR0ON = 0;
         
-                    /////////////////////////////////////////////////////////
-                    // TRUE on return mean:
-                    // 1. FQ1==OK FQ2,FQ3 return TRUE does not matter how
-                    // 2. FQ1!-OK FQ2==OK, and FQ3 return TRUE does not matter how
-                    // 3. FQ1!=OK FQ2!=OK, FQ3==OK
-                    // 4. FQ1!=OK FQ2!=OK, FQ3!=OK but FQ3 | FQ2 | FQ1 
-                    /////////////////////////////////////////////////////////
-                    if (ReceiveBTdata()) // packet CRC was OK == that mean FQ2 FQ3 can be tailored and noice canselation can be adjusted
-                    {                    // on FQ3 packet will be attempt to fix errors RXreceiveFQ advanced to next frequency
+                /////////////////////////////////////////////////////////
+                // TRUE on return mean:
+                // 1. FQ1==OK FQ2,FQ3 return TRUE does not matter how
+                // 2. FQ1!-OK FQ2==OK, and FQ3 return TRUE does not matter how
+                // 3. FQ1!=OK FQ2!=OK, FQ3==OK
+                // 4. FQ1!=OK FQ2!=OK, FQ3!=OK but FQ3 | FQ2 | FQ1 
+                /////////////////////////////////////////////////////////
+                if (ReceiveBTdata()) // packet CRC was OK == that mean FQ2 FQ3 can be tailored and noice canselation can be adjusted
+                {                    // on FQ3 packet will be attempt to fix errors RXreceiveFQ advanced to next frequency
                                          // after call RXreceiveFQ set to next listenning FQ  
-                        ProcessBTdata(); // call will be processed only one (first) time 
-                    }
+                    ProcessBTdata(); // call will be processed only one (first) time 
+                }
             }
 
-            if (BTStatus & 0x20) // TX interrupt
+            if (BTStatus & 0x20) // TX interrupt comes before TMR1 interrupt. Switch FqTXCount done inside TMR1 interrupt 
             {
                     // transmit timing with setup:
                     // <setup = 401.mks> <upload = 960/480 mks> <transmit = 442mks><IRQ 6mks> <dealy XXX>
@@ -1970,27 +1983,24 @@ MAIN_INT:
                     if (FqTXCount) // needs to send copy over FQ2 or FQ3
                     {
                         // TX initiated by TMR1 interrupt and Transmit function just prepear everything
-                        // but flag usefull for initial calculation of time btw FQ1-FQ@
-                        // SKIP_CALC_TX_TIME can use precalculated values 
-                        if (DataB0.Timer1Count)
+                        // flag used for initial calculation of time btw FQ1-FQ@
+                        if (DataB0.Timer1Count) 
                             goto NEXT_TRANSMIT;
                         // difference btw receive process (442mks + 6 + + 102/51 + 2653/1327 = 3207/1826 mks) and transmit upload (<upload = 960/480 mks> <transmit = 442mks> <IRQ 6mks>+xxx) xxx= 2247(1799??)/898 mks = 141(112??)/56 counts on 32MHz with 128 prescaler
                         //SetTimer0(0xff73); // delay to accomodate tranmsmit and receive process difference send waits when recive will be done
-                        //SetTimer0(0xff73); // <= failure
-                        //SetTimer0(0xff93); // <== OK
-                        //SetTimer0(0xffd3); // <== OK
-                        SetTimer0(DELAY_BTW_SEND_PACKET);  // that control delay to accomodate RX processing time 
+                        SetTimer0(DELAY_BTW_SEND_PACKET);  // that control delay to accomodate RX processing time
                     }
                     else // finished with FQ3 now needs go back to RX mode
                     {
-                        if (ATCMD & MODE_CALL_EARTH)
-                        {
-                            if (!(ATCMD & RESPONCE_WAS_SENT))
-                                ATCMD &= (RESPONCE_WAS_SENT ^0xff);
-                        }
 
                         if (!(ATCMD & SOME_DATA_OUT_BUFFER)) // if nothing in BT output queue then switch to RX 
                         {
+                            if (ATCMD & MODE_CALL_EARTH)
+                            {
+                                if (!(ATCMD & RESPONCE_WAS_SENT))
+                                    ATCMD &= (RESPONCE_WAS_SENT ^0xff);
+                            }
+
                             DataB0.RXLoopBlocked = 0;
                             DataB0.RXLoopAllowed = 1;
 
@@ -1999,7 +2009,11 @@ MAIN_INT:
                             if (!(ATCMD & MODE_CONNECT)) // connection was not established == earth get responce from luna
                                 SetTimer0(DELAY_BTW_NEXT_DIAL); // 0x0000 == 4 sec till next attempt for earth to dial luna
                         }
-                        // othrwise it will be TX - bytes are ready in BT output queue     
+                        // othrwise it will be next TX - bytes are ready in BT output queue     
+                        else
+                        {
+                           BTCE_low();
+                        }
                     }
             }
         }
@@ -2041,10 +2055,16 @@ NEXT_TRANSMIT:
                 else
                     BTCE_high();          // continue listeniong on FQ1
  
-                if (DataB0.Timer3OutSyncRQ)
-                {
-                     DataB0.Tmr3DoneMeasureFq1Fq2 = 0;
-                }
+                //if (DataB0.Timer3OutSyncRQ)
+                //{
+                //     DataB0.Timer3OutSyncRQ = 0;
+                //     DataB0.Tmr3DoneMeasureFq1Fq2 = 0;
+                //     DataB0.Tmr3Run = 0;
+                //     FqRXCount = 0;
+                //     FqRX = Freq1;
+                //     SwitchFQ(FqRX);
+                //     BTCE_high();          // continue listeniong on FQ1
+                //}
             }
         }
 
@@ -2053,16 +2073,15 @@ NEXT_TRANSMIT:
         {
             if (DataB0.Timer1Count) // first TX on  FQ1 & FQ@ was done == timer 1 is set
             {
-                // does RX get FQ1 and FQ2 packets ? if YES then TMR3 switches RX and loop can be blocked
-                if (DataB0.Tmr3DoneMeasureFq1Fq2)
-                {   ////////////////////////////////////////////////////////////////////////////////////////////
-                    // case 1 == TX FQ1-FQ2 done and RX FQ1-FQ2 was successfull
-                    if (DataB0.RXLoopBlocked) // only when round-robin RX blocked
-                    {
-TIMING_CHEK:
-                        if (FqTXCount == 0) // only when next TX will be on Fq1
+                if (FqTXCount == 0) // only when next TX will be on Fq1
+                {
+                    // does RX get FQ1 and FQ2 packets ? if YES then TMR3 switches RX and loop can be blocked
+                    if (DataB0.Tmr3DoneMeasureFq1Fq2)
+                    {   ////////////////////////////////////////////////////////////////////////////////////////////
+                        // case 1 == TX FQ1-FQ2 done and RX FQ1-FQ2 was successfull
+                        if (DataB0.RXLoopBlocked) // only when round-robin RX blocked
                         {
-
+TIMING_CHECK:
                             Time1Left = TIMER1;
                             // value 0xffff-8000 =0xE0bf - that is max value when TX will be possible
                             // (TO= 93*128 = 11904 op = 0.001488)+(Packet prep = 7472=0.000467)
@@ -2083,32 +2102,41 @@ INIT_TX:
                                 }
                             }
                         }
+                        else
+                            DataB0.RXLoopAllowed = 0;
                     }
-                    else
-                        DataB0.RXLoopAllowed = 0;
-                }
-                else // RX is not measured time btw FQ1 and FQ2 sequensed RX
-                {   /////////////////////////////////////////////////////////////////////////////////////////////
-                    // case 2 == TX FQ1-FQ2 done and RX FQ1-FQ2 was NOT successfull
-                    if (FqRXCount == 0) // only when next TX will be on Fq1
-                    {
-                        // for check it will stop listenning ->BTCE_low()
-                        if (CheckSuddenRX())  // just by luck or delay it was RX of the packet
+                    else // for RX was not measured time btw FQ1 and FQ2 yet
+                    {   /////////////////////////////////////////////////////////////////////////////////////////////
+                        // case 2 == TX FQ1-FQ2 done and RX FQ1-FQ2 was NOT done yet
+                        if (FqRXCount == 0) // only when next TX will be on Fq1
                         {
-                            // interrupt for some reason was missed
-                            DataB0.Tmr3DoMeausreFq1_Fq2 = 1;
-                            SetTimer3(0);
-                            goto MAIN_INT;
+                            // for check it will stop listenning ->BTCE_low()
+                            if (CheckSuddenRX())  // just by luck or delay it was RX of the packet
+                            {
+                                // interrupt for some reason was missed
+                                DataB0.Tmr3DoMeausreFq1_Fq2 = 1;
+                                SetTimer3(0);
+                                goto MAIN_INT;
+                            }
+                            goto TIMING_CHECK;
                         }
-                        goto TIMING_CHEK;
                     }
                 }
+                else // (FqTXCount != 0) // next TX will be on Fq2/Fq3 == it is impossible to start TX does not matter how
+                {
+                    // does RX get FQ1 and FQ2 packets ? if YES then TMR3 switches RX and loop must be blocked
+                    if (DataB0.Tmr3DoneMeasureFq1Fq2)
+                    {
+                        DataB0.RXLoopAllowed = 0;
+                    }
+                }    
             }
             else // first time TX over FQ1-FQ2 was not set yet == needs to send  
             {
                 if (DataB0.Tmr3DoneMeasureFq1Fq2)
                 {   //////////////////////////////////////////////////////////////////////////////////////////////
                     // case 3 == TX was not done but RX FQ1-FQ2 was successfull
+                    // that will yeld RX and TX postponed
                     if (DataB0.RXLoopBlocked) // only when round-robin RX blocked
                     {
                         goto INIT_TX;
@@ -2119,9 +2147,9 @@ INIT_TX:
                 else
                 {   //////////////////////////////////////////////////////////////////////////////////////////////
                     // case 4 == TX was not done and no RX FQ1-FQ2
-                    if (BTType == 1)
+                    if (BTType == 1)  // is ir RX now??
                     {
-                        if (FqRXCount == 0)
+                        if (FqRXCount == 0) // is it RX over FQ1 ??  
                         {
                             TMR0ON = 0;
                 	        goto INIT_TX;
@@ -2157,14 +2185,15 @@ INIT_TX:
             if (ATCMD & MODE_CONNECT) // connection was established == earth get responce from luna
             {
 #ifdef DEBUG_LED_CALL_LUNA
-                if (Main.PingRQ)
+                if (Main.PingRQ || Main.PingRSPRQ)
                 {
-                     if (BTType & 0x01)// on rx only
+                     if (!(ATCMD & SOME_DATA_OUT_BUFFER))   // only when nothing in BT output queue
                      {
                          if (FqRXCount == 0) // only if it is listening on FQ1
                          {
                              BTqueueOut[0] = 'P'; BTqueueOut[1] = 'I';BTqueueOut[2] = 'N';BTqueueOut[3] = 'G';
                              Main.PingRQ = 0;
+                             Main.PingRSPRQ = 0;
                              goto SEND_PKT_TX_MODE;
                          }
                      }
@@ -2179,30 +2208,35 @@ INIT_TX:
                 }
                 else // was not dialed yet
                 {
-                    BTqueueOut[0] = 'l'; BTqueueOut[1] = 'u';BTqueueOut[2] = 'n';BTqueueOut[3] = 'a';
+                    if (!(ATCMD & SOME_DATA_OUT_BUFFER))   // only when nothing in BT output queue
+                    {
+                        BTqueueOut[0] = 'l'; BTqueueOut[1] = 'u';BTqueueOut[2] = 'n';BTqueueOut[3] = 'a';
 
-                    ATCMD |= MODE_DIAL;
+                        ATCMD |= MODE_DIAL;
 SEND_PKT_TX_MODE:
-                    if (ATCMD & INIT_BT_NOT_DONE)
-                    { 
-                        SetupBT(SETUP_RX_MODE);
-                        ATCMD &= (INIT_BT_NOT_DONE^0xff);
-                        //DataB0.RXLoopBlocked =1;
-                        FqRXCount = 0;
-                        FqRX = Freq1;
-                        FqRXCount = 0;
-                        SwitchToRXdata();
-                        //SetTimer0(TIME_FOR_PACKET0);
-                    }
+                        if (ATCMD & INIT_BT_NOT_DONE)
+                        { 
+                            SetupBT(SETUP_RX_MODE);
+                            ATCMD &= (INIT_BT_NOT_DONE^0xff);
+                            //DataB0.RXLoopBlocked =1;
+                            DataB0.Tmr3Run = 0;
+                            FqRXCount = 0;
+                            FqRX = Freq1;
+                            FqRXCount = 0;
+                            SwitchToRXdata();
+                            DataB0.RXMessageWasOK = 0;
+                            DataB0.RXPktIsBad = 0;
+                            //SetTimer0(TIME_FOR_PACKET0);
+                        }
 SEND_PKT_DIAL:
-                    BTqueueOut[4] = Addr1;BTqueueOut[5] = Addr2;BTqueueOut[6] = Addr3;
-                    // this is place where frequency for satellite can be adjusted because of temperature drift in satellite
-                    // ground station monitors frequencies and found shift then send channels numbers
-                    BTqueueOut[7] = Freq1;BTqueueOut[8] = Freq2;BTqueueOut[9] = Freq3;
-                    BTpkt = PCKT_DIAL;
-                    BTqueueOutLen = 10;
-                    ATCMD |= SOME_DATA_OUT_BUFFER;
-
+                        BTqueueOut[4] = Addr1;BTqueueOut[5] = Addr2;BTqueueOut[6] = Addr3;
+                        // this is place where frequency for satellite can be adjusted because of temperature drift in satellite
+                        // ground station monitors frequencies and found shift then send channels numbers
+                        BTqueueOut[7] = Freq1;BTqueueOut[8] = Freq2;BTqueueOut[9] = Freq3;
+                        BTpkt = PCKT_DIAL;
+                        BTqueueOutLen = 10;
+                        ATCMD |= SOME_DATA_OUT_BUFFER;
+                    } 
                 } 
             }
         }
@@ -2239,14 +2273,11 @@ SEND_PKT_DIAL:
 #ifdef DEBUG_LED_CALL_EARTH
                     if (Main.PingRSPRQ)
                     {
-                         if (BTType & 0x01)// on rx only
+                         if (!(ATCMD & SOME_DATA_OUT_BUFFER))   // only when nothing in BT output queue
                          {
-                             if (FqRXCount == 0) // only if it is listening on FQ1
-                             {
-                                 BTqueueOut[0] = 'p'; BTqueueOut[1] = 'i';BTqueueOut[2] = 'n';BTqueueOut[3] = 'g';
-                                 Main.PingRSPRQ = 0;
-                                 goto SEND_PKT_TX_MODE;
-                             }
+                             BTqueueOut[0] = 'p'; BTqueueOut[1] = 'i';BTqueueOut[2] = 'n';BTqueueOut[3] = 'g';
+                             Main.PingRSPRQ = 0;
+                             goto SEND_PKT_TX_MODE;
                          }
                     }
 #endif
@@ -2254,7 +2285,7 @@ SEND_PKT_DIAL:
                 }
                 else                           // responce to earth was not send from luna
                 {
-                    if (FqRXCount==0)
+                    if (!(ATCMD & SOME_DATA_OUT_BUFFER))   // only when nothing in BT output queue
                     {
                         BTqueueOut[0] = 'e';BTqueueOut[1] = 'a';BTqueueOut[2] = 'r';BTqueueOut[3] = 'z';
                         ATCMD |= RESPONCE_WAS_SENT;
@@ -2269,14 +2300,15 @@ SEND_PKT_DIAL:
                     SetupBT(SETUP_RX_MODE);
                     
                     ATCMD &= (INIT_BT_NOT_DONE^0xff);
+                    DataB0.Tmr3Run = 0;
                     FqRXCount = 0;
                     FqRX = Freq1;
-                    FqRXCount = 0;
                     SwitchToRXdata();
-                    SetTimer0(TIME_FOR_PACKET0);
+                    //SetTimer0(TIME_FOR_PACKET0);
                     //DataB0.RXLoopBlocked =0;
                     DataB0.RXMessageWasOK = 0;
                     DataB0.Tmr3DoneMeasureFq1Fq2 = 0;
+                    DataB0.RXPktIsBad = 0;
                 }
             }
         }
@@ -3184,10 +3216,10 @@ void ProcessBTdata(void)
 
     ilen = MyPacket->BTpacketLen;//ptrMy[6];
 #ifdef DEBUG_LED
-    if (DebugLedCount == 0)
+    //if (DebugLedCount == 0)
     {
         DEBUG_LED_ON;
-        DebugLedCount = 1;
+        DebugLedCount = 5;
     }
 #endif
     if (MyPacket->BTpacket == PCKT_DIAL)// (ptrMy[5] & PCKT_DIAL) // receved packet = dial call
@@ -3244,6 +3276,10 @@ void ProcessBTdata(void)
 SEND_CONNECT:
                     PutsToUnit("\n\rCONNECT\n\r");
                 }
+#ifdef DEBUG_LED_CALL_EARTH
+                //Main.PingRSPRQ = 1;
+                ATCMD &= (RESPONCE_WAS_SENT ^0xff);
+#endif
             }
         }
         else if (MyPacket->Type == 'W') // write data directly to FLASH/magnetoresistive memory/ferromagnetic memory
@@ -3426,7 +3462,7 @@ unsigned char ReceiveBTdata(void)
     WasRXCount = FqRXCount;
     DataB0.RXMessageWasOK = 0;
     //if (DataB0.Timer3SwitchRX)
-        BTCE_low();  // Chip Enable Activates RX or TX mode (now disable)
+    BTCE_low();  // Chip Enable (Activates RX or TX mode) now disable== standby
     if (FqRXCount == 0) // received over FQ1
     {
         BTqueueInLen = 0;
@@ -3478,7 +3514,7 @@ unsigned char ReceiveBTdata(void)
         {
             if (i == 0)
                 goto LOOKS_GOOD;
-            // message looks bad on FQ1
+            // message looks bad on FQ1 == continue to listen on F1
             BTCE_high(); // Chip Enable Activates RX or TX mode (now RX mode) 
             return 0;
         }
@@ -3493,8 +3529,9 @@ unsigned char ReceiveBTdata(void)
             FqRXCount = 0;
             FqRX = Freq1;
             SwitchFQ(FqRX);
-            TMR3ON = 0;
+            TMR3ON = 0;  
             BTCE_high(); // Enable Activates RX on FQ1 
+                         // INT over FQ1 will initiate TMR3 to meeasure time. 
             return 0;
         }
     }
@@ -3580,13 +3617,13 @@ ADJUST_TMR3:
         }
     }
 DONE_RX:
-    if (BTStatus & 0x40) // another unprocessed RX in a queue
-    {
-         Main.ExtInterrupt = 1;
-         TMR3ON =0;
-         SkipPtr++;
-         TMR3ON =1;
-    }
+    //if (BTStatus & 0x40) // another unprocessed RX in a queue
+    //{
+    //     Main.ExtInterrupt = 1;
+    //     TMR3ON =0;
+    //     SkipRXTmr3++;
+    //     TMR3ON =1;
+    //}
     return (BTokMsg != 0xff);
 }
 //===============================================================================================
@@ -3609,11 +3646,35 @@ void TransmitBTdata(void)
     unsigned char i;
     
     unsigned char bBy;
+    PORT_AMPL.BT_RX = 0;              // off RX amplifier
+    nop();
+    PORT_AMPL.BT_TX = 1;              // TX amplifier : TBD: is it enought time to start amplifier?
     CRC = 0xffff;
     if (BTqueueOutLen)
     {
         if (FqTXCount == 0) // send over FQ1
         {
+                 // data in Configuration Register
+                 // 0101 0010  
+                 //  1       MASK_RX_DR Mask interrupt caused by RX_DR
+                 //           1: Interrupt not reflected on the IRQ pin
+                 //           0: Reflect RX_DR as active low interrupt on the IRQ pin
+                 //   0      MASK_TX_DS Mask interrupt caused by TX_DS
+                 //           1: Interrupt not reflected on the IRQ pin
+                 //           0: Reflect TX_DS as active low interrupt on the IRQ pin
+                 //    1     MASK_MAX_RT Mask interrupt caused by MAX_RT
+                 //           1: Interrupt not reflected on the IRQ pin
+                 //           0: Reflect MAX_RT as active low interrupt on the IRQ pin
+                 //      0   EN_CRC     Enable CRC. Forced high if one of the bits in
+                 //           the EN_AA is high
+                 //       0  CRCO CRC encoding scheme '0' - 1 byte '1' û 2 bytes
+                 //        1 PWR_UP 1: POWER UP, 0:POWER DOWN
+                 //         0PRIM_RX	RX/TX control 1: PRX, 0: PTX
+
+            bitclr(PORT_BT,Tx_CSN);
+            BTStatus= SendBTcmd(0x20); // 001 0  0000 W_REGISTER to register 00000 == Configuration Register
+            SendBTbyte(0x52);
+            bitset(PORT_BT,Tx_CSN); // SPI Chip Select
    
 #ifdef SAVE_SPACE
             FSR_REGISTER = &BTqueueOut[0];
@@ -3637,7 +3698,7 @@ void TransmitBTdata(void)
     }
     if (BTqueueOutCopyLen)
     {
-        PORT_AMPL.BT_RX = 0;              // off RX amplifier
+        
         BTCE_low();	// Chip Enable Activates RX or TX mode (now disable)
         BTType = 2; // type TX
         bitclr(PORT_BT,Tx_CSN);
@@ -3711,60 +3772,33 @@ SEND_GOOD:      BTbyteCRC(BTqueueOutCopy[i]);
         } while(--i);
 #endif
         bitset(PORT_BT,Tx_CSN);
+
     
-      if (BTStatus & 0x20)
+      //if (BTStatus & 0x20)
       {
-          // clean TX interrupt before send
+          // clean prev TX, sudden RX, and MAX_RT interrupt before send
           bitclr(PORT_BT,Tx_CSN);
           SendBTbyte(0x27); // 0010 0111 command W_REGISTER =register is status = clean TX interrupt
-          SendBTbyte(0x20); // clean TX interrupt
+          SendBTbyte(0x70); // clean TX RX MAX_RT interrupt
           bitset(PORT_BT,Tx_CSN);
       }
-                 // data in Configuration Register
-                 // 0101 0010  
-                 //  1       MASK_RX_DR Mask interrupt caused by RX_DR
-                 //           1: Interrupt not reflected on the IRQ pin
-                 //           0: Reflect RX_DR as active low interrupt on the IRQ pin
-                 //   0      MASK_TX_DS Mask interrupt caused by TX_DS
-                 //           1: Interrupt not reflected on the IRQ pin
-                 //           0: Reflect TX_DS as active low interrupt on the IRQ pin
-                 //    1     MASK_MAX_RT Mask interrupt caused by MAX_RT
-                 //           1: Interrupt not reflected on the IRQ pin
-                 //           0: Reflect MAX_RT as active low interrupt on the IRQ pin
-                 //      0   EN_CRC     Enable CRC. Forced high if one of the bits in
-                 //           the EN_AA is high
-                 //       0  CRCO CRC encoding scheme '0' - 1 byte '1' û 2 bytes
-                 //        1 PWR_UP 1: POWER UP, 0:POWER DOWN
-                 //         0PRIM_RX	RX/TX control 1: PRX, 0: PTX
-	
-        if (FqTXCount ==0) // over FQ1 need to switch to TX mode == for FQ2 & FQ3 it is already done
-        {
-            bitclr(PORT_BT,Tx_CSN);
-            BTStatus= SendBTcmd(0x20); // 001 0  0000 W_REGISTER to register 00000 == Configuration Register
-            SendBTbyte(0x52);
-            bitset(PORT_BT,Tx_CSN); // SPI Chip Select
-            if (BTStatus & 0x60)
-                Main.ExtInterrupt = 1;
-
-        }
-
-        INT0_FLG = 0;
-        Main.ExtInterrupt = 0;
+      //if (BTStatus & 0x40)
+      //{
+      //    bitclr(PORT_BT,Tx_CSN);
+      //    SendBTbyte(0x27); // 0010 0111 command W_REGISTER =register is status = clean RX interrupt
+      //    SendBTbyte(0x40); // clean RX interrupt
+      //    bitset(PORT_BT,Tx_CSN);
+      //}
 
         if (DataB0.Timer1Count)
         {
-//SWITCH_ANOTHER:
-            
-            SwitchFQ(FqTX); // in that call for TX over FQ1 value of TXSendOverFQ == 1
-            DataB0.Timer1DoTX = 1; // timer 1 will initiate transmit
+            SwitchFQ(FqTX); // set current FQX to be transmitted (advance for FqTXCount will be in TMR1)
+            DataB0.Timer1DoTX = 1; // TMR1 will initiate transmit
             goto TRANSMIT_ON_TMR1_INT;
         }
         else
         {
 
-#ifdef SKIP_CALC_TX_TIME
-   // in final version value to send data is already calculated 
-#else 
    // that code for measurements only - it suppose to give a time btw FQ1 & FQ2
             if (FqTXCount == 0) // send over FQ1
             {
@@ -3784,15 +3818,13 @@ SEND_GOOD:      BTbyteCRC(BTqueueOutCopy[i]);
                     SetTimer1(Tmr1LoadLow);
                     DataB0.Timer1Meausre = 0;
                     DataB0.Timer1Count = 1;
-
+                    TMR1ON = 1; // start temporary stoped timer (if it was stopped!)
                 }
             }
-            SwitchFQ(FqTX);
-            DoFqTXSwitch();
-#endif
+            SwitchFQ(FqTX);  // set FQX to TX -  
+            DoFqTXSwitch(); // now FqTXCount is advanced to next TX frequency 
 TRANSMIT_NOW:
             DataB0.TXSendDone = 0;
-            PORT_AMPL.BT_TX = 1;              // TX amplifier : TBD: is it enought time to start amplifier?
 #ifdef DEBUG_SIM
             BTCE_highTX();
 #else
@@ -3801,26 +3833,28 @@ TRANSMIT_NOW:
         }
 TRANSMIT_ON_TMR1_INT:
         INT0_ENBL = 1;
-        TMR1ON = 1; // start temporary stoped timer (if it was stopped!)
-        TMR0ON = 0; // during transmit no interrupt on timer 0
-        I2C.Timer0Fired = 0;
     }
 }
 
 void SwitchToRXdata(void)
 {
-    PORT_AMPL.BT_TX = 0;              // off TX amplifier
     BTCE_low(); // Chip Enable Activates RX or TX mode (now disable)
     BTType = 1; // type RX
 
+    PORT_AMPL.BT_TX = 0;              // off TX amplifier
+    nop();
+    PORT_AMPL.BT_RX = 1;              // on RX amplifier
+
+
     SwitchFQ(FqRX); // switch back FQ1; BTStatus updated
-    if (BTStatus & 0x20)  // must be interrupt TX on last FQ3
+    if (BTStatus & 0x60)  // ?? interrupt TX on last FQ3
     {
         bitclr(PORT_BT,Tx_CSN); // SPI Chip Select // pipe 0
         SendBTbyte(0x27); // 0010  0111 command W_REGISTER to register 00111 == STATUS
-        SendBTbyte(0x20); // clean TX interrupt
+        SendBTbyte(0x60); // clean TX interrupt
         bitset(PORT_BT,Tx_CSN);
     }
+    
                  // data in Configuration Register
                  // 0011 0011  
                  //  0       MASK_RX_DR Mask interrupt caused by RX_DR
@@ -3845,20 +3879,14 @@ void SwitchToRXdata(void)
     SendBTbyte(0x33);
     bitset(PORT_BT,Tx_CSN); // SPI Chip Select
 
-    PORT_AMPL.BT_RX = 1;              // on RX amplifier
-    //INT0_FLG = 0;
-    
+    INT0_FLG = 0;
+    INT0_ENBL = 1;
     BTokMsg = 0xff;
     BTCE_high(); // Chip Enable Activates RX or TX mode (now RX mode) 
     //BTType &= 0xfd; // 0x02 // clean TX mode
     //BTType |= 0x01; // set RX mode
-    INT0_ENBL = 1;
+    
     //BTInturrupt = 0;
-
-    if (BTStatus & 0x40) // was RX during TX attempt == then needs to read what it was
-    {
-        Main.ExtInterrupt = 1;
-    }
 }
 
 void SetupBT(unsigned char SetupBtMode)

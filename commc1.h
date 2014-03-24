@@ -1465,6 +1465,17 @@ TMR0_DONE:
                 {
                     FqTXCount = 0;
                     FqTX = Freq1;
+#ifdef DEBUG_LED 
+                    if (ATCMD & MODE_CONNECT)
+                    {
+                        if (DebugLedCount)
+                        { 
+                            if (--DebugLedCount ==0)
+                                DEBUG_LED_OFF;
+                        }
+                        Main.PingRQ = 1;
+                    }
+#endif
                 }
                 else
                 {
@@ -1615,9 +1626,9 @@ TMR2_COUNT_DONE:
                 Tmr3TOHigh = Tmr3LoadHigh;
                 Tmr3LoadLow = Tmr3LoadLowCopy;
 
-                if (SkipPtr)
+                if (SkipRXTmr3)
                 {
-                   SkipPtr = 0;  // no timer3 (RX) interrupt == interrupt will be processed in first place
+                   SkipRXTmr3 = 0;  // no timer3 (RX) interrupt == interrupt will be processed in first place
                 }
                 else
                 {
@@ -1627,29 +1638,6 @@ TMR2_COUNT_DONE:
                         if (--OutSyncCounter == 0)
                             DataB0.Timer3OutSyncRQ = 1;
                     }
-#ifdef DEBUG_LED 
-                    if (FqRXCount == 2)
-                    {
-                        
-   
-                        if (ATCMD & MODE_CONNECT)
-                        {
-                    	    if (--CountFQ3==0)
-                            {
-                                if (DebugLedCount)
-                                {
-                                    if (--DebugLedCount ==0)
-                                       DEBUG_LED_OFF;
-                                }
-   #ifdef DEBUG_LED_CALL_LUNA
-                                Main.PingRQ = 1;
-   #endif
-                                CountFQ3 = 2;
-                            }
-                        }
-   
-                    }
-#endif
                 }
             }
         }
@@ -1690,25 +1678,45 @@ TMR2_COUNT_DONE:
             {
                 //if (DataB0.Timer3SwitchRX)
                 bitclr(PORT_BT,Tx_CE);	// Chip Enable (Activates RX or TX mode) == now standby
+                DataB0.RXPktIsBad = 0;
 
                 if (DataB0.Tmr3DoneMeasureFq1Fq2) // receive set
                 {
-                    SkipPtr = 1; // timeout in timer3 (RX) will be blocked
+                    
                     AdjustTimer3 = TIMER3;
-                    DataB0.Timer3Ready2Sync = 1;
-                    if (FqRXCount == 0)
+                    Time1Left = 0xffff - AdjustTimer3;
+                    if ( Time1Left > (MEDIAN_TIME >>1))
                     {
-                        DistMeasure.RXbTmr1H = DistMeasure.RXaTmr1H;
-                        DistMeasure.RXbTmr1 = DistMeasure.RXaTmr1;
-                        DistMeasure.RXaTmr1H = INTTimer1HCount;
-                        DistMeasure.RXaTmr1 = INTTimer1;
+                         if ( Time1Left < ((MEDIAN_TIME >>1)+ MEDIAN_TIME))
+                         {
+                             // pkt is in time frame to get it
+                             SkipRXTmr3 = 1; // timeout in timer3 (RX) will be blocked
+                             if (FqRXCount == 0)
+                             {
+                                 DistMeasure.RXbTmr1H = DistMeasure.RXaTmr1H;
+                                 DistMeasure.RXbTmr1 = DistMeasure.RXaTmr1;
+                                 DistMeasure.RXaTmr1H = INTTimer1HCount;
+                                 DistMeasure.RXaTmr1 = INTTimer1;
+                             }
+                             DataB0.Timer3Ready2Sync = 1;
+                         }
+                         else 
+                             goto IGNORE_BAD_PKT;
                     }
+                    else // RX INT is error can be ignored
+                    {
+IGNORE_BAD_PKT:         DataB0.RXPktIsBad = 1;
+                    }
+                    
+                     
+                    
                 }
                 else // needs to monitor FQ1 and FQ2 receive time
                 {
                     if (FqRXCount == 0) // it is receive over Fq1 == need to start timer3 to record time btw Fq1 and FQ2
                     {
                         DataB0.Tmr3DoMeausreFq1_Fq2 = 1;
+                        DataB0.Tmr3Run = 0;
                         TMR3H = 0;
                         TMR3L = 0;
                         TMR3IF = 0;
@@ -1722,7 +1730,7 @@ TMR2_COUNT_DONE:
                         {
                             if (DataB0.RXMessageWasOK) // that can be only: RX FQ1 was OK ; RX INT on FQ2
                             {
-                                TMR3ON = 0;                            // stop timer3 for a moment 
+                                //TMR3ON = 0;                            // stop timer3 for a moment 
                                 Tmr3LoadLowCopy =0xFFFF - TIMER3;      // timer3 interupt reload values 
                                 Tmr3LoadLowCopy += 52;                 // ofset from begining of a interrupt routine
                                 if (Tmr3LoadLowCopy <= MEDIAN_TIME)
@@ -1730,18 +1738,20 @@ TMR2_COUNT_DONE:
                                 Tmr3LoadLow = Tmr3LoadLowCopy - MEDIAN_TIME;
                                 TMR3H = (Tmr3LoadLow>>8);
                                 TMR3L = (unsigned char)(Tmr3LoadLow&0xFF);
+                                TMR3ON = 1; // continue run TMR3 
                                 Tmr3LoadLow = Tmr3LoadLowCopy;
                                 //TMR3L = 0;//xff;
-                                TMR3ON = 1; // continue run
                                 Tmr3TOHigh = Tmr3LoadHigh = 0xffff - Tmr3High;
                                 DataB0.Tmr3DoMeausreFq1_Fq2 = 0;           // switch in timer3 interrupt routine from "measure time FQ1-FQ2"
                                 DataB0.Tmr3Run = 1;               // to "run timer3 on BT RX"
                                 DataB0.Tmr3Inturrupt = 0;         // when "measured time FQ1-FQ2" passed it will be timer3 interrupt
-                                //SkipPtr =1;
+                                //SkipRXTmr3 =1;
                                 DataB0.Tmr3RxFqSwitchLost = 0;
                             }
                             else
+                            {
                                 DataB0.Tmr3DoMeausreFq1_Fq2 = 0;
+                            }    
                         }
                     }
                     else
