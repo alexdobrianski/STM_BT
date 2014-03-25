@@ -1466,15 +1466,23 @@ TMR0_DONE:
                     FqTXCount = 0;
                     FqTX = Freq1;
 #ifdef DEBUG_LED 
+                    if (DebugLedCount)
+                    { 
+                        if (--DebugLedCount ==0)
+                            DEBUG_LED_OFF;
+                    }
+                    else
+                        DEBUG_LED_OFF;
+#ifdef DEBUG_LED_CALL_LUNA
                     if (ATCMD & MODE_CONNECT)
                     {
-                        if (DebugLedCount)
-                        { 
-                            if (--DebugLedCount ==0)
-                                DEBUG_LED_OFF;
+                        if (--PingDelay == 0)
+                        {
+                            Main.PingRQ = 1;
+                            PingDelay = PING_DELAY;
                         }
-                        Main.PingRQ = 1;
                     }
+#endif
 #endif
                 }
                 else
@@ -1732,7 +1740,7 @@ IGNORE_BAD_PKT:         DataB0.RXPktIsBad = 1;
                             {
                                 //TMR3ON = 0;                            // stop timer3 for a moment 
                                 Tmr3LoadLowCopy =0xFFFF - TIMER3;      // timer3 interupt reload values 
-                                Tmr3LoadLowCopy += 52;                 // ofset from begining of a interrupt routine
+                                //Tmr3LoadLowCopy += 52;                 // ofset from begining of a interrupt routine
                                 if (Tmr3LoadLowCopy <= MEDIAN_TIME)
                                     Tmr3High++;
                                 Tmr3LoadLow = Tmr3LoadLowCopy - MEDIAN_TIME;
