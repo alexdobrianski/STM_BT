@@ -1536,11 +1536,17 @@ TMR2_COUNT_DONE:
                 {
                     
                     AdjustTimer3 = TIMER3;
-                    Time1Left = 0xffff - AdjustTimer3;
-                    if ( Time1Left > (MEDIAN_TIME >>1))
+                    Time1Left = AdjustTimer3;
+                    if (Time1Left > 0x8000)
+                        Time1Left = 0xffff - Time1Left; 
+                    if ( Time1Left > MEDIAN_TIME_LOW)
                     {
-                         if ( Time1Left < ((MEDIAN_TIME >>1)+ MEDIAN_TIME))
+                         if ( Time1Left < MEDIAN_TIME_HIGH)
                          {
+                             iDebugC++;
+                             if (iDebugC == 3)
+                                iDebugC =3;
+  
                              // pkt is in time frame to get it
                              SkipRXTmr3 = 1; // timeout in timer3 (RX) will be blocked
                              if (FqRXCount == 0)
@@ -1585,6 +1591,7 @@ IGNORE_BAD_PKT:         DataB0.RXPktIsBad = 1;
                                 //TMR3ON = 0;                            // stop timer3 for a moment 
                                 Tmr3LoadLowCopy =0xFFFF - TIMER3;      // timer3 interupt reload values 
                                 //Tmr3LoadLowCopy += 52;                 // ofset from begining of a interrupt routine
+                                Tmr3LoadLowCopy += 90;
                                 if (Tmr3LoadLowCopy <= MEDIAN_TIME)
                                     Tmr3High++;
                                 Tmr3LoadLow = Tmr3LoadLowCopy - MEDIAN_TIME;
@@ -1599,6 +1606,9 @@ IGNORE_BAD_PKT:         DataB0.RXPktIsBad = 1;
                                 DataB0.Tmr3Inturrupt = 0;         // when "measured time FQ1-FQ2" passed it will be timer3 interrupt
                                 //SkipRXTmr3 =1;
                                 DataB0.Tmr3RxFqSwitchLost = 0;
+                                SkipRXTmr3++;
+                                if (iDebugC == 2)
+                                   iDebugC =2;
                             }
                             else
                             {

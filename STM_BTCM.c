@@ -82,7 +82,9 @@ see www.adobri.com for communication protocol spec
 // X = 0x3500= X > 0x2ACB
 //#define MEDIAN_TIME 0x4000
 //#define MEDIAN_TIME 0x2000
-#define MEDIAN_TIME 0x1000
+#define MEDIAN_TIME      0x1000
+#define MEDIAN_TIME_LOW  0x0800
+#define MEDIAN_TIME_HIGH 0x1800
 // #define DELAY_BTW_SEND_PACKET 0xffa3
 // transmitter:
 //    111       222        333        111        222        333        111        222        333        111        222        333        111        222        333        111
@@ -256,9 +258,9 @@ see www.adobri.com for communication protocol spec
 #define DEBUG_LED_ON bitset(LATA,5)
 ///////////////////////////////////////////////////////////////
 //   for a blinking LED behive like CUBESAT/CRAFT
-//   it is waiting for connection, wait for pkt, and when pkt is Ok it send back to earth reply packet, and blinks
+//   it is waiting for connection, wait for p/kt, and when pkt is Ok it send back to earth reply packet, and blinks
 ///////////////////////////////////////////////////////////////
-//#define DEBUG_LED_CALL_EARTH
+#define DEBUG_LED_CALL_EARTH
 // for test sequence 
 //// "5atsx=...CBabbcgg
 // atdtl
@@ -267,7 +269,7 @@ see www.adobri.com for communication protocol spec
 ///////////////////////////////////////////////////////////////
 //   for a blinking LED behive like Ground Station, it is constantly sends pktm if received pkt, then it blinks
 ///////////////////////////////////////////////////////////////
-#define DEBUG_LED_CALL_LUNA
+//#define DEBUG_LED_CALL_LUNA
 // for test sequence 
 // "5atsx=...CBabbcgg
 // atdtl
@@ -641,6 +643,8 @@ unsigned char Config01;
 #define RESPONCE_WAS_SENT 0x40
 #define INIT_BT_NOT_DONE 0x80
 
+int iDebugC;
+
 unsigned char ATCMD;
 unsigned char ATCMDStatus;
 unsigned char Freq1;
@@ -740,6 +744,7 @@ typedef struct PacketStart
     unsigned char Fq3;
 
 };
+
 
 
 void wCRCupdt(int bByte);
@@ -857,6 +862,8 @@ unsigned char ReadPrevLen;
 unsigned char ReadNextLen;
 unsigned char ReadTypePkt;
 
+
+
 void Erace4K(unsigned char Adr2B);
 #endif
 #ifdef DEBUG_SIM
@@ -968,7 +975,7 @@ void main()
     DEBUG_LED_OFF;
     DebugLedCount = 0;
 #endif
-
+    iDebugC = 0;
 #ifndef __PIC24H__
     PEIE = 1;    // bit 6 PEIE: Peripheral Interrupt Enable bit
                  // 1 = Enables all unmasked peripheral interrupts
@@ -1975,6 +1982,7 @@ MAIN_INT_ENTRY:
                         FqRXCount = 0;
                         FqRX = Freq1;
                         SwitchFQ(FqRX);
+                        DataB0.RXPkt2IsBad = 0;
                     }    
 
                     BTCE_high();          // continue listeniong on FQX
@@ -2129,7 +2137,7 @@ NEXT_TRANSMIT:
         {
             if (DataB0.Timer1Count) // first TX on  FQ1 & FQ@ was done == timer 1 is set
             {
-                if (FqTXCount == 0) // only when next TX will be on Fq1
+                if (FqTXCount == 0) // only when next TX will be on Fq1/
                 {
                     // does RX get FQ1 and FQ2 packets ? if YES then TMR3 switches RX and loop can be blocked
                     if (DataB0.Tmr3DoneMeasureFq1Fq2)
@@ -2155,6 +2163,9 @@ TIMING_CHECK:
                                 if (Time1Left > MIN_TX_POSSIBLE)
                                 {
 INIT_TX:
+                                    iDebugC++;
+                                    if (iDebugC == 10)
+                                        iDebugC =10;
                                     BTCE_low();
                                     TransmitBTdata();
                                     ATCMD &= (0xff ^SOME_DATA_OUT_BUFFER);
@@ -2196,8 +2207,8 @@ INIT_TX:
                 {   //////////////////////////////////////////////////////////////////////////////////////////////
                     // case 3 == TX was not done but RX FQ1-FQ2 was successfull
                     // that will yeld RX and TX postponed
-                    if (!BTFlags.RxInProc)
-                        goto TIMING_CHECK;
+                    //if (!BTFlags.RxInProc)
+                    //    goto TIMING_CHECK;
 
                     if (DataB0.RXLoopBlocked) // only when round-robin RX blocked
                         goto INIT_TX;
@@ -3938,11 +3949,11 @@ void SwitchToRXdata(void)
 
 
     SwitchFQ(FqRX); // switch back FQ1; BTStatus updated
-    if (BTStatus & 0x40)  // ?? interrupt TX on last FQ3
+    if (BTStatus & 0x60)  // ?? interrupt TX on last FQ3
     {
         bitclr(PORT_BT,Tx_CSN); // SPI Chip Select // pipe 0
         SendBTbyte(0x27); // 0010  0111 command W_REGISTER to register 00111 == STATUS
-        SendBTbyte(0x40); // clean TX interrupt
+        SendBTbyte(0x60); // clean TX interrupt
         bitset(PORT_BT,Tx_CSN);
     }
     
