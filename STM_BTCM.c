@@ -224,15 +224,15 @@ see www.adobri.com for communication protocol spec
 // to properly process Timer0 interrupt needs to has all timer set values different
 //#define DELAY_BTW_NEXT_DIAL 0xfeec
 #define DELAY_BTW_NEXT_DIAL 0xe00c
-#define PING_DELAY 10
+#define PING_DELAY 5
 #define DEBUG_LED_COUNT 2
 #define TO_BTW_CHARS 0xff00
 
 #define TIME_FOR_PACKET 0xff98
 #define TIME_FOR_PACKET0 0xff97
 //#define DELAY_BTW_SEND_PACKET 0xfe03
-//#define DELAY_BTW_SEND_PACKET 0xffa3
-#define DELAY_BTW_SEND_PACKET 0xffd1
+#define DELAY_BTW_SEND_PACKET 0xffa3
+//#define DELAY_BTW_SEND_PACKET 0xffd1
 #define MAX_TX_POSSIBLE 0xE0bf
 #define MIN_TX_POSSIBLE 0xB9AF
                         // value 0xffff-8000 =0xE0bf - that is max value when TX will be possible
@@ -260,7 +260,7 @@ see www.adobri.com for communication protocol spec
 //   for a blinking LED behive like CUBESAT/CRAFT
 //   it is waiting for connection, wait for p/kt, and when pkt is Ok it send back to earth reply packet, and blinks
 ///////////////////////////////////////////////////////////////
-#define DEBUG_LED_CALL_EARTH
+//#define DEBUG_LED_CALL_EARTH
 // for test sequence 
 //// "5atsx=...CBabbcgg
 // atdtl
@@ -269,7 +269,7 @@ see www.adobri.com for communication protocol spec
 ///////////////////////////////////////////////////////////////
 //   for a blinking LED behive like Ground Station, it is constantly sends pktm if received pkt, then it blinks
 ///////////////////////////////////////////////////////////////
-//#define DEBUG_LED_CALL_LUNA
+#define DEBUG_LED_CALL_LUNA
 // for test sequence 
 // "5atsx=...CBabbcgg
 // atdtl
@@ -520,6 +520,8 @@ UWORD TXbTmr1;
 UWORD TXbTmr1H;
 } DistMeasure;
 
+UWORD AdjRX;
+int iAdjRX;
 
 #ifdef BT_TIMER3
 unsigned char WasRXCount;
@@ -643,8 +645,6 @@ unsigned char Config01;
 #define RESPONCE_WAS_SENT 0x40
 #define INIT_BT_NOT_DONE 0x80
 
-int iDebugC;
-
 unsigned char ATCMD;
 unsigned char ATCMDStatus;
 unsigned char Freq1;
@@ -697,6 +697,19 @@ struct _BTFLAGS
 
 UWORD CRC;
 UWORD CRCcmp;
+UWORD TMR2Count;
+
+UWORD T2Byte0;
+
+UWORD T2Count1;
+UWORD T2Byte1;
+
+UWORD T2Count2;
+UWORD T2Byte2;
+
+UWORD T2Count3;
+UWORD T2Byte3;
+
 unsigned char PktCount;
 /*
 typedef struct PacketDial
@@ -971,11 +984,21 @@ void main()
     // needs to search for packets and process it if they was stored
 #endif
 
+    T2Byte0=0;
+
+    T2Count1=0;
+    T2Byte1=0;
+
+    T2Count2=0;
+    T2Byte2=0;
+
+    T2Count3=0;
+    T2Byte3=0;
+
 #ifdef DEBUG_LED
     DEBUG_LED_OFF;
     DebugLedCount = 0;
 #endif
-    iDebugC = 0;
 #ifndef __PIC24H__
     PEIE = 1;    // bit 6 PEIE: Peripheral Interrupt Enable bit
                  // 1 = Enables all unmasked peripheral interrupts
@@ -1641,7 +1664,29 @@ void SetTimer3(UWORD iTime)
      //                0 = Stops Timer3
      T3CON = 0b10000001;
 }
+void SetTimer2(void)
+{
+     T2Byte0 =1;
+     TMR2IF = 0; // clean timer1 interrupt
+     TMR2IE = 1;  // enable timer1 interrupt
 
+     // 0            bit 7 Unimplemented: Read as ‘0’
+     //  0000        bit 6-3 T2OUTPS<3:0>: Timer2 Output Postscale Select bits
+     //              0000 = 1:1 Postscale
+     //              0001 = 1:2 Postscale
+     //              1111 = 1:16 Postscale
+     //      1       bit 2 TMR2ON: Timer2 On bit
+     //              1 = Timer2 is on
+     //              0 = Timer2 is off
+     //       11     bit 1-0 T2CKPS<1:0>: Timer2 Clock Prescale Select bits
+     //              00 = Prescaler is 1
+     //              01 = Prescaler is 4
+     //              1x = Prescaler is 16
+     TMR2 = 0;
+     TMR2Count = 0;
+     T2CON = 0b00000111;
+     
+}
 unsigned char CheckSuddenRX(void)
 {
     if (Main.ExtInterrupt)
@@ -1955,6 +2000,28 @@ MAIN_INT_ENTRY:
             {
                 if (DataB0.RXPktIsBad)  //that error happens only on read operation now!!!
                 {
+#if 0
+                    if (T2Byte1 ==0)
+                    {        
+                        if (T2Byte0 == 20)
+                        {
+                            T2Count1=TMR2Count;
+                            T2Byte1=TMR2;
+                        }
+                        else
+                            T2Byte0++;
+                    }
+                    else if (T2Byte2 ==0)
+                    {        
+                        T2Count2=TMR2Count;
+                        T2Byte2=TMR2;
+                    } 
+                    else if (T2Byte3 ==0)
+                    {        
+                        T2Count3=TMR2Count;
+                        T2Byte3=TMR2;
+                    }
+#endif
                     Main.ExtInterrupt = 0;
                     DataB0.RXPktIsBad = 0;
                     // need to read bad message to clean it
@@ -2101,6 +2168,7 @@ NEXT_TRANSMIT:
                 // for check it will stop listenning ->BTCE_low()
                 if (CheckSuddenRX())  // just by luck or delay it was RX of the packet
                     goto MAIN_INT;
+                
                 SwitchFQ(DoFqRXSwitch()); // FqRXCount points on next FQ after switch
                 if (FqRXCount == 0)
                 {
@@ -2115,16 +2183,16 @@ NEXT_TRANSMIT:
                 else
                     BTCE_high();          // continue listeniong on FQ1
  
-                //if (DataB0.Timer3OutSyncRQ)
-                //{
+                if (DataB0.Timer3OutSyncRQ)
+                {
                 //     DataB0.Timer3OutSyncRQ = 0;
                 //     DataB0.Tmr3DoneMeasureFq1Fq2 = 0;
                 //     DataB0.Tmr3Run = 0;
                 //     FqRXCount = 0;
                 //     FqRX = Freq1;
                 //     SwitchFQ(FqRX);
-                //     BTCE_high();          // continue listeniong on FQ1
-                //}
+                     BTCE_high();          // continue listeniong on FQ1
+                }
             }
             //else
             //    DoFqRXSwitch();
@@ -2163,9 +2231,8 @@ TIMING_CHECK:
                                 if (Time1Left > MIN_TX_POSSIBLE)
                                 {
 INIT_TX:
-                                    iDebugC++;
-                                    if (iDebugC == 10)
-                                        iDebugC =10;
+                                    if (T2Byte0 ==0)
+                                        SetTimer2();
                                     BTCE_low();
                                     TransmitBTdata();
                                     ATCMD &= (0xff ^SOME_DATA_OUT_BUFFER);
@@ -2203,30 +2270,41 @@ INIT_TX:
             }
             else // first time TX over FQ1-FQ2 was not set yet == needs to send  
             {
-                if (DataB0.Tmr3DoneMeasureFq1Fq2)
-                {   //////////////////////////////////////////////////////////////////////////////////////////////
-                    // case 3 == TX was not done but RX FQ1-FQ2 was successfull
-                    // that will yeld RX and TX postponed
-                    //if (!BTFlags.RxInProc)
-                    //    goto TIMING_CHECK;
+                if (FqTXCount == 0) // only when next TX will be on Fq1/
+                {
+                    if (DataB0.Tmr3DoneMeasureFq1Fq2)
+                    {   //////////////////////////////////////////////////////////////////////////////////////////////
+                        // case 3 == TX was not done but RX FQ1-FQ2 was successfull
+                        // that will yeld RX and TX postponed
+                        //if (!BTFlags.RxInProc)
+                        //    goto TIMING_CHECK;
 
-                    if (DataB0.RXLoopBlocked) // only when round-robin RX blocked
-                        goto INIT_TX;
+                        if (DataB0.RXLoopBlocked) // only when round-robin RX blocked
+                            goto INIT_TX;
+                        else
+                            DataB0.RXLoopAllowed = 0;
+                    }
                     else
-                        DataB0.RXLoopAllowed = 0;
+                    {   //////////////////////////////////////////////////////////////////////////////////////////////
+                        // case 4 == TX was not done and no RX FQ1-FQ2
+                        if (BTType == 1)  // is ir RX now??
+                        {
+                            if (FqRXCount == 0) // is it RX over FQ1 ??  
+                            {
+                                //TMR0ON = 0;
+                	            goto INIT_TX;
+                            }
+                        }
+                    }    
                 }
                 else
-                {   //////////////////////////////////////////////////////////////////////////////////////////////
-                    // case 4 == TX was not done and no RX FQ1-FQ2
-                    if (BTType == 1)  // is ir RX now??
+                {
+                    // does RX get FQ1 and FQ2 packets ? if YES then TMR3 switches RX and loop must be blocked
+                    if (DataB0.Tmr3DoneMeasureFq1Fq2)
                     {
-                        if (FqRXCount == 0) // is it RX over FQ1 ??  
-                        {
-                            //TMR0ON = 0;
-                	        goto INIT_TX;
-                        }
+                        DataB0.RXLoopAllowed = 0;
                     }
-                }    
+                }
             }
         }
         
@@ -2259,7 +2337,7 @@ INIT_TX:
   
                if (Main.PingRQ || Main.PingRSPRQ)
                 {
-                     if (!(ATCMD & SOME_DATA_OUT_BUFFER))   // only when nothing in BT output queue
+                     if (BTqueueOutLen == 0)   // only when nothing in BT output queue
                      {
                          if (FqRXCount == 0) // only if it is listening on FQ1
                          {
@@ -2280,7 +2358,7 @@ INIT_TX:
                 }
                 else // was not dialed yet
                 {
-                    if (!(ATCMD & SOME_DATA_OUT_BUFFER))   // only when nothing in BT output queue
+                    if (BTqueueOutLen == 0)   // only when nothing in BT output queue
                     {
 
                         BTqueueOut[0] = 'l'; BTqueueOut[1] = 'u';BTqueueOut[2] = 'n';BTqueueOut[3] = 'a';
@@ -2346,9 +2424,9 @@ SEND_PKT_DIAL:
                 if (ATCMD & RESPONCE_WAS_SENT) // responce to earth was send
                 {
 #ifdef DEBUG_LED_CALL_EARTH
-                    if (Main.PingRQ)// || Main.PingRSPRQ)
+                    if (Main.PingRQ || Main.PingRSPRQ)
                     {
-                         if (!(ATCMD & SOME_DATA_OUT_BUFFER))   // only when nothing in BT output queue
+                         if (BTqueueOutLen == 0)   // only when nothing in BT output queue
                          {
                              BTqueueOut[0] = 'p'; BTqueueOut[1] = 'i';BTqueueOut[2] = 'n';BTqueueOut[3] = 'g';
                              //BTqueueOut[0] = 'e';BTqueueOut[1] = 'a';BTqueueOut[2] = 'r';BTqueueOut[3] = 'z';
@@ -2363,7 +2441,7 @@ SEND_PKT_DIAL:
                 }
                 else                           // responce to earth was not send from luna
                 {
-                    if (!(ATCMD & SOME_DATA_OUT_BUFFER))   // only when nothing in BT output queue
+                    if (BTqueueOutLen == 0)   // only when nothing in BT output queue
                     {
                         BTqueueOut[0] = 'e';BTqueueOut[1] = 'a';BTqueueOut[2] = 'r';BTqueueOut[3] = 'z';
                         ATCMD |= RESPONCE_WAS_SENT;
@@ -3512,19 +3590,18 @@ void AdjTimer3(void)
     if (DataB0.Timer3Ready2Sync)
     {
         // CRCcmp is just working variable
-        CRCcmp = 0xffff - AdjustTimer3;
-        CRCcmp -= MEDIAN_TIME;
-        //CRCcmp +=10;
-        //if (CRCcmp > 0x0100)
+        //CRCcmp = 0xffff - AdjustTimer3;
+        //CRCcmp -= MEDIAN_TIME;
+        CRCcmp = AdjustTimer3 + MEDIAN_TIME;
+        CRCcmp = Tmr3LoadLowCopy - CRCcmp;
+        CRCcmp -=4;
+        if (CRCcmp > 10)
         {
-            //if (CRCcmp < 0xfe00)
-            {
-                TMR3ON = 0;                       // stop timer3 (RX) for a moment
-                Tmr3LoadLow = Tmr3LoadLowCopy + CRCcmp;
-                TMR3ON = 1;                       // start timer (RX) back
-             }
-        }      
-        //Tmr3LoadLowCopy = Tmr3LoadLow;
+            TMR3ON = 0;                       // stop timer3 (RX) for a moment
+            //Tmr3LoadLow = Tmr3LoadLowCopy + CRCcmp;
+            Tmr3LoadLow = CRCcmp; 
+            TMR3ON = 1;                       // start timer (RX) back
+        }
         DataB0.Timer3Ready2Sync = 0;
     }
 }
@@ -3557,8 +3634,7 @@ unsigned char ReceiveBTdata(void)
     if (bret > 32) // error - length can not be bigger 32 bytes (special case from spec)
     {
         bitclr(PORT_BT,Tx_CSN);
-        SendBTbyte(0x27); // 0010 0111 command W_REGISTER =register is status = clean RX interrupt
-        SendBTbyte(0x40); // clean RX interrupt
+        SendBTbyte(0xe2); // 1110  0010 command flash RX FIFO
         bitset(PORT_BT,Tx_CSN);
         // that will continue RX on the same frequency
         return 0;
@@ -3778,15 +3854,6 @@ void TransmitBTdata(void)
             SendBTbyte(0x52);
             bitset(PORT_BT,Tx_CSN); // SPI Chip Select
    
-#ifdef SAVE_SPACE
-            FSR_REGISTER = &BTqueueOut[0];
-            BTqueueOutCopyLen = BTqueueOutLen;
-            FSR1 = &BTqueueOutCopy[0];
-            do
-            {
-                INDF1 = PTR_FSR;
-            } while(--BTqueueOutLen);
-#else            
             for (i = 0; i <BTqueueOutLen;i++)
             {
                bBy = BTqueueOut[i];
@@ -3794,7 +3861,7 @@ void TransmitBTdata(void)
             }
             BTqueueOutCopyLen = BTqueueOutLen;
             BTqueueOutLen = 0;
-#endif
+
             BTpktCopy = BTpkt;
         }
     }

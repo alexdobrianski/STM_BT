@@ -65,6 +65,9 @@
 #ifdef BT_TIMER3
 #define IF_TMR3IF if (TMR3IF)
 #endif
+   #ifdef BT_TX
+     #define IF_TMR2IF if (TMR2IF)
+   #endif
 #define IF_INT0_FLG if (INT0_FLG)
 #define IF_INT1IF if (INT1IF)
 #ifdef __18CXX
@@ -1278,14 +1281,19 @@ TMR0_DONE:
         {
             if ((++Tmr1TOHigh) == 0)
             {
+                TMR1H = (unsigned char)(Tmr1LoadLow>>8);
+                TMR1L = (unsigned char)(Tmr1LoadLow&0xff);
 
+                
                 if (DataB0.Timer1DoTX) // was a request to TX data on that frquency
                 {
                     PORT_AMPL.BT_TX = 1;
                     DataB0.TXSendDone = 0;
                     bitset(PORT_BT,Tx_CE);
                     DataB0.Timer1DoTX = 0;
-                }        
+
+                    
+                }
                 if (++FqTXCount>=3)
                 {
                     FqTXCount = 0;
@@ -1317,8 +1325,6 @@ TMR0_DONE:
                    else
                        FqTX = Freq3;
                 }
-                TMR1H = (unsigned char)(Tmr1LoadLow>>8);
-                TMR1L = (unsigned char)(Tmr1LoadLow&0xff);
                 //DataB0.Timer1Inturrupt = 1; // and relaod timer
                 Tmr1TOHigh = Tmr1LoadHigh;
                 //TIMER1 = Tmr1LoadLow;  
@@ -1468,10 +1474,13 @@ TMR2_COUNT_DONE:
                     if (BTType == 1)
                     {
                         DataB0.Tmr3Inturrupt = 1;
-                        if (OutSyncCounter)
+                        if (FqRXCount ==0)
                         {
-                            if (--OutSyncCounter == 0)
-                                DataB0.Timer3OutSyncRQ = 1;
+                            if (OutSyncCounter)
+                            {
+                                if (--OutSyncCounter == 0)
+                                    DataB0.Timer3OutSyncRQ = 1;
+                            }
                         }
                     }
                     else
@@ -1536,6 +1545,7 @@ TMR2_COUNT_DONE:
                 {
                     
                     AdjustTimer3 = TIMER3;
+                    DataB0.Timer3Ready2Sync = 0;
                     Time1Left = AdjustTimer3;
                     if (Time1Left > 0x8000)
                         Time1Left = 0xffff - Time1Left; 
@@ -1543,10 +1553,6 @@ TMR2_COUNT_DONE:
                     {
                          if ( Time1Left < MEDIAN_TIME_HIGH)
                          {
-                             iDebugC++;
-                             if (iDebugC == 3)
-                                iDebugC =3;
-  
                              // pkt is in time frame to get it
                              SkipRXTmr3 = 1; // timeout in timer3 (RX) will be blocked
                              if (FqRXCount == 0)
@@ -1591,7 +1597,7 @@ IGNORE_BAD_PKT:         DataB0.RXPktIsBad = 1;
                                 //TMR3ON = 0;                            // stop timer3 for a moment 
                                 Tmr3LoadLowCopy =0xFFFF - TIMER3;      // timer3 interupt reload values 
                                 //Tmr3LoadLowCopy += 52;                 // ofset from begining of a interrupt routine
-                                Tmr3LoadLowCopy += 90;
+                                Tmr3LoadLowCopy += 60;
                                 if (Tmr3LoadLowCopy <= MEDIAN_TIME)
                                     Tmr3High++;
                                 Tmr3LoadLow = Tmr3LoadLowCopy - MEDIAN_TIME;
@@ -1604,11 +1610,9 @@ IGNORE_BAD_PKT:         DataB0.RXPktIsBad = 1;
                                 DataB0.Tmr3DoMeausreFq1_Fq2 = 0;           // switch in timer3 interrupt routine from "measure time FQ1-FQ2"
                                 DataB0.Tmr3Run = 1;               // to "run timer3 on BT RX"
                                 DataB0.Tmr3Inturrupt = 0;         // when "measured time FQ1-FQ2" passed it will be timer3 interrupt
-                                //SkipRXTmr3 =1;
                                 DataB0.Tmr3RxFqSwitchLost = 0;
-                                SkipRXTmr3++;
-                                if (iDebugC == 2)
-                                   iDebugC =2;
+                                AdjRX = 0;
+                                iAdjRX = 0;
                             }
                             else
                             {
@@ -1637,6 +1641,13 @@ IGNORE_BAD_PKT:         DataB0.RXPktIsBad = 1;
     }
  #ifdef _18F2321_18F25K20 
  //#define USE_INT1 1
+   #ifdef BT_TX
+   IF_TMR2IF
+   {
+       TMR2Count ++;
+       TMR2IF = 0;
+   }
+   #endif
  #endif
  #ifdef __PIC24H__
  #define USE_INT1 1
