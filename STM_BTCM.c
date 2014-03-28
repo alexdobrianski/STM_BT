@@ -82,9 +82,6 @@ see www.adobri.com for communication protocol spec
 // X = 0x3500= X > 0x2ACB
 //#define MEDIAN_TIME 0x4000
 //#define MEDIAN_TIME 0x2000
-#define MEDIAN_TIME      0x1000
-#define MEDIAN_TIME_LOW  0x0800
-#define MEDIAN_TIME_HIGH 0x1800
 // #define DELAY_BTW_SEND_PACKET 0xffa3
 // transmitter:
 //    111       222        333        111        222        333        111        222        333        111        222        333        111        222        333        111
@@ -222,19 +219,31 @@ see www.adobri.com for communication protocol spec
 
 //////////////////////////////////////////////////////
 // to properly process Timer0 interrupt needs to has all timer set values different
+
+#define MEDIAN_TIME      0x2000
+#define MEDIAN_TIME_LOW  0x0100
+#define MEDIAN_TIME_HIGH 0x4000
+
+//#define MEDIAN_TIME      0x1000
+//#define MEDIAN_TIME_LOW  0x0010
+//#define MEDIAN_TIME_HIGH 0x2000
+
+
 //#define DELAY_BTW_NEXT_DIAL 0xfeec
 #define DELAY_BTW_NEXT_DIAL 0xe00c
-#define PING_DELAY 5
-#define DEBUG_LED_COUNT 2
+#define PING_DELAY 3
+#define DEBUG_LED_COUNT 1
 #define TO_BTW_CHARS 0xff00
 
 #define TIME_FOR_PACKET 0xff98
 #define TIME_FOR_PACKET0 0xff97
 //#define DELAY_BTW_SEND_PACKET 0xfe03
-#define DELAY_BTW_SEND_PACKET 0xffa3
-//#define DELAY_BTW_SEND_PACKET 0xffd1
-#define MAX_TX_POSSIBLE 0xE0bf
-#define MIN_TX_POSSIBLE 0xB9AF
+//#define DELAY_BTW_SEND_PACKET 0xffa3
+#define DELAY_BTW_SEND_PACKET 0xffd1
+//#define MAX_TX_POSSIBLE 0xE0bf
+#define MAX_TX_POSSIBLE 0xD8EF
+//#define MIN_TX_POSSIBLE 0xB9AF
+#define MIN_TX_POSSIBLE 0xB1DF
                         // value 0xffff-8000 =0xE0bf - that is max value when TX will be possible
                         // (TO= 93*128 = 11904 op = 0.001488)+(Packet prep = 7472=0.000467)
                         // 1 char = 0.0002sec TO= 93*128 = 11904 == 3.75 char
@@ -506,8 +515,12 @@ UWORD Tmr1TOHigh;   // this overload value will generate interrupts and reload t
 UWORD INTTimer1;
 UWORD INTTimer1HCount;
 
+UWORD INTTimer3;
+UWORD INTTimer3HCount;
+
 
 UWORD Timer1HCount;
+UWORD Timer3HCount;
 
 struct _DistMeasure{
 UWORD RXaTmr1;
@@ -2232,7 +2245,10 @@ TIMING_CHECK:
                                 {
 INIT_TX:
                                     if (T2Byte0 ==0)
+                                    {
                                         SetTimer2();
+                                        T2Byte0 = 1;
+                                    }
                                     BTCE_low();
                                     TransmitBTdata();
                                     ATCMD &= (0xff ^SOME_DATA_OUT_BUFFER);
@@ -3589,6 +3605,7 @@ void AdjTimer3(void)
 {
     if (DataB0.Timer3Ready2Sync)
     {
+#if 0
         // CRCcmp is just working variable
         //CRCcmp = 0xffff - AdjustTimer3;
         //CRCcmp -= MEDIAN_TIME;
@@ -3603,6 +3620,35 @@ void AdjTimer3(void)
             TMR3ON = 1;                       // start timer (RX) back
         }
         DataB0.Timer3Ready2Sync = 0;
+#else
+        CRCcmp = 0xffff - AdjustTimer3;
+        CRCcmp -= MEDIAN_TIME;
+        Tmr3LoadLow = Tmr3LoadLowCopy + CRCcmp;
+        if (CRCcmp < 0x0100)
+        {
+GOOD_RANGE:        
+            AdjRX += CRCcmp;
+            if (++iAdjRX == 4)
+            {
+                AdjRX >>=2;
+                //Tmr3LoadLowCopy = Tmr3LoadLowCopy - AdjRX;
+                AdjRX = 0;
+                iAdjRX = 0;
+            }
+            else
+            {
+                if (iAdjRX == 2)
+                {
+                    DataB0.Timer3Ready2Sync = 0;
+                }
+            }
+        }
+        else if (CRCcmp >0xff00)
+            goto GOOD_RANGE;
+        
+        
+        DataB0.Timer3Ready2Sync = 0;
+#endif
     }
 }
 //===========================================================================================

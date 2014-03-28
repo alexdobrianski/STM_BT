@@ -124,8 +124,260 @@ INTERRUPT int_server( void)
 #ifdef BT_TX
    INTTimer1 = TIMER1;
    INTTimer1HCount = Timer1HCount;
+   INTTimer3 = TIMER3;
+   INTTimer3HCount = Timer3HCount;
+
 #endif
 #endif
+    /////////////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////
+    IF_TMR1IF //if (TMR1IF)  // update clock   TX
+    {
+        TMR1IF = 0;
+        //TmrAllConter++; 
+#ifdef BT_TIMER1
+        if (DataB0.Timer1Meausre)
+        {
+            Tmr1High++; // timer count and interrupts continue
+        }
+        else if (DataB0.Timer1Count)
+        {
+            if ((++Tmr1TOHigh) == 0)
+            {
+                TMR1H = (unsigned char)(Tmr1LoadLow>>8);
+                TMR1L = (unsigned char)(Tmr1LoadLow&0xff);
+                Tmr1TOHigh = Tmr1LoadHigh;
+                //TIMER1 = Tmr1LoadLow;  
+                Timer1HCount++; // become 0 each 111.0016 sec
+
+                
+                if (DataB0.Timer1DoTX) // was a request to TX data on that frquency
+                {
+                    PORT_AMPL.BT_TX = 1;
+                    DataB0.TXSendDone = 0;
+                    bitset(PORT_BT,Tx_CE);
+                    DataB0.Timer1DoTX = 0;
+
+                    
+                }
+                if (++FqTXCount>=3)
+                {
+                    FqTXCount = 0;
+                    FqTX = Freq1;
+#ifdef DEBUG_LED 
+                    if (DebugLedCount)
+                    { 
+                        if (--DebugLedCount ==0)
+                            DEBUG_LED_OFF;
+                    }
+                    else
+                        DEBUG_LED_OFF;
+#ifdef DEBUG_LED_CALL_LUNA
+                    if (ATCMD & MODE_CONNECT)
+                    {
+                        if (--PingDelay == 0)
+                        {
+                            Main.PingRQ = 1;
+                            PingDelay = PING_DELAY;
+                        }
+                    }
+#endif
+#endif
+                }
+                else
+                {
+                   if (FqTXCount == 1)
+                       FqTX = Freq2;
+                   else
+                       FqTX = Freq3;
+                }
+                //DataB0.Timer1Inturrupt = 1; // and relaod timer
+               
+                DistMeasure.TXbTmr1H = DistMeasure.TXaTmr1H;
+                DistMeasure.TXbTmr1 = DistMeasure.TXaTmr1;
+                DistMeasure.TXaTmr1H = INTTimer1HCount;
+                DistMeasure.TXaTmr1 = INTTimer1;
+            }
+        }
+        
+#else // BT timer1
+        if (++TMR130 == TIMER1_ADJ0)
+        {
+#ifdef __PIC24H__
+            TMR2 += TIMER1_ADJUST;//46272; // needs to be adjusted !!!
+            if (TMR2 < TIMER1_ADJUST)//46272)
+                goto TMR2_COUNT_DONE;
+#else
+
+RE_READ_TMR1:
+            work2 = TMR1H;
+            work1 = TMR1L;
+//          point of time
+            if (work2 != TMR1H)    // 4 tick
+                goto RE_READ_TMR1;// 
+            if (work1 > 149)        // 4 tick
+            {
+                work1 += 0x6b;        
+                work2 += 0x7b;        
+                nop();
+                nop();              // 8 tick
+            }
+            else
+            {
+                work1 += 0x6b;    
+                work2 += 0x8f;    // 8 tick
+                
+            }
+            TMR1L = 0;            // 1 tick
+            TMR1H = work2;        // 2 tick
+            TMR1L = work1;        // 2 tick
+            // error will be in 1/30 TMR30 counter
+            // needs to make sure from 0-29 is 1130 ticks plus on each TMR130 value
+            //   on TMR130 == 30 it is adjust to next sec proper set
+#endif
+        }
+        else if (TMR130 >TIMER1_ADJ0)
+        {
+            //RtccReadTimeDate(&RtccTimeDateVal);
+TMR2_COUNT_DONE:
+            TMR130 = 0;
+            if (++TMR1SEC > 59)
+            {
+                TMR1SEC=0;
+                if (++TMR1MIN > 59)
+                {
+                    TMR1MIN = 0;
+                    //RTTCCounts = 0;
+                    if (++TMR1HOUR > 23)
+                    {
+                         TMR1HOUR = 0;
+                         if (TMR1YEAR & 0x3) // regilar year
+                         {
+                             if (++TMR1DAY > 365)
+                             {
+                                 TMR1DAY = 0;
+                                 TMR1YEAR++;
+                             }
+                         }
+                         else // leap year
+                         {
+                             if (++TMR1DAY > 366)
+                             {
+                                 TMR1DAY = 0;
+                                 TMR1YEAR++;
+                             } 
+                         }
+#ifdef USE_LCD
+                         sprintf(&LCDDD[0],"%02d",TMR1DAY);
+#endif
+                    }
+#ifdef USE_LCD
+                    sprintf(&LCDHH[0],"%02d",TMR1HOUR);
+#endif
+                }
+#ifdef USE_LCD
+                sprintf(&LCDMM[0],"%02d",TMR1MIN);
+#endif
+            }
+#ifdef USE_LCD
+            sprintf(&LCDSS[0],"%02d",TMR1SEC);
+#endif
+        }
+#endif
+    }
+
+#ifdef BT_TIMER3
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    IF_TMR3IF // RX timer for BT
+    {
+        TMR3IF = 0;    
+        if (DataB0.Tmr3DoMeausreFq1_Fq2)
+        {
+            Tmr3High++; // timer count till next interrupt from BT RX on FQ2
+        }
+        else if (DataB0.Tmr3Run)
+        {
+            if ((++Tmr3TOHigh) == 0)
+            {
+                //TIMER3 = Tmr3LoadLow;  
+                TMR3H = (unsigned char)(Tmr3LoadLow>>8);
+                TMR3L = (unsigned char)(Tmr3LoadLow&0xff);
+                Tmr3TOHigh = Tmr3LoadHigh;
+                Tmr3LoadLow = Tmr3LoadLowCopy;
+#if 1
+                if (T2Byte0)
+                {
+                    if (T2Byte1 ==0)
+                    {        
+                        if (T2Byte0 == 11)
+                        {
+                            T2Count1=TMR2Count;
+                            T2Byte1=TMR2;
+                            if (T2Byte1 == 0)
+                                T2Byte1 = 1;
+                        }
+                        else
+                            T2Byte0++;
+                    }
+                    else if (T2Byte2 ==0)
+                    {        
+                        T2Count2=TMR2Count;
+                        T2Byte2=TMR2;
+                        if (T2Byte2 == 0)
+                            T2Byte2 = 1;
+                    } 
+                    else if (T2Byte3 ==0)
+                    {        
+                        T2Count3=TMR2Count;
+                        T2Byte3=TMR2;
+                        if (T2Byte3 == 0)
+                            T2Byte3 = 1;
+                    }
+                }
+#endif
+                if (SkipRXTmr3)
+                {
+                   SkipRXTmr3 = 0;  // no timer3 (RX) interrupt == interrupt will be processed in first place
+                }
+                else
+                {
+                    if (BTType == 1)
+                    {
+                        DataB0.Tmr3Inturrupt = 1;
+                        if (FqRXCount ==0)
+                        {
+                            if (OutSyncCounter)
+                            {
+                                if (--OutSyncCounter == 0)
+                                    DataB0.Timer3OutSyncRQ = 1;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (++FqRXCount>=3)
+                        {
+                            FqRXCount = 0;
+                            FqRX = Freq1;
+                        }
+                        else
+                        {
+                            if (FqRXCount == 1)
+                               FqRX = Freq2;
+                            else
+                               FqRX = Freq3;
+                        }
+                    }
+                }
+            }
+        }
+        
+    }
+#endif
+
+
+
 #ifndef NO_I2C_PROC
    //////////////////////////////////////////////////////////////////////////////////////////
    //////////////////////////////////////////////////////////////////////////////////////////
@@ -1266,161 +1518,6 @@ TMR0_DONE:
 //    else 
 //NextCheckBit:
 
-    /////////////////////////////////////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////////////////////////////////////
-    IF_TMR1IF //if (TMR1IF)  // update clock   TX
-    {
-        TMR1IF = 0;
-        //TmrAllConter++; 
-#ifdef BT_TIMER1
-        if (DataB0.Timer1Meausre)
-        {
-            Tmr1High++; // timer count and interrupts continue
-        }
-        else if (DataB0.Timer1Count)
-        {
-            if ((++Tmr1TOHigh) == 0)
-            {
-                TMR1H = (unsigned char)(Tmr1LoadLow>>8);
-                TMR1L = (unsigned char)(Tmr1LoadLow&0xff);
-
-                
-                if (DataB0.Timer1DoTX) // was a request to TX data on that frquency
-                {
-                    PORT_AMPL.BT_TX = 1;
-                    DataB0.TXSendDone = 0;
-                    bitset(PORT_BT,Tx_CE);
-                    DataB0.Timer1DoTX = 0;
-
-                    
-                }
-                if (++FqTXCount>=3)
-                {
-                    FqTXCount = 0;
-                    FqTX = Freq1;
-#ifdef DEBUG_LED 
-                    if (DebugLedCount)
-                    { 
-                        if (--DebugLedCount ==0)
-                            DEBUG_LED_OFF;
-                    }
-                    else
-                        DEBUG_LED_OFF;
-#ifdef DEBUG_LED_CALL_LUNA
-                    if (ATCMD & MODE_CONNECT)
-                    {
-                        if (--PingDelay == 0)
-                        {
-                            Main.PingRQ = 1;
-                            PingDelay = PING_DELAY;
-                        }
-                    }
-#endif
-#endif
-                }
-                else
-                {
-                   if (FqTXCount == 1)
-                       FqTX = Freq2;
-                   else
-                       FqTX = Freq3;
-                }
-                //DataB0.Timer1Inturrupt = 1; // and relaod timer
-                Tmr1TOHigh = Tmr1LoadHigh;
-                //TIMER1 = Tmr1LoadLow;  
-                Timer1HCount++; // become 0 each 111.0016 sec
-                DistMeasure.TXbTmr1H = DistMeasure.TXaTmr1H;
-                DistMeasure.TXbTmr1 = DistMeasure.TXaTmr1;
-                DistMeasure.TXaTmr1H = INTTimer1HCount;
-                DistMeasure.TXaTmr1 = INTTimer1;
-            }
-        }
-        
-#else // BT timer1
-        if (++TMR130 == TIMER1_ADJ0)
-        {
-#ifdef __PIC24H__
-            TMR2 += TIMER1_ADJUST;//46272; // needs to be adjusted !!!
-            if (TMR2 < TIMER1_ADJUST)//46272)
-                goto TMR2_COUNT_DONE;
-#else
-
-RE_READ_TMR1:
-            work2 = TMR1H;
-            work1 = TMR1L;
-//          point of time
-            if (work2 != TMR1H)    // 4 tick
-                goto RE_READ_TMR1;// 
-            if (work1 > 149)        // 4 tick
-            {
-                work1 += 0x6b;        
-                work2 += 0x7b;        
-                nop();
-                nop();              // 8 tick
-            }
-            else
-            {
-                work1 += 0x6b;    
-                work2 += 0x8f;    // 8 tick
-                
-            }
-            TMR1L = 0;            // 1 tick
-            TMR1H = work2;        // 2 tick
-            TMR1L = work1;        // 2 tick
-            // error will be in 1/30 TMR30 counter
-            // needs to make sure from 0-29 is 1130 ticks plus on each TMR130 value
-            //   on TMR130 == 30 it is adjust to next sec proper set
-#endif
-        }
-        else if (TMR130 >TIMER1_ADJ0)
-        {
-            //RtccReadTimeDate(&RtccTimeDateVal);
-TMR2_COUNT_DONE:
-            TMR130 = 0;
-            if (++TMR1SEC > 59)
-            {
-                TMR1SEC=0;
-                if (++TMR1MIN > 59)
-                {
-                    TMR1MIN = 0;
-                    //RTTCCounts = 0;
-                    if (++TMR1HOUR > 23)
-                    {
-                         TMR1HOUR = 0;
-                         if (TMR1YEAR & 0x3) // regilar year
-                         {
-                             if (++TMR1DAY > 365)
-                             {
-                                 TMR1DAY = 0;
-                                 TMR1YEAR++;
-                             }
-                         }
-                         else // leap year
-                         {
-                             if (++TMR1DAY > 366)
-                             {
-                                 TMR1DAY = 0;
-                                 TMR1YEAR++;
-                             } 
-                         }
-#ifdef USE_LCD
-                         sprintf(&LCDDD[0],"%02d",TMR1DAY);
-#endif
-                    }
-#ifdef USE_LCD
-                    sprintf(&LCDHH[0],"%02d",TMR1HOUR);
-#endif
-                }
-#ifdef USE_LCD
-                sprintf(&LCDMM[0],"%02d",TMR1MIN);
-#endif
-            }
-#ifdef USE_LCD
-            sprintf(&LCDSS[0],"%02d",TMR1SEC);
-#endif
-        }
-#endif
-    }
 
 #ifdef RTCC_INT
    ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -1445,65 +1542,6 @@ TMR2_COUNT_DONE:
    }
 #endif   
 
-#ifdef BT_TIMER3
-    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    IF_TMR3IF // RX timer for BT
-    {
-        TMR3IF = 0;    
-        if (DataB0.Tmr3DoMeausreFq1_Fq2)
-        {
-            Tmr3High++; // timer count till next interrupt from BT RX on FQ2
-        }
-        else if (DataB0.Tmr3Run)
-        {
-            if ((++Tmr3TOHigh) == 0)
-            {
-                //TIMER3 = Tmr3LoadLow;  
-                TMR3H = (unsigned char)(Tmr3LoadLow>>8);
-                TMR3L = (unsigned char)(Tmr3LoadLow&0xff);
-                Tmr3TOHigh = Tmr3LoadHigh;
-                Tmr3LoadLow = Tmr3LoadLowCopy;
-
-                if (SkipRXTmr3)
-                {
-                   SkipRXTmr3 = 0;  // no timer3 (RX) interrupt == interrupt will be processed in first place
-                }
-                else
-                {
-                    if (BTType == 1)
-                    {
-                        DataB0.Tmr3Inturrupt = 1;
-                        if (FqRXCount ==0)
-                        {
-                            if (OutSyncCounter)
-                            {
-                                if (--OutSyncCounter == 0)
-                                    DataB0.Timer3OutSyncRQ = 1;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        if (++FqRXCount>=3)
-                        {
-                            FqRXCount = 0;
-                            FqRX = Freq1;
-                        }
-                        else
-                        {
-                            if (FqRXCount == 1)
-                               FqRX = Freq2;
-                            else
-                               FqRX = Freq3;
-                        }
-                    }
-                }
-            }
-        }
-        
-    }
-#endif
 
 #ifdef EXT_INT
     /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1527,6 +1565,7 @@ TMR2_COUNT_DONE:
                 Tmr1LoadLow = 0xffff - TIMER1;      // timer1 interupt reload values 
                 DataB0.Timer1Meausre = 1;
                 Timer1HCount = 0;
+                Timer3HCount = 0;
                 TimerHHCount = 0; 
             }
 #endif
@@ -1544,7 +1583,7 @@ TMR2_COUNT_DONE:
                 if (DataB0.Tmr3DoneMeasureFq1Fq2) // receive set
                 {
                     
-                    AdjustTimer3 = TIMER3;
+                    AdjustTimer3 = INTTimer3;//TIMER3;
                     DataB0.Timer3Ready2Sync = 0;
                     Time1Left = AdjustTimer3;
                     if (Time1Left > 0x8000)
@@ -1595,9 +1634,9 @@ IGNORE_BAD_PKT:         DataB0.RXPktIsBad = 1;
                             if (DataB0.RXMessageWasOK) // that can be only: RX FQ1 was OK ; RX INT on FQ2
                             {
                                 //TMR3ON = 0;                            // stop timer3 for a moment 
-                                Tmr3LoadLowCopy =0xFFFF - TIMER3;      // timer3 interupt reload values 
+                                Tmr3LoadLowCopy =0xFFFF - INTTimer3;//TIMER3;      // timer3 interupt reload values 
                                 //Tmr3LoadLowCopy += 52;                 // ofset from begining of a interrupt routine
-                                Tmr3LoadLowCopy += 60;
+                                //Tmr3LoadLowCopy += 20;//120;
                                 if (Tmr3LoadLowCopy <= MEDIAN_TIME)
                                     Tmr3High++;
                                 Tmr3LoadLow = Tmr3LoadLowCopy - MEDIAN_TIME;
