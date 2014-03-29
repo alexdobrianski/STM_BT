@@ -144,9 +144,11 @@ INTERRUPT int_server( void)
         {
             if ((++Tmr1TOHigh) == 0)
             {
+                Tmr1LoadLow+=TIMER1;
                 TMR1H = (unsigned char)(Tmr1LoadLow>>8);
                 TMR1L = (unsigned char)(Tmr1LoadLow&0xff);
                 Tmr1TOHigh = Tmr1LoadHigh;
+                Tmr1LoadLow = Tmr1LoadLowCopy;
                 //TIMER1 = Tmr1LoadLow;  
                 Timer1HCount++; // become 0 each 111.0016 sec
 
@@ -154,7 +156,6 @@ INTERRUPT int_server( void)
                 if (DataB0.Timer1DoTX) // was a request to TX data on that frquency
                 {
                     PORT_AMPL.BT_TX = 1;
-                    DataB0.TXSendDone = 0;
                     bitset(PORT_BT,Tx_CE);
                     DataB0.Timer1DoTX = 0;
 
@@ -300,12 +301,12 @@ TMR2_COUNT_DONE:
         {
             if ((++Tmr3TOHigh) == 0)
             {
-                //TIMER3 = Tmr3LoadLow;  
+                Tmr3LoadLow +=TIMER3;
                 TMR3H = (unsigned char)(Tmr3LoadLow>>8);
                 TMR3L = (unsigned char)(Tmr3LoadLow&0xff);
                 Tmr3TOHigh = Tmr3LoadHigh;
                 Tmr3LoadLow = Tmr3LoadLowCopy;
-#if 1
+#if 0
                 if (T2Byte0)
                 {
                     if (T2Byte1 ==0)
@@ -1625,7 +1626,7 @@ IGNORE_BAD_PKT:         DataB0.RXPktIsBad = 1;
                         TMR3IF = 0;
                         TMR3IE = 1;
                         Tmr3High  = 0;
-                        T3CON = 0b10000001;
+                        T3CON = 0b10000001;  // start timer3 (RX)
                     }
                     else if (FqRXCount == 1) // it was receive over Fq2
                     {
@@ -1634,22 +1635,24 @@ IGNORE_BAD_PKT:         DataB0.RXPktIsBad = 1;
                             if (DataB0.RXMessageWasOK) // that can be only: RX FQ1 was OK ; RX INT on FQ2
                             {
                                 //TMR3ON = 0;                            // stop timer3 for a moment 
-                                Tmr3LoadLowCopy =0xFFFF - INTTimer3;//TIMER3;      // timer3 interupt reload values 
-                                //Tmr3LoadLowCopy += 52;                 // ofset from begining of a interrupt routine
-                                //Tmr3LoadLowCopy += 20;//120;
-                                if (Tmr3LoadLowCopy <= MEDIAN_TIME)
-                                    Tmr3High++;
+                                Tmr3LoadLowCopy =0xFFFF - TIMER3;      // timer3 interupt reload values 
+                                Tmr3LoadLowCopy += 3;                 // ofset from begining of a interrupt routine
+                                //Tmr3LoadLowCopy -=0x36 ;
+                                // offset from ISR to set nex timer is 0x36 cycles
+                                
+                                 //////////////it is essential in ther cese of slow processor
+                                //if (Tmr3LoadLow <= MEDIAN_TIME)
+                                //    Tmr3High++;
                                 Tmr3LoadLow = Tmr3LoadLowCopy - MEDIAN_TIME;
                                 TMR3H = (Tmr3LoadLow>>8);
                                 TMR3L = (unsigned char)(Tmr3LoadLow&0xFF);
-                                TMR3ON = 1; // continue run TMR3 
-                                Tmr3LoadLow = Tmr3LoadLowCopy;
+                                //TMR3ON = 1; // continue run TMR3 
+                                Tmr3LoadLow = Tmr3LoadLowCopy+0x62;//0x36;
                                 //TMR3L = 0;//xff;
                                 Tmr3TOHigh = Tmr3LoadHigh = 0xffff - Tmr3High;
                                 DataB0.Tmr3DoMeausreFq1_Fq2 = 0;           // switch in timer3 interrupt routine from "measure time FQ1-FQ2"
                                 DataB0.Tmr3Run = 1;               // to "run timer3 on BT RX"
                                 DataB0.Tmr3Inturrupt = 0;         // when "measured time FQ1-FQ2" passed it will be timer3 interrupt
-                                DataB0.Tmr3RxFqSwitchLost = 0;
                                 AdjRX = 0;
                                 iAdjRX = 0;
                             }
@@ -1664,13 +1667,11 @@ IGNORE_BAD_PKT:         DataB0.RXPktIsBad = 1;
                     else
                         DataB0.Tmr3DoMeausreFq1_Fq2 = 0;
                 }
-                if (!DataB0.Tmr3RxFqSwitchLost)
-                    OutSyncCounter = 125; // 2.5 sec no packets == switch for out of sync
+                OutSyncCounter = 125; // 2.5 sec no packets == switch for out of sync
             }
             else // TX operation
             {
                 bitclr(PORT_BT,Tx_CE);	// Chip Enable (RX or TX mode) == now standby
-                DataB0.TXSendDone = 1;
 #ifdef DEBUG_SIM
                 PORT_AMPL.BT_TX = 0;
 #endif

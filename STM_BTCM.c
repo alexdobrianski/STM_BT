@@ -475,13 +475,11 @@ unsigned Tmr3Run:1;
 unsigned Tmr3Inturrupt:1;
 unsigned Tmr3DoneMeasureFq1Fq2:1;
 unsigned Timer3Ready2Sync:1;
-unsigned Tmr3RxFqSwitchLost:1;
 unsigned Timer3OutSyncRQ:1;
 unsigned Timer3SwitchRX:1;
 unsigned TransmitESC:1;
 unsigned RXLoopAllowed:1;
 unsigned RXLoopBlocked:1;
-unsigned TXSendDone:1;
 unsigned RXMessageWasOK:1;
 unsigned RXPktIsBad:1;
 unsigned RXPkt2IsBad:1;
@@ -509,6 +507,8 @@ UWORD Tmr1High; // to count for a 536 sec with presision of 0.000000125s== 1/4mk
                 // UWORD in TMR1 counts till 0.008192 s = 8.192ms
 
 UWORD Tmr1LoadLow;  // timer1 interupt reload values 
+UWORD Tmr1LoadLowCopy;  // timer1 interupt reload values 
+
 UWORD Tmr1LoadHigh; // this will 
 UWORD Tmr1TOHigh;   // this overload value will generate interrupts and reload timer
 
@@ -837,7 +837,6 @@ void InitModem(void)
     DataB0.Tmr3DoneMeasureFq1Fq2 = 0;
     //DataB0.Time3JustDone = 0;
     DataB0.Tmr3DoMeausreFq1_Fq2 = 0;
-    DataB0.Tmr3RxFqSwitchLost = 0;
     DataB0.Timer3OutSyncRQ = 0;
     // 1 = round robin on FQ1->Fq2->Fq3
     // 0 = working on FQ1 only
@@ -850,7 +849,6 @@ void InitModem(void)
 #endif
     DataB0.RXLoopAllowed = 1;
     DataB0.RXLoopBlocked = 0;
-    DataB0.TXSendDone = 0;
     DataB0.RXMessageWasOK = 0;
 
     Timer1Id = 0;
@@ -2180,8 +2178,21 @@ NEXT_TRANSMIT:
             {
                 // for check it will stop listenning ->BTCE_low()
                 if (CheckSuddenRX())  // just by luck or delay it was RX of the packet
+                {   // if it was TMR3 int then FQ was switched to next - now needs to restore previous FQ value
+                    if (FqRXCount==0)
+                    {
+                        FqRXCount = 2;
+                        FqRX = Freq3;
+                    }
+                    else
+                    {
+                        if (--FqRXCount == 1)
+                            FqRX = Freq2;
+                        else
+                            FqRX = Freq1;
+                    }
                     goto MAIN_INT;
-                
+                }
                 SwitchFQ(DoFqRXSwitch()); // FqRXCount points on next FQ after switch
                 if (FqRXCount == 0)
                 {
@@ -3624,6 +3635,7 @@ void AdjTimer3(void)
         CRCcmp = 0xffff - AdjustTimer3;
         CRCcmp -= MEDIAN_TIME;
         Tmr3LoadLow = Tmr3LoadLowCopy + CRCcmp;
+/*
         if (CRCcmp < 0x0100)
         {
 GOOD_RANGE:        
@@ -3645,7 +3657,7 @@ GOOD_RANGE:
         }
         else if (CRCcmp >0xff00)
             goto GOOD_RANGE;
-        
+  */      
         
         DataB0.Timer3Ready2Sync = 0;
 #endif
@@ -4004,10 +4016,10 @@ SEND_GOOD:      BTbyteCRC(BTqueueOutCopy[i]);
       //    SendBTbyte(0x40); // clean RX interrupt
       //    bitset(PORT_BT,Tx_CSN);
       //}
-
+        SwitchFQ(FqTX); // set current FQX to be transmitted (advance for FqTXCount will be in TMR1)
         if (DataB0.Timer1Count)
         {
-            SwitchFQ(FqTX); // set current FQX to be transmitted (advance for FqTXCount will be in TMR1)
+            
             DataB0.Timer1DoTX = 1; // TMR1 will initiate transmit
             goto TRANSMIT_ON_TMR1_INT;
         }
@@ -4021,30 +4033,41 @@ SEND_GOOD:      BTbyteCRC(BTqueueOutCopy[i]);
                 DataB0.Timer1Meausre = 1;
                 Tmr1High = 0;
                 SetTimer1(0);  // timer 1 measure time btw fq1-fq2 transmit 
+                BTCE_high(); // Chip Enable Activates RX or TX mode (now TX mode) 
+
             }
             else // send over FQ2
             {
                 if (DataB0.Timer1Meausre)
                 {
-                    TMR1ON = 0;              // stop timer measure it time btw send Fq1 -> Fq2
                     Tmr1LoadHigh = 0xffff - Tmr1High; // this will
-                    Tmr1LoadLow = 0xffff - TIMER1;      // timer1 interupt reload values 
                     Tmr1TOHigh = Tmr1LoadHigh;
-                    SetTimer1(Tmr1LoadLow);
                     DataB0.Timer1Meausre = 0;
                     DataB0.Timer1Count = 1;
-                    TMR1ON = 1; // start temporary stoped timer (if it was stopped!)
+
+                    //TMR1ON = 0;              // stop timer measure it time btw send Fq1 -> Fq2
+                    Tmr1LoadLow = 0xffff - TIMER1;      // timer1 interupt reload values 
+                    // offset timer value to be exect tick
+                    // 3 commands for Tmr1LoadLow = 0xffff - TIMER1
+                    // 9 commands for Tmr1LoadLow+LEN_OFFSET
+                    // -0x26 ticks after ISR entry
+                    // total 0x1a
+#define LEN_OFFSET  0x1a
+                    SetTimer1(Tmr1LoadLow+LEN_OFFSET);
+                    BTCE_high(); // Chip Enable Activates RX or TX mode (now TX mode) 
+                    Tmr1LoadLowCopy = Tmr1LoadLow - 12;
+                    //TMR1ON = 1; // start temporary stoped timer (if it was stopped!)
                 }
             }
-            SwitchFQ(FqTX);  // set FQX to TX -  
-            DoFqTXSwitch(); // now FqTXCount is advanced to next TX frequency 
-TRANSMIT_NOW:
-            DataB0.TXSendDone = 0;
 #ifdef DEBUG_SIM
             BTCE_highTX();
 #else
-            BTCE_high(); // Chip Enable Activates RX or TX mode (now TX mode) 
+//            BTCE_high(); // Chip Enable Activates RX or TX mode (now TX mode) 
 #endif
+
+            //SwitchFQ(FqTX);  // set FQX to TX -  
+            DoFqTXSwitch(); // now FqTXCount is advanced to next TX frequency 
+
         }
 TRANSMIT_ON_TMR1_INT:
         INT0_ENBL = 1;
