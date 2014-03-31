@@ -123,10 +123,9 @@ INTERRUPT int_server( void)
 #define GETCH_BYTE work2
 #ifdef BT_TX
    INTTimer1 = TIMER1;
-   INTTimer1HCount = Timer1HCount;
    INTTimer3 = TIMER3;
+   INTTimer1HCount = Timer1HCount;
    INTTimer3HCount = Timer3HCount;
-
 #endif
 #endif
     /////////////////////////////////////////////////////////////////////////////////////////////
@@ -200,7 +199,7 @@ INTERRUPT int_server( void)
                 DistMeasure.TXaTmr1 = INTTimer1;
             }
         }
-        
+
 #else // BT timer1
         if (++TMR130 == TIMER1_ADJ0)
         {
@@ -1046,6 +1045,7 @@ INSERT_TO_COM_Q:
         }
 END_INPUT_COM:;
                //bitclr(PORTA,2);
+
    }
 #ifdef __PIC24H__
     /////////////////////////////////////////////////////////////////////////////////////////////
@@ -1134,6 +1134,7 @@ CLOSE_SEND:
                break;
        }
 CONTINUE_WITH_ISR:;
+
    }
     /////////////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////////////
@@ -1621,12 +1622,13 @@ IGNORE_BAD_PKT:         DataB0.RXPktIsBad = 1;
                     {
                         DataB0.Tmr3DoMeausreFq1_Fq2 = 1;
                         DataB0.Tmr3Run = 0;
-                        TMR3H = 0;
-                        TMR3L = 0;
                         TMR3IF = 0;
                         TMR3IE = 1;
                         Tmr3High  = 0;
-                        T3CON = 0b10000001;  // start timer3 (RX)
+                        //T3CON = 0b10000001;  // start timer3 (RX)
+                        Tmr3LoadLow =TIMER3 -INTTimer3;
+                        TMR3H = (Tmr3LoadLow>>8);
+                        TMR3L = (unsigned char)(Tmr3LoadLow&0xFF);
                     }
                     else if (FqRXCount == 1) // it was receive over Fq2
                     {
@@ -1635,8 +1637,8 @@ IGNORE_BAD_PKT:         DataB0.RXPktIsBad = 1;
                             if (DataB0.RXMessageWasOK) // that can be only: RX FQ1 was OK ; RX INT on FQ2
                             {
                                 //TMR3ON = 0;                            // stop timer3 for a moment 
-                                Tmr3LoadLowCopy =0xFFFF - TIMER3;      // timer3 interupt reload values 
-                                Tmr3LoadLowCopy += 3;                 // ofset from begining of a interrupt routine
+                                Tmr3LoadLowCopy =0xFFFF - INTTimer3;//TIMER3;      // timer3 interupt reload values 
+                                //Tmr3LoadLowCopy +=3;                 // ofset from begining of a interrupt routine
                                 //Tmr3LoadLowCopy -=0x36 ;
                                 // offset from ISR to set nex timer is 0x36 cycles
                                 
@@ -1646,8 +1648,12 @@ IGNORE_BAD_PKT:         DataB0.RXPktIsBad = 1;
                                 Tmr3LoadLow = Tmr3LoadLowCopy - MEDIAN_TIME;
                                 TMR3H = (Tmr3LoadLow>>8);
                                 TMR3L = (unsigned char)(Tmr3LoadLow&0xFF);
-                                //TMR3ON = 1; // continue run TMR3 
-                                Tmr3LoadLow = Tmr3LoadLowCopy+0x62;//0x36;
+                                //TMR3ON = 1; // continue run TMR3
+                                Tmr3LoadLowCopy += 3;// difference (btw start and stop timer) in ofset from begining of a interrupt routine 
+                                Tmr3LoadLowCopy = 0x97ed;
+                                Tmr3LoadLow = Tmr3LoadLowCopy;//+0x30;//0x36;
+                                
+                                
                                 //TMR3L = 0;//xff;
                                 Tmr3TOHigh = Tmr3LoadHigh = 0xffff - Tmr3High;
                                 DataB0.Tmr3DoMeausreFq1_Fq2 = 0;           // switch in timer3 interrupt routine from "measure time FQ1-FQ2"

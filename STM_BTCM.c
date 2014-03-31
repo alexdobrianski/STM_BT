@@ -220,19 +220,19 @@ see www.adobri.com for communication protocol spec
 //////////////////////////////////////////////////////
 // to properly process Timer0 interrupt needs to has all timer set values different
 
-#define MEDIAN_TIME      0x2000
-#define MEDIAN_TIME_LOW  0x0100
-#define MEDIAN_TIME_HIGH 0x4000
+//#define MEDIAN_TIME      0x2000
+//#define MEDIAN_TIME_LOW  0x0100
+//#define MEDIAN_TIME_HIGH 0x4000
 
-//#define MEDIAN_TIME      0x1000
-//#define MEDIAN_TIME_LOW  0x0010
-//#define MEDIAN_TIME_HIGH 0x2000
+#define MEDIAN_TIME      0x1000
+#define MEDIAN_TIME_LOW  0x0010
+#define MEDIAN_TIME_HIGH 0x2000
 
 
 //#define DELAY_BTW_NEXT_DIAL 0xfeec
 #define DELAY_BTW_NEXT_DIAL 0xe00c
 #define PING_DELAY 3
-#define DEBUG_LED_COUNT 1
+#define DEBUG_LED_COUNT 2
 #define TO_BTW_CHARS 0xff00
 
 #define TIME_FOR_PACKET 0xff98
@@ -269,7 +269,7 @@ see www.adobri.com for communication protocol spec
 //   for a blinking LED behive like CUBESAT/CRAFT
 //   it is waiting for connection, wait for p/kt, and when pkt is Ok it send back to earth reply packet, and blinks
 ///////////////////////////////////////////////////////////////
-//#define DEBUG_LED_CALL_EARTH
+#define DEBUG_LED_CALL_EARTH
 // for test sequence 
 //// "5atsx=...CBabbcgg
 // atdtl
@@ -278,7 +278,7 @@ see www.adobri.com for communication protocol spec
 ///////////////////////////////////////////////////////////////
 //   for a blinking LED behive like Ground Station, it is constantly sends pktm if received pkt, then it blinks
 ///////////////////////////////////////////////////////////////
-#define DEBUG_LED_CALL_LUNA
+//#define DEBUG_LED_CALL_LUNA
 // for test sequence 
 // "5atsx=...CBabbcgg
 // atdtl
@@ -1097,9 +1097,9 @@ void main()
 //    CS_HIGH;
 //    nop();
 //#endif
-
+    
 #endif
-
+    SetTimer3(0);
     ShowMessage();
 #ifdef DEBUG_LED_CALL_EARTH
                 DataB0.Timer3SwitchRX = 0;
@@ -1946,6 +1946,10 @@ DO_SWITCHFQ:
               SendBTbyte(iFQ);  // set channel = FQ1
               //BTFQcurr = iFQ;
               bitset(PORT_BT,Tx_CSN);
+      if (BTStatus & 0x40)
+      {
+          Main.ExtInterrupt = 1;
+      }
     //    }
     //    else                         // Mode  switchRX ==1 && switchTX ==0
     //    {
@@ -2167,6 +2171,11 @@ MAIN_INT:
             }
             else if (Timer1Id == DELAY_BTW_SEND_PACKET) // timeout on TX in a progress == was send FQ1 or FQ2 packets
             {
+                nop();nop();nop();//nop();//nop();//nop();//nop();//nop();
+                //nop();//nop();//nop();//nop();//nop();//nop();//nop();//nop();
+                // amlount of NOP calculated such way:
+                // the best stable last digit on the Tmr1LoadLow
+                // and last bit of Tmr1LoadLow is 1;
 NEXT_TRANSMIT:
                 TransmitBTdata();
             }
@@ -2194,19 +2203,23 @@ NEXT_TRANSMIT:
                     goto MAIN_INT;
                 }
                 SwitchFQ(DoFqRXSwitch()); // FqRXCount points on next FQ after switch
-                if (FqRXCount == 0)
+                if (DataB0.Tmr3DoneMeasureFq1Fq2)
                 {
-                    if (DataB0.RXLoopAllowed) // if it was request to TX then need to switch off round-robin
+                    if (FqRXCount == 0)
                     {
-                        BTCE_high();          // continue listeniong on FQ1
-                        DataB0.RXLoopBlocked = 0;
+                        if (DataB0.RXLoopAllowed) // if it was request to TX then need to switch off round-robin
+                        {
+                            BTCE_high();          // continue listeniong on FQ1
+                            DataB0.RXLoopBlocked = 0;
+                        }
+                        else                          // do not initate listenning
+                            DataB0.RXLoopBlocked = 1; // listenning was blocked
                     }
-                    else                          // do not initate listenning
-                        DataB0.RXLoopBlocked = 1; // listenning was blocked
+                    else
+                        BTCE_high();          // continue listeniong on FQ1
                 }
                 else
                     BTCE_high();          // continue listeniong on FQ1
- 
                 if (DataB0.Timer3OutSyncRQ)
                 {
                 //     DataB0.Timer3OutSyncRQ = 0;
@@ -2215,7 +2228,7 @@ NEXT_TRANSMIT:
                 //     FqRXCount = 0;
                 //     FqRX = Freq1;
                 //     SwitchFQ(FqRX);
-                     BTCE_high();          // continue listeniong on FQ1
+                //     BTCE_high();          // continue listeniong on FQ1
                 }
             }
             //else
@@ -2257,7 +2270,7 @@ TIMING_CHECK:
 INIT_TX:
                                     if (T2Byte0 ==0)
                                     {
-                                        SetTimer2();
+                                        //SetTimer2();
                                         T2Byte0 = 1;
                                     }
                                     BTCE_low();
@@ -3632,9 +3645,19 @@ void AdjTimer3(void)
         }
         DataB0.Timer3Ready2Sync = 0;
 #else
+        //AdjustTimer3 += 16;
         CRCcmp = 0xffff - AdjustTimer3;
         CRCcmp -= MEDIAN_TIME;
-        Tmr3LoadLow = Tmr3LoadLowCopy + CRCcmp;
+        //CRCcmp -=0x3a;//0x32;
+        //if (CRCcmp > 0x8000)
+        //        CRCcmp = 0xffff-CRCcmp;
+        if (++AdjRX == 400)
+        {
+            if (CRCcmp > 0x8000)
+                CRCcmp = 0xffff-CRCcmp;
+            iAdjRX = 0;
+        }
+        //Tmr3LoadLow = Tmr3LoadLowCopy + CRCcmp;
 /*
         if (CRCcmp < 0x0100)
         {
@@ -3860,6 +3883,10 @@ DONE_RX:
     {
         BTFlags.RxInProc = 0;
     }
+    //if (DataB0.Tmr3Inturrupt)
+    //{
+    //    DataB0.Tmr3Inturrupt = 1;
+    //}
     return (BTokMsg != 0xff);
 }
 //===============================================================================================
@@ -4056,6 +4083,7 @@ SEND_GOOD:      BTbyteCRC(BTqueueOutCopy[i]);
                     SetTimer1(Tmr1LoadLow+LEN_OFFSET);
                     BTCE_high(); // Chip Enable Activates RX or TX mode (now TX mode) 
                     Tmr1LoadLowCopy = Tmr1LoadLow - 12;
+                    Tmr1LoadLowCopy = Tmr1LoadLowCopy | 1;
                     //TMR1ON = 1; // start temporary stoped timer (if it was stopped!)
                 }
             }
