@@ -232,7 +232,7 @@ see www.adobri.com for communication protocol spec
 //#define DELAY_BTW_NEXT_DIAL 0xfeec
 #define DELAY_BTW_NEXT_DIAL 0xe00c
 #define PING_DELAY 3
-#define DEBUG_LED_COUNT 2
+#define DEBUG_LED_COUNT 1
 #define TO_BTW_CHARS 0xff00
 
 #define TIME_FOR_PACKET 0xff98
@@ -537,6 +537,7 @@ UWORD AdjRX;
 int iAdjRX;
 
 #ifdef BT_TIMER3
+unsigned char FqRXRealCount;
 unsigned char WasRXCount;
 unsigned char FqRXCount;
 unsigned char FqRX;
@@ -1099,6 +1100,7 @@ void main()
 //#endif
     
 #endif
+    iAdjRX = 0;
     SetTimer3(0);
     ShowMessage();
 #ifdef DEBUG_LED_CALL_EARTH
@@ -3651,12 +3653,12 @@ void AdjTimer3(void)
         //CRCcmp -=0x3a;//0x32;
         //if (CRCcmp > 0x8000)
         //        CRCcmp = 0xffff-CRCcmp;
-        if (++AdjRX == 400)
-        {
-            if (CRCcmp > 0x8000)
-                CRCcmp = 0xffff-CRCcmp;
-            iAdjRX = 0;
-        }
+        //if (++AdjRX == 400)
+        //{
+        //    if (CRCcmp > 0x8000)
+        //        CRCcmp = 0xffff-CRCcmp;
+        //    iAdjRX = 0;
+        //}
         //Tmr3LoadLow = Tmr3LoadLowCopy + CRCcmp;
 /*
         if (CRCcmp < 0x0100)
@@ -3791,9 +3793,23 @@ INIT_FQ_RX:
     }
 LOOKS_GOOD:  
     // that switch will update BTStatus and switch frequency
+
+    // cases when it is possible to switch frequency:
+    //                                                   imposible:::
+    //  FqRXCount         0    1   1    2   2    0 |     0 1 2
+    //  FqRXRealCount      1   1    2   2    0   0 |     2 0 1
+    if (DataB0.Tmr3DoneMeasureFq1Fq2)
+    {
+        if (FqRXCount == 0 && FqRXRealCount == 2)
+            goto SKIP_SWITCH;
+        else if (FqRXCount == 1 && FqRXRealCount== 0)
+            goto SKIP_SWITCH;
+        else if (FqRXCount == 2 && FqRXRealCount== 1)
+            goto SKIP_SWITCH;
+    }
     BTCE_low();  // Chip Enable (RX or TX mode) now disable== standby
     SwitchFQ(DoFqRXSwitch()); // if it was RX over FQ1 than value RXreceiveFQ ==0
-
+SKIP_SWITCH:
     BTCE_high(); // Chip Enable Activates RX or TX mode (now RX mode) 
          
     // next packet ready to receive (on next frequency) - now prcocessing  
@@ -4084,6 +4100,7 @@ SEND_GOOD:      BTbyteCRC(BTqueueOutCopy[i]);
                     BTCE_high(); // Chip Enable Activates RX or TX mode (now TX mode) 
                     Tmr1LoadLowCopy = Tmr1LoadLow - 12;
                     Tmr1LoadLowCopy = Tmr1LoadLowCopy | 1;
+                    Tmr1LoadLowCopy = 0x97ed;
                     //TMR1ON = 1; // start temporary stoped timer (if it was stopped!)
                 }
             }

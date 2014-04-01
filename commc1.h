@@ -305,37 +305,10 @@ TMR2_COUNT_DONE:
                 TMR3L = (unsigned char)(Tmr3LoadLow&0xff);
                 Tmr3TOHigh = Tmr3LoadHigh;
                 Tmr3LoadLow = Tmr3LoadLowCopy;
-#if 0
-                if (T2Byte0)
-                {
-                    if (T2Byte1 ==0)
-                    {        
-                        if (T2Byte0 == 11)
-                        {
-                            T2Count1=TMR2Count;
-                            T2Byte1=TMR2;
-                            if (T2Byte1 == 0)
-                                T2Byte1 = 1;
-                        }
-                        else
-                            T2Byte0++;
-                    }
-                    else if (T2Byte2 ==0)
-                    {        
-                        T2Count2=TMR2Count;
-                        T2Byte2=TMR2;
-                        if (T2Byte2 == 0)
-                            T2Byte2 = 1;
-                    } 
-                    else if (T2Byte3 ==0)
-                    {        
-                        T2Count3=TMR2Count;
-                        T2Byte3=TMR2;
-                        if (T2Byte3 == 0)
-                            T2Byte3 = 1;
-                    }
-                }
-#endif
+
+                if (++FqRXRealCount>=3)
+                    FqRXRealCount = 0;
+
                 if (SkipRXTmr3)
                 {
                    SkipRXTmr3 = 0;  // no timer3 (RX) interrupt == interrupt will be processed in first place
@@ -345,6 +318,7 @@ TMR2_COUNT_DONE:
                     if (BTType == 1)
                     {
                         DataB0.Tmr3Inturrupt = 1;
+                        // in RX mode real and vluctuationg RXCounters needs to be syncronized inside main
                         if (FqRXCount ==0)
                         {
                             if (OutSyncCounter)
@@ -355,7 +329,19 @@ TMR2_COUNT_DONE:
                         }
                     }
                     else
-                    {
+                    {   // in TX real and vluctuating RXCounter will be syncronized
+#if 1
+                        FqRXCount = FqRXRealCount;
+                        if (FqRXCount==0)
+                            FqRX = Freq1;
+                        else
+                        {
+                            if (FqRXCount == 1)
+                               FqRX = Freq2;
+                            else
+                               FqRX = Freq3;
+                        }
+#else
                         if (++FqRXCount>=3)
                         {
                             FqRXCount = 0;
@@ -368,6 +354,7 @@ TMR2_COUNT_DONE:
                             else
                                FqRX = Freq3;
                         }
+#endif
                     }
                 }
             }
@@ -1661,6 +1648,10 @@ IGNORE_BAD_PKT:         DataB0.RXPktIsBad = 1;
                                 DataB0.Tmr3Inturrupt = 0;         // when "measured time FQ1-FQ2" passed it will be timer3 interrupt
                                 AdjRX = 0;
                                 iAdjRX = 0;
+                                // that is real frquency number (0,1,2)
+                                // FqRXCount can fluctuate
+                                // but FqRXRealCount is solid value
+                                FqRXRealCount = 2;//FqRXCount; 
                             }
                             else
                             {
