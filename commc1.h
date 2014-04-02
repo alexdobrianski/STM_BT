@@ -308,7 +308,8 @@ TMR2_COUNT_DONE:
 
                 if (++FqRXRealCount>=3)
                     FqRXRealCount = 0;
-
+                if (iAdjRX != 0x7f)
+                    iAdjRX++;
                 // was detected that RX is out of sync for 4 seconds == do nothing in ISR == no TM3 interrupts
                 if (DataB0.Timer3OutSyncRQ)
                     goto OUT_OF_SYNC;
@@ -1671,7 +1672,7 @@ IGNORE_BAD_PKT:         DataB0.RXPktIsBad = 1;
                                 Tmr3LoadLowCopy += 3;// difference (btw start and stop timer) in ofset from begining of a interrupt routine 
                                 // SYNC_DEBUG 1 set the same value and in TransmitBTdata to have perfect sync
                                 // SYNC_DEBUG 2 set different value in both to have out of sync case
-                                Tmr3LoadLowCopy = 0x97ed;//0x97ed;
+                                //Tmr3LoadLowCopy = 0x97dd;//0x97ed;
                                 Tmr3LoadLow = Tmr3LoadLowCopy;//+0x30;//0x36;
                                 
                                 
@@ -1681,11 +1682,11 @@ IGNORE_BAD_PKT:         DataB0.RXPktIsBad = 1;
                                 DataB0.Tmr3Run = 1;               // to "run timer3 on BT RX"
                                 DataB0.Tmr3Inturrupt = 0;         // when "measured time FQ1-FQ2" passed it will be timer3 interrupt
                                 AdjRX = 0;
-                                iAdjRX = 0;
+                                iAdjRX = 0x7f;
                                 // that is real frquency number (0,1,2)
                                 // FqRXCount can fluctuate
                                 // but FqRXRealCount is solid value
-                                FqRXRealCount = 2;//FqRXCount; 
+                                FqRXRealCount = 2;//FqRXCount;
                             }
                             else
                             {

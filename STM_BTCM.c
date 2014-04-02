@@ -3652,40 +3652,42 @@ void AdjTimer3(void)
         //AdjustTimer3 += 16;
         CRCcmp = 0xffff - AdjustTimer3;
         CRCcmp -= MEDIAN_TIME;
-        //CRCcmp -=0x3a;//0x32;
-        //if (CRCcmp > 0x8000)
-        //        CRCcmp = 0xffff-CRCcmp;
-        //if (++AdjRX == 400)
-        //{
-        //    if (CRCcmp > 0x8000)
-        //        CRCcmp = 0xffff-CRCcmp;
-        //    iAdjRX = 0;
-        //}
-        //Tmr3LoadLow = Tmr3LoadLowCopy + CRCcmp;
-/*
-        if (CRCcmp < 0x0100)
+        if ((CRCcmp >= 0x400) && (CRCcmp <= 0xfa00))
         {
-GOOD_RANGE:        
-            AdjRX += CRCcmp;
-            if (++iAdjRX == 4)
+            Tmr3LoadLow = Tmr3LoadLowCopy + CRCcmp;
+            if ((iAdjRX > 0) && (iAdjRX <32)) 
+                AdjRX -= CRCcmp;
+        }
+        if (iAdjRX == 0)
+        {
+            AdjRX = CRCcmp;
+        }
+        if (iAdjRX >= 64)
+        {
+            iAdjRX = 0;
+            AdjRX = CRCcmp;
+        }
+        if (iAdjRX >= 32)
+        {
+            
+            AdjRX = CRCcmp - AdjRX;
+            if (AdjRX > 0x8000)
             {
-                AdjRX >>=2;
-                //Tmr3LoadLowCopy = Tmr3LoadLowCopy - AdjRX;
-                AdjRX = 0;
-                iAdjRX = 0;
+                AdjRX = 0xffff-AdjRX;
+                AdjRX /= (unsigned char) iAdjRX;
+                AdjRX = 0xffff-AdjRX;
             }
             else
-            {
-                if (iAdjRX == 2)
-                {
-                    DataB0.Timer3Ready2Sync = 0;
-                }
-            }
+                AdjRX = AdjRX / (unsigned char) iAdjRX;
+            DataB0.Timer3Ready2Sync = 0;
+            iAdjRX = 0;
+            Tmr3LoadLowCopy += AdjRX; 
+            AdjRX = CRCcmp;
         }
-        else if (CRCcmp >0xff00)
-            goto GOOD_RANGE;
-  */      
-        
+        //if (++AdjRX == 0x800)
+        //{
+        //   AdjRX = 0;
+        //}
         DataB0.Timer3Ready2Sync = 0;
 #endif
     }
@@ -4128,7 +4130,8 @@ SEND_GOOD:      BTbyteCRC(BTqueueOutCopy[i]);
                     BTCE_high(); // Chip Enable Activates RX or TX mode (now TX mode) 
                     Tmr1LoadLowCopy = Tmr1LoadLow - 12;
                     Tmr1LoadLowCopy = Tmr1LoadLowCopy | 1;
-                    Tmr1LoadLowCopy = 0x97ed;
+                    // SYNC_DEBUG 1 set the same value and in TransmitBTdata to have perfect sync
+                    //Tmr1LoadLowCopy = 0x97ed;
                     //TMR1ON = 1; // start temporary stoped timer (if it was stopped!)
                 }
             }
