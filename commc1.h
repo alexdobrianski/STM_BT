@@ -309,6 +309,10 @@ TMR2_COUNT_DONE:
                 if (++FqRXRealCount>=3)
                     FqRXRealCount = 0;
 
+                // was detected that RX is out of sync for 4 seconds == do nothing in ISR == no TM3 interrupts
+                if (DataB0.Timer3OutSyncRQ)
+                    goto OUT_OF_SYNC;
+
                 if (SkipRXTmr3)
                 {
                    SkipRXTmr3 = 0;  // no timer3 (RX) interrupt == interrupt will be processed in first place
@@ -324,12 +328,21 @@ TMR2_COUNT_DONE:
                             if (OutSyncCounter)
                             {
                                 if (--OutSyncCounter == 0)
+                                {
+                                    // SYNC_DEBUG 5: next 4 lines commented == and no wait on FQ1 in case of lost syncroniration
+#if 1 
                                     DataB0.Timer3OutSyncRQ = 1;
+                                    DataB0.Tmr3Inturrupt = 0;  // cancel interupt == no switch of the frequency
+                                    TMR3H = 0;                 // timer started to run from 0
+                                    TMR3L = 0;
+#endif
+                                }    
                             }
                         }
                     }
                     else
-                    {   // in TX real and vluctuating RXCounter will be syncronized
+                    {   // SYNC_DEBUG 3 change to "#if 0" (case without syncronization of FqRXRealCount on TX operation)
+                        // in TX real and vluctuating RXCounter will be syncronized
 #if 1
                         FqRXCount = FqRXRealCount;
                         if (FqRXCount==0)
@@ -341,7 +354,7 @@ TMR2_COUNT_DONE:
                             else
                                FqRX = Freq3;
                         }
-#else
+#else     // case without syncronization (usefull for debugging)
                         if (++FqRXCount>=3)
                         {
                             FqRXCount = 0;
@@ -357,6 +370,7 @@ TMR2_COUNT_DONE:
 #endif
                     }
                 }
+OUT_OF_SYNC:;
             }
         }
         
@@ -1544,6 +1558,7 @@ TMR0_DONE:
             //Main.ExtFirst =1;
             
 #ifdef BT_TX
+// SYNC_DEBUG 0: uncomment next line to measure exact TX time for one packet 
 //#define MEASURE_EXACT_TX_TIME 1
 // for debug to get real value on int0 - but using value is in TransmittBT function
 #ifdef MEASURE_EXACT_TX_TIME
@@ -1570,9 +1585,26 @@ TMR0_DONE:
                 DataB0.RXPkt2IsBad = 0;
 
                 if (DataB0.Tmr3DoneMeasureFq1Fq2) // receive set
-                {
-                    
+                {    
                     AdjustTimer3 = INTTimer3;//TIMER3;
+
+                    // case: in TMR3 it was 4 sec without RX == uncyncronization
+                    // just need to start TMR3 and check: Is this packet OK?
+                    if (DataB0.Timer3OutSyncRQ)
+                    {
+                        if (INTTimer3 < 0xff00)
+                        {
+                            AdjustTimer3 = TIMER3 - INTTimer3;
+                            TMR3H = (AdjustTimer3>>8);
+                            TMR3L = (unsigned char)(AdjustTimer3&0xFF);
+                        }
+                        else  // case when TMR3 is over 0xffff
+                        {    
+                            TMR3H = 0;
+                            TMR3L = 0;
+                        }
+                        goto NOTHING_CAN_BE_DONE;
+                    }
                     DataB0.Timer3Ready2Sync = 0;
                     Time1Left = AdjustTimer3;
                     if (Time1Left > 0x8000)
@@ -1637,7 +1669,9 @@ IGNORE_BAD_PKT:         DataB0.RXPktIsBad = 1;
                                 TMR3L = (unsigned char)(Tmr3LoadLow&0xFF);
                                 //TMR3ON = 1; // continue run TMR3
                                 Tmr3LoadLowCopy += 3;// difference (btw start and stop timer) in ofset from begining of a interrupt routine 
-                                Tmr3LoadLowCopy = 0x97ed;
+                                // SYNC_DEBUG 1 set the same value and in TransmitBTdata to have perfect sync
+                                // SYNC_DEBUG 2 set different value in both to have out of sync case
+                                Tmr3LoadLowCopy = 0x97ed;//0x97ed;
                                 Tmr3LoadLow = Tmr3LoadLowCopy;//+0x30;//0x36;
                                 
                                 
@@ -1664,7 +1698,7 @@ IGNORE_BAD_PKT:         DataB0.RXPktIsBad = 1;
                     else
                         DataB0.Tmr3DoMeausreFq1_Fq2 = 0;
                 }
-                OutSyncCounter = 125; // 2.5 sec no packets == switch for out of sync
+NOTHING_CAN_BE_DONE: ;
             }
             else // TX operation
             {

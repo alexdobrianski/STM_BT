@@ -2109,6 +2109,10 @@ MAIN_INT:
                                          // after call RXreceiveFQ set to next listenning FQ  
                     ProcessBTdata(); // call will be processed only one (first) time 
                 }
+                if (BTStatus & 0x40)
+                {
+                    Main.ExtInterrupt = 1;
+                }    
             }
 
             //if (BTStatus & 0x20) // TX interrupt comes before TMR1 interrupt. Switch FqTXCount done inside TMR1 interrupt 
@@ -2184,6 +2188,9 @@ NEXT_TRANSMIT:
         }
         else if (DataB0.Tmr3Inturrupt) // time to switch frequency on RX operation
         {
+            // in case DataB0.Timer3OutSyncRQ==1 it will be no TMR3 (RX) interrupts 
+            // and FqRXCount will stay zero
+            // in another case (normal sync FQ1-FQ2 measured) needs to advance FQ to a next listenning 
             DataB0.Tmr3Inturrupt = 0;
             if (BTType == 1) // RX mode
             {
@@ -2205,6 +2212,11 @@ NEXT_TRANSMIT:
                     goto MAIN_INT;
                 }
                 SwitchFQ(DoFqRXSwitch()); // FqRXCount points on next FQ after switch
+                if (BTStatus & 0x40)
+                {
+                    Main.ExtInterrupt = 1;
+                    goto MAIN_INT;
+                }
                 if (DataB0.Tmr3DoneMeasureFq1Fq2)
                 {
                     if (FqRXCount == 0)
@@ -2222,16 +2234,6 @@ NEXT_TRANSMIT:
                 }
                 else
                     BTCE_high();          // continue listeniong on FQ1
-                if (DataB0.Timer3OutSyncRQ)
-                {
-                //     DataB0.Timer3OutSyncRQ = 0;
-                //     DataB0.Tmr3DoneMeasureFq1Fq2 = 0;
-                //     DataB0.Tmr3Run = 0;
-                //     FqRXCount = 0;
-                //     FqRX = Freq1;
-                //     SwitchFQ(FqRX);
-                //     BTCE_high();          // continue listeniong on FQ1
-                }
             }
             //else
             //    DoFqRXSwitch();
@@ -3711,7 +3713,7 @@ unsigned char ReceiveBTdata(void)
 
     // read len of the RX packet
     bitclr(PORT_BT,Tx_CSN);
-    SendBTbyte(0x60); // 0110  0000 command R_RX_PL_WID
+    BTStatus= SendBTcmd(0x60); // 0110  0000 command R_RX_PL_WID
     bret = GetBTbyte();
     bitset(PORT_BT,Tx_CSN);
     if (bret > 32) // error - length can not be bigger 32 bytes (special case from spec)
@@ -3800,6 +3802,11 @@ LOOKS_GOOD:
     //  FqRXRealCount      1   1    2   2    0   0 |     2 0 1
     if (DataB0.Tmr3DoneMeasureFq1Fq2)
     {
+        // out of sycn case: stay on FqRxCount = 0 indefinetly intill Ok packet
+        if (DataB0.Timer3OutSyncRQ)
+            goto SKIP_SWITCH;
+
+        // SYNC_DEBUG 4 if next if will be commented == will be no sync of FQ with FqRXRealCount on RX operation
         if (FqRXCount == 0 && FqRXRealCount == 2)
             goto SKIP_SWITCH;
         else if (FqRXCount == 1 && FqRXRealCount== 0)
@@ -3822,8 +3829,26 @@ SKIP_SWITCH:
         {
             if (CheckPacket(ptrMy, bret) == 0)    // now possible to do CRC check ???
             {
+
                 if (WasRXCount == 0)      // set OK messaghe only on FQ1
+                {
                     DataB0.RXMessageWasOK = 1;
+                    // case: was out of synch but now get packet on FQ1
+                    if (DataB0.Timer3OutSyncRQ)
+                    {
+                        // packet was Ok now need to restore RX timer3
+                        AdjustTimer3 = Tmr3LoadLow -MEDIAN_TIME;
+                        AdjustTimer3 += TIMER3;
+                        TMR3H = (AdjustTimer3>>8);
+                        TMR3L = (unsigned char)(AdjustTimer3&0xFF);
+                        BTCE_low();  // Chip Enable (RX or TX mode) now disable== standby
+                        SwitchFQ(DoFqRXSwitch()); // if it was RX over FQ1 than value RXreceiveFQ ==0
+                        BTCE_high(); // Chip Enable Activates RX or TX mode (now RX mode)
+                        FqRXRealCount = 1; 
+                        DataB0.Timer3OutSyncRQ =0;
+                        DataB0.Timer3Ready2Sync = 0;
+                    }    
+                }
 
                 BTokMsg = WasRXCount;
                 if (DataB0.Tmr3DoneMeasureFq1Fq2)  // FQ1-FQ2 timeing was measured by timer3 (RX)
@@ -3837,6 +3862,7 @@ ADJUST_TMR3:
                     //    RXreceiveFQ = i;
                     //}
                 }
+                OutSyncCounter = 250; // 2.5 sec no packets == switch for out of sync
             }
         }
     }
@@ -3847,6 +3873,7 @@ ADJUST_TMR3:
             if (CheckPacket(ptrMy, bret) == 0)
             {
                 AdjTimer3();
+                OutSyncCounter = 250; // 2.5 sec no packets == switch for out of sync
             }
         }    
     }
@@ -3872,6 +3899,7 @@ ADJUST_TMR3:
                 //BTokMsg = 0x80  | BTFix3();
                 if (BTokMsg == 0)
                 {
+                    OutSyncCounter = 250; // 2.5 sec no packets == switch for out of sync
                     //AdjTimer3();
                 }
                 //BTokMsg = 0x80  | CheckPacket(BTqueueIn, BTqueueInLen);
