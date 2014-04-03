@@ -220,10 +220,6 @@ see www.adobri.com for communication protocol spec
 //////////////////////////////////////////////////////
 // to properly process Timer0 interrupt needs to has all timer set values different
 
-//#define MEDIAN_TIME      0x2000
-//#define MEDIAN_TIME_LOW  0x0100
-//#define MEDIAN_TIME_HIGH 0x4000
-
 #define MEDIAN_TIME      0x1000
 #define MEDIAN_TIME_LOW  0x0010
 #define MEDIAN_TIME_HIGH 0x2000
@@ -252,19 +248,21 @@ see www.adobri.com for communication protocol spec
                         // all time btw FQ1 FQ2 is 26807 = 0.0016754375 = 8.3 char, all 3 freq = 25 char
 
 /////////////////////////////////////////////////////
-//#define _OLD_VERSION 1
 //#define __DEBUG
-//#define SHOW_RX_TX
-//#define SHOW_RX
+
+
+// this include commands to switch off flush 
 //#define FLASH_POWER_DOWN 1
+
+// for debugging TX in simulation debugger - it requare stimulus file
 //#define DEBUG_SIM 1
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 // define blinking LED on pin 14 (RC3)
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 #define DEBUG_LED
 #ifdef DEBUG_LED
-#define DEBUG_LED_OFF bitclr(LATA,5)
-#define DEBUG_LED_ON bitset(LATA,5)
+ #define DEBUG_LED_OFF bitclr(LATA,5)
+ #define DEBUG_LED_ON bitset(LATA,5)
 ///////////////////////////////////////////////////////////////
 //   for a blinking LED behive like CUBESAT/CRAFT
 //   it is waiting for connection, wait for p/kt, and when pkt is Ok it send back to earth reply packet, and blinks
@@ -285,6 +283,32 @@ see www.adobri.com for communication protocol spec
 // 5"
 #endif
 
+
+ // next line uncommented == by default it will be cubesat (calling earth)
+//#define DEFAULT_CALL_EARTH 1
+
+//////////////////////////re-arrange//////////////////////////////////////////
+#ifdef DEBUG_LED_CALL_EARTH
+#define DEFAULT_CALL_EARTH 1
+#undef DEBUG_LED_CALL_LUNA
+#endif
+
+// next line uncommented == by default it will be ground station (calling luna)
+//#define DEFAULT_CALL_LUNA 1
+
+//////////////////////////re-arrange//////////////////////////////////////////
+#ifdef DEBUG_LED_CALL_LUNA
+#define DEFAULT_CALL_LUNA 1
+#undef DEBUG_LED_CALL_EARTH
+#endif 
+
+//////////////////////////re-arrang///////////////////////////////////////////
+#ifdef DEFAULT_CALL_EARTH
+#undef DEFAULT_CALL_LUNA
+#endif 
+#ifdef DEFAULT_CALL_LUNA
+#undef DEFAULT_CALL_EARTH
+#endif
 
 // needs to spec processor - C and ASM code is different
 #ifdef __18CXX
@@ -461,29 +485,22 @@ see www.adobri.com for communication protocol spec
 
 
 
-#ifdef BT_TIMER1
 struct _Data_B0{
 unsigned Timer1Meausre:1;
 unsigned Timer1Count:1;
-unsigned Timer1Inturrupt:1;
 unsigned Timer1DoTX:1;
-unsigned Timer1Done3FQ:1;
-unsigned Timer1SwitchTX:1;
-#ifdef BT_TIMER3
 unsigned Tmr3DoMeausreFq1_Fq2:1;
 unsigned Tmr3Run:1;
 unsigned Tmr3Inturrupt:1;
 unsigned Tmr3DoneMeasureFq1Fq2:1;
 unsigned Timer3Ready2Sync:1;
 unsigned Timer3OutSyncRQ:1;
-unsigned Timer3SwitchRX:1;
 unsigned TransmitESC:1;
 unsigned RXLoopAllowed:1;
 unsigned RXLoopBlocked:1;
 unsigned RXMessageWasOK:1;
 unsigned RXPktIsBad:1;
 unsigned RXPkt2IsBad:1;
-#endif
 } DataB0;
 #ifdef DEBUG_LED
 int PingDelay;
@@ -501,7 +518,6 @@ UWORD TIMER3 @ 0xFB2;
 UWORD Time1Left;
 
 UWORD Timer1Id;
-int LedStatus;
 
 UWORD Tmr1High; // to count for a 536 sec with presision of 0.000000125s== 1/4mks == 37.5m
                 // UWORD in TMR1 counts till 0.008192 s = 8.192ms
@@ -536,14 +552,10 @@ UWORD TXbTmr1H;
 UWORD AdjRX;
 int iAdjRX;
 
-#ifdef BT_TIMER3
 unsigned char FqRXRealCount;
 unsigned char WasRXCount;
 unsigned char FqRXCount;
 unsigned char FqRX;
-
-//UWORD tBtwFqRXSwitch;
-//UWORD tBtwFqRXSwitchHigh;
 
 
 UWORD Tmr3High; // to count for a 536 sec with presision of 0.000000125s== 1/4mks == 37.5m
@@ -558,22 +570,9 @@ UWORD Tmr3LoadLowCopy;
 unsigned char OutSyncCounter;
 unsigned char ESCCount;
 unsigned char AfterESCChar;
-unsigned char CountFQ3;
-#endif
-#else
-struct _Data_B0{
-unsigned TimerPresc:1;
-unsigned Timer:1;
-unsigned SetBitsCmd:1;
-//unsigned Timer0Waiting:1;
-} DataB0;
-#endif
-
 
 #pragma rambank RAM_BANK_1
 ///////////////////////////////////////BANK 1//////////////////////////
-
-
 
 #pragma rambank RAM_BANK_3
 /////////////////////////////////////////////BANK 3//////////////////////
@@ -705,7 +704,6 @@ struct _BTFLAGS
 {
     unsigned BT3fqProcessed:1;
     unsigned BTFirstInit:1;
-    unsigned BTNeedsTX:1;
     unsigned RxInProc:1;
 } BTFlags;
 
@@ -724,7 +722,6 @@ UWORD T2Byte2;
 UWORD T2Count3;
 UWORD T2Byte3;
 
-unsigned char PktCount;
 /*
 typedef struct PacketDial
 {
@@ -833,21 +830,17 @@ void InitModem(void)
     FqTX = Freq1;
     BTType = 0;
     BTokMsg = 0xff;
-#ifdef BT_TIMER1
-    DataB0.Timer1Done3FQ = 0;
+
     DataB0.Tmr3DoneMeasureFq1Fq2 = 0;
     //DataB0.Time3JustDone = 0;
     DataB0.Tmr3DoMeausreFq1_Fq2 = 0;
     DataB0.Timer3OutSyncRQ = 0;
     // 1 = round robin on FQ1->Fq2->Fq3
     // 0 = working on FQ1 only
-    DataB0.Timer3SwitchRX = 1;
-    DataB0.Timer1SwitchTX = 1;
     DataB0.Timer3Ready2Sync = 0;
     DataB0.TransmitESC = 0;
     //DataB0.Timer3SkipFQ2 = 0;
     //DataB0.Timer3SkipFQ3 = 0;
-#endif
     DataB0.RXLoopAllowed = 1;
     DataB0.RXLoopBlocked = 0;
     DataB0.RXMessageWasOK = 0;
@@ -883,12 +876,6 @@ unsigned char PrevLen;
 unsigned char NextLen;
 unsigned char TypePkt;
 
-unsigned char ReadPrevLen;
-unsigned char ReadNextLen;
-unsigned char ReadTypePkt;
-
-
-
 void Erace4K(unsigned char Adr2B);
 #endif
 #ifdef DEBUG_SIM
@@ -923,14 +910,7 @@ void main()
         Addr2 = eeprom_read(0x35);
         Addr3 = eeprom_read(0x36);
         InitModem();
-#ifdef BT_TIMER1
-#else
-        DataB0.TimerPresc = 0;
-        DataB0.Timer = 0;
-        //DataB0.Timer0Waiting = 0;
-        DataB0.SetBitsCmd = 0;
-        
-#endif
+
         DataB3.FlashCmd = 0;
         DataB3.FlashCmdLen = 0;
         DataB3.FlashRead = 0;
@@ -958,14 +938,11 @@ void main()
     //BTInturrupt = 0;
     BTFlags.BTFirstInit = 0;
     BTFlags.RxInProc = 0;
-    BTokMsg = 0xff;
-    PktCount = 0;
     SkipRXTmr3 = 0;
     ESCCount = 0;
 
 #ifdef SKIP_CALC_TX_TIME
     TMR1ON = 0;              // stop timer measure it time btw send Fq1 -> Fq2
-    DataB0.Timer1Done3FQ = 1; 
     DataB0.Timer1Meausre = 0;
     DataB0.Timer1Count = 1;
 
@@ -1103,35 +1080,26 @@ void main()
     iAdjRX = 0;
     SetTimer3(0);
     ShowMessage();
-#ifdef DEBUG_LED_CALL_EARTH
-                DataB0.Timer3SwitchRX = 0;
-                DataB0.Timer1SwitchTX = 0;
+    INT0_ENBL = 1;
 
-                if (Config01&0x1)
-                    DataB0.Timer3SwitchRX = 1;
-                if (Config01&0x2)
-                    DataB0.Timer1SwitchTX = 1;
 
+#ifdef DEFAULT_CALL_EARTH
     ATCMD = MODE_CALL_EARTH;     
     ATCMD |= INIT_BT_NOT_DONE;
-    INT0_ENBL = 1;
-    PingDelay = PING_DELAY;
 #endif
-#ifdef DEBUG_LED_CALL_LUNA
-                DataB0.Timer3SwitchRX = 0;
-                DataB0.Timer1SwitchTX = 0;
 
-                if (Config01&0x1)
-                    DataB0.Timer3SwitchRX = 1;
-                if (Config01&0x2)
-                    DataB0.Timer1SwitchTX = 1;
-
+#ifdef DEFAULT_CALL_LUNA
     ATCMD = MODE_CALL_LUNA_COM;
     ATCMD |= INIT_BT_NOT_DONE;
-    INT0_ENBL = 1;
+#endif
+
+#ifdef DEBUG_LED_CALL_LUNA
     PingDelay = PING_DELAY;
 #endif
-    CountFQ3 = 2;
+#ifdef DEBUG_LED_CALL_EARTH
+    PingDelay = PING_DELAY;
+#endif
+
     //bitset(PORTA,4);
     //bitset(PORTA,3);
     //bitset(SSPCON,4);  // set clock high;
@@ -1437,13 +1405,6 @@ void ProcessCMD(unsigned char bByte)
 //              e          3 frequency mode on RX and 1 frequency to TX, RX allow to switch from 1->3->1 frequency
 //              g          3 frquency mode on RX and 3 frequency to TX, RX allow to switch from 1->3->1 frequency
                 eeprom_write(0x30, Config01);
-                DataB0.Timer3SwitchRX = 0;
-                DataB0.Timer1SwitchTX = 0;
-
-                if (Config01&0x1)
-                    DataB0.Timer3SwitchRX = 1;
-                if (Config01&0x2)
-                    DataB0.Timer1SwitchTX = 1;
                 return;
           }
           else if (ATCMDStatus == 16) // ATSX=LunBMF1F2F3
@@ -1706,10 +1667,7 @@ unsigned char CheckSuddenRX(void)
         return 1;
     if (BTType == 1) // RX is
     {
-        //if (DataB0.Timer3SwitchRX)
-        //{
         BTCE_low();  // Chip Enable Activates RX (now disable) == standby
-        //}
         //bitclr(PORT_BT,Tx_CSN); // SPI Chip Select
         //BTStatus=SendBTcmd(0xff); //cmd = 0xff; = 1111 1111 command NOP to read STATUS register
         //bitset(PORT_BT,Tx_CSN); // set high
@@ -1938,11 +1896,7 @@ unsigned char DoFqTXSwitch(void)
 }
 void SwitchFQ(unsigned char iFQ)
 {
-    //if (DataB0.Timer3SwitchRX)
-    //{
-    //    if (DataB0.Timer1SwitchTX)   // Mode  switchRX ==1 && switchTX ==1  case "G" (or 0x00000011)
-    //    {
-DO_SWITCHFQ:
+ DO_SWITCHFQ:
               bitclr(PORT_BT,Tx_CSN);
               BTStatus= SendBTcmd(0x25); // 0010  0101 command W_REGISTER to register 00101 == RF_CH
               SendBTbyte(iFQ);  // set channel = FQ1
@@ -1952,52 +1906,6 @@ DO_SWITCHFQ:
       {
           Main.ExtInterrupt = 1;
       }
-    //    }
-    //    else                         // Mode  switchRX ==1 && switchTX ==0
-    //    {
-    //        if (BTType == 1)  // calls from RX places
-    //            goto DO_SWITCHFQ;
-    //        if (BTType == 2)  // calls from TX places
-    //        {
-    //             if (DataB0.Timer1Done3FQ)
-    //             {
-    //                 if (TXSendOverFQ == 1)
-    //                 {
-DO_SWITCH_TO_FQ1:
-    //                     iFQ = Freq1;
-    //                     goto DO_SWITCHFQ;
-    //                 }
-    //             }
-    //             else
-    //             {
-    //                 if (TXSendOverFQ == 0)
-    //                     goto DO_SWITCH_TO_FQ1;
-    //             }
-    //        }
-    //        goto GET_STATUS;
-    //    }
-    //}
-    //else
-    //{
-    //    if (DataB0.Timer1SwitchTX)  // Mode  switchRX ==0 && switchTX ==1
-    //    {
-    //         if (BTType == 1)  // calls from RX places
-    //         {
-    //              if (FqRXCount == 0)
-    //                  goto DO_SWITCH_TO_FQ1;
-    //         }
-    //         if (BTType == 2)  // calls from TX places
-    //             goto DO_SWITCHFQ;
-    //        goto GET_STATUS;
-    //    }
-    //    else                        // Mode  switchRX ==0 && switchTX ==0
-    //    {
-GET_STATUS:
-    //        bitclr(PORT_BT,Tx_CSN);
-    //        BTStatus= SendBTcmd(0xff);
-    //        bitset(PORT_BT,Tx_CSN);
-    //    }
-    //}
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -2150,7 +2058,6 @@ MAIN_INT:
                         //putch('=');
                         if (!(ATCMD & MODE_CONNECT)) // connection was not established == earth get responce from luna
                         {
-                            //LedStatus = 2;
                             SetTimer0(DELAY_BTW_NEXT_DIAL); // 0x0000 == 4 sec till next attempt for earth to dial luna
                         }
                     }
@@ -2171,7 +2078,6 @@ MAIN_INT:
                 if (!(ATCMD & MODE_CONNECT))
                 { 
                     ATCMD &= (0xff ^MODE_DIAL); // this will repeat dial cubsat attempt
-                    //LedStatus--;
                 } 
                 // RX now on FQ1 listening indefinatly
             }
@@ -2252,6 +2158,8 @@ NEXT_TRANSMIT:
                     if (DataB0.Tmr3DoneMeasureFq1Fq2)
                     {   ////////////////////////////////////////////////////////////////////////////////////////////
                         // case 1 == TX FQ1-FQ2 done and RX FQ1-FQ2 was successfull
+                        if (DataB0.Timer3OutSyncRQ)
+                            goto TIMING_CHECK;
                         if (!BTFlags.RxInProc)
                             goto TIMING_CHECK; 
                         
@@ -2480,6 +2388,26 @@ SEND_PKT_DIAL:
                              
                          }
                     }
+#else
+                    if (Main.PingRSPRQ)
+                    {
+                         if (BTqueueOutLen == 0)   // only when nothing in BT output queue
+                         {
+                             BTqueueOut[0] = 'p'; //BTqueueOut[1] = 'i';BTqueueOut[2] = 'n';BTqueueOut[3] = 'g';
+                             Main.PingRSPRQ = 0;
+                             FSR_REGISTER = &DistMeasure;
+                             FSR1 = &BTqueueOut[1];
+                             for (bWork = 0; bWork < sizeof(DistMeasure); bWork++)
+                             {
+                                 INDF1 = PTR_FSR;
+                                 FSR_REGISTER++;
+                                 FSR1++;
+                             }
+                             BTpkt = PCKT_DIAL;
+                             BTqueueOutLen = 1+sizeof(DistMeasure);
+                             ATCMD |= SOME_DATA_OUT_BUFFER;
+                         }
+                    }
 #endif
 
                 }
@@ -2515,11 +2443,7 @@ SEND_PKT_DIAL:
             }
         }
     }
-    if (LedStatus == 1)
-    {   
-        //DEBUG_LED_ON;
-        //DebugLedCount = DEBUG_LED_COUNT;
-    }
+
     return 1;
 }
 
@@ -3476,10 +3400,9 @@ void ProcessBTdata(void)
                 else
                 {
 SEND_CONNECT:
-                    PutsToUnit("\n\rCONNECT\n\r");
+                    PutsToUnit("\r\nCONNECT\r\n");
                 }
 #ifdef DEBUG_LED_CALL_EARTH
-                //Main.PingRSPRQ = 1;
                 ATCMD &= (RESPONCE_WAS_SENT ^0xff);
 #endif
             }
@@ -3701,7 +3624,6 @@ unsigned char ReceiveBTdata(void)
     unsigned char bByte;
     unsigned char *ptrMy ;
     //CRC=0;
-    //if (DataB0.Timer3SwitchRX)
     //BTCE_low();  // Chip Enable (Activates RX or TX mode) now disable== standby
 
     // clean RX interrupt (in time of listelling)

@@ -65,9 +65,6 @@ NEEDS_FLASH_PROC:   Main.FlashRQ = 1;
                             // now it is possible to process data from flash
                             Main.getCMD = 1;
                             CS_HIGH;
-                            //ReadPrevLen;
-                            //ReadNextLen;
-                            //ReadTypePkt;
 
                             Main.getCMD = 0;
                             Main.FlashRQ = 0;

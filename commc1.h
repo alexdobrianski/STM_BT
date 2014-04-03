@@ -157,8 +157,6 @@ INTERRUPT int_server( void)
                     PORT_AMPL.BT_TX = 1;
                     bitset(PORT_BT,Tx_CE);
                     DataB0.Timer1DoTX = 0;
-
-                    
                 }
                 if (++FqTXCount>=3)
                 {
@@ -183,6 +181,10 @@ INTERRUPT int_server( void)
                     }
 #endif
 #endif
+                    DistMeasure.TXbTmr1H = DistMeasure.TXaTmr1H;
+                    DistMeasure.TXbTmr1 = DistMeasure.TXaTmr1;
+                    DistMeasure.TXaTmr1H = INTTimer1HCount;
+                    DistMeasure.TXaTmr1 = INTTimer1;
                 }
                 else
                 {
@@ -191,12 +193,7 @@ INTERRUPT int_server( void)
                    else
                        FqTX = Freq3;
                 }
-                //DataB0.Timer1Inturrupt = 1; // and relaod timer
                
-                DistMeasure.TXbTmr1H = DistMeasure.TXaTmr1H;
-                DistMeasure.TXbTmr1 = DistMeasure.TXaTmr1;
-                DistMeasure.TXaTmr1H = INTTimer1HCount;
-                DistMeasure.TXaTmr1 = INTTimer1;
             }
         }
 
@@ -1580,7 +1577,6 @@ TMR0_DONE:
             //BTCE_low();  // Chip Enable Activates RX or TX mode (now disable)
             if (BTType == 1) // it was RX operation
             {
-                //if (DataB0.Timer3SwitchRX)
                 //bitclr(PORT_BT,Tx_CE);	// Chip Enable (Activates RX or TX mode) == now standby
                 DataB0.RXPktIsBad = 0;
                 DataB0.RXPkt2IsBad = 0;
