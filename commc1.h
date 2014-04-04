@@ -185,6 +185,7 @@ INTERRUPT int_server( void)
                     DistMeasure.TXbTmr1 = DistMeasure.TXaTmr1;
                     DistMeasure.TXaTmr1H = INTTimer1HCount;
                     DistMeasure.TXaTmr1 = INTTimer1;
+
                 }
                 else
                 {
@@ -1689,11 +1690,15 @@ IGNORE_BAD_PKT:         DataB0.RXPktIsBad = 1;
                                 DataB0.Tmr3DoMeausreFq1_Fq2 = 0;
                                 DataB0.RXPkt2IsBad = 1;
                                 DataB0.RXPktIsBad = 1;
+                                DataB0.Tmr3Run = 0;
                             }    
                         }
                     }
                     else
+                    {
                         DataB0.Tmr3DoMeausreFq1_Fq2 = 0;
+                        DataB0.Tmr3Run = 0;
+                    }
                 }
 NOTHING_CAN_BE_DONE: ;
             }

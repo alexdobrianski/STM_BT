@@ -267,7 +267,7 @@ see www.adobri.com for communication protocol spec
 //   for a blinking LED behive like CUBESAT/CRAFT
 //   it is waiting for connection, wait for p/kt, and when pkt is Ok it send back to earth reply packet, and blinks
 ///////////////////////////////////////////////////////////////
-#define DEBUG_LED_CALL_EARTH
+//#define DEBUG_LED_CALL_EARTH
 // for test sequence 
 //// "5atsx=...CBabbcgg
 // atdtl
@@ -276,7 +276,7 @@ see www.adobri.com for communication protocol spec
 ///////////////////////////////////////////////////////////////
 //   for a blinking LED behive like Ground Station, it is constantly sends pktm if received pkt, then it blinks
 ///////////////////////////////////////////////////////////////
-//#define DEBUG_LED_CALL_LUNA
+#define DEBUG_LED_CALL_LUNA
 // for test sequence 
 // "5atsx=...CBabbcgg
 // atdtl
@@ -547,6 +547,7 @@ UWORD TXaTmr1;
 UWORD TXaTmr1H;
 UWORD TXbTmr1;
 UWORD TXbTmr1H;
+UWORD TXPeriod;
 } DistMeasure;
 
 UWORD AdjRX;
@@ -682,7 +683,10 @@ unsigned char BTpkt;
 //unsigned char BTFQcurr;
 unsigned char BTType;
 unsigned char BTokMsg;
-#define BT_TX_MAX_LEN (28-7-2)
+//#define LEN_OFFSET_INPUT_BUF 28
+#define LEN_OFFSET_INPUT_BUF 32
+
+#define BT_TX_MAX_LEN (LEN_OFFSET_INPUT_BUF-7-2)
 
 unsigned char BTqueueOut[BT_TX_MAX_LEN];
 unsigned char BTqueueOutLen;
@@ -691,14 +695,13 @@ unsigned char BTpktCopy;
 unsigned char BTqueueOutCopy[BT_TX_MAX_LEN];
 unsigned char BTqueueOutCopyLen;
 
-#define LEN_OFFSET_INPUT_BUF 28
-unsigned char BTqueueIn[28];
+unsigned char BTqueueIn[LEN_OFFSET_INPUT_BUF];
 unsigned char BTqueueInLen;
 
-unsigned char BTqueueIn2[28];
+unsigned char BTqueueIn2[LEN_OFFSET_INPUT_BUF];
 unsigned char BTqueueInLen2;
 
-unsigned char BTqueueIn3[28];
+unsigned char BTqueueIn3[LEN_OFFSET_INPUT_BUF];
 unsigned char BTqueueInLen3;
 struct _BTFLAGS
 {
@@ -834,6 +837,7 @@ void InitModem(void)
     DataB0.Tmr3DoneMeasureFq1Fq2 = 0;
     //DataB0.Time3JustDone = 0;
     DataB0.Tmr3DoMeausreFq1_Fq2 = 0;
+    DataB0.Tmr3Run = 0;
     DataB0.Timer3OutSyncRQ = 0;
     // 1 = round robin on FQ1->Fq2->Fq3
     // 0 = working on FQ1 only
@@ -1724,7 +1728,7 @@ SEND_BT:
             // returning from call back 0 will block command's processing 
             if (BTqueueOutLen < BT_TX_MAX_LEN) // enought in output buffer needs to send data to CubSat
             {
-                TMR0ON = 0;
+                //TMR0ON = 0;
                 BTpkt = PCKT_DATA;
 #ifndef NON_STANDART_MODEM                
                 if (DataB0.TransmitESC)
@@ -2020,6 +2024,7 @@ MAIN_INT:
                 if (BTStatus & 0x40)
                 {
                     Main.ExtInterrupt = 1;
+                    DataB0.RXPktIsBad = 1;
                 }    
             }
 
@@ -2055,7 +2060,7 @@ MAIN_INT:
                         DataB0.RXLoopAllowed = 1;
 
                         SwitchToRXdata();
-                        //putch('=');
+
                         if (!(ATCMD & MODE_CONNECT)) // connection was not established == earth get responce from luna
                         {
                             SetTimer0(DELAY_BTW_NEXT_DIAL); // 0x0000 == 4 sec till next attempt for earth to dial luna
@@ -2205,6 +2210,7 @@ INIT_TX:
                                 // interrupt for some reason was missed
                                 DataB0.Tmr3DoMeausreFq1_Fq2 = 1;
                                 SetTimer3(0);
+                                DataB0.Tmr3Run = 0;
                                 goto MAIN_INT;
                             }
                             goto TIMING_CHECK;
@@ -2377,19 +2383,20 @@ SEND_PKT_DIAL:
                 {
 #ifdef DEBUG_LED_CALL_EARTH
                     if (Main.PingRQ || Main.PingRSPRQ)
-                    {
-                         if (BTqueueOutLen == 0)   // only when nothing in BT output queue
-                         {
-                             BTqueueOut[0] = 'p'; BTqueueOut[1] = 'i';BTqueueOut[2] = 'n';BTqueueOut[3] = 'g';
-                             //BTqueueOut[0] = 'e';BTqueueOut[1] = 'a';BTqueueOut[2] = 'r';BTqueueOut[3] = 'z';
-                             Main.PingRQ = 0;
-                             Main.PingRSPRQ = 0;
-                             goto SEND_PKT_TX_MODE;
-                             
-                         }
-                    }
+                    //{
+                    //     if (BTqueueOutLen == 0)   // only when nothing in BT output queue
+                    //     {
+                    //         BTqueueOut[0] = 'p'; BTqueueOut[1] = 'i';BTqueueOut[2] = 'n';BTqueueOut[3] = 'g';
+                    //         //BTqueueOut[0] = 'e';BTqueueOut[1] = 'a';BTqueueOut[2] = 'r';BTqueueOut[3] = 'z';
+                    //         Main.PingRQ = 0;
+                    //         Main.PingRSPRQ = 0;
+                    //         goto SEND_PKT_TX_MODE;
+                    //         
+                    //     }
+                    //}
 #else
                     if (Main.PingRSPRQ)
+#endif
                     {
                          if (BTqueueOutLen == 0)   // only when nothing in BT output queue
                          {
@@ -2408,8 +2415,6 @@ SEND_PKT_DIAL:
                              ATCMD |= SOME_DATA_OUT_BUFFER;
                          }
                     }
-#endif
-
                 }
                 else                           // responce to earth was not send from luna
                 {
@@ -3420,6 +3425,22 @@ SEND_CONNECT:
         else if (MyPacket->Type == 'p') // responce on ping packet
         {
             //Main.PingRQ = 1;
+            ATCMD |= MODE_CONNECT;
+           if (UnitFrom)
+           {
+                Main.SendWithEsc = 1;
+                putch(UnitFrom);
+                if (SendCMD)
+                    putch(SendCMD);
+                ptrMy = &BTqueueIn[7] ;
+                while(ilen>0)
+                {
+                    putch(*ptrMy);
+                    ptrMy++;
+                    ilen--;
+                }
+                putch(UnitFrom);
+           }
         }
         ATCMD |= MODE_CONNECT;
         
@@ -3678,7 +3699,7 @@ INIT_FQ_RX:
     for (i = 0; i< bret; i++)
     {
          bByte = GetBTbyte();
-         if (i < 28)
+         if (i < LEN_OFFSET_INPUT_BUF)
          {
              ptrMy[i] = bByte;
          }
@@ -3744,8 +3765,8 @@ SKIP_SWITCH:
     BTCE_high(); // Chip Enable Activates RX or TX mode (now RX mode) 
          
     // next packet ready to receive (on next frequency) - now prcocessing  
-    if (bret > 28)
-        bret = 28;
+    if (bret > LEN_OFFSET_INPUT_BUF)
+        bret = LEN_OFFSET_INPUT_BUF;
 
     if (BTokMsg == 0xff) // if paket was not recevet yet correctly (i.e. FQ1 not evaluated, or FQ1 was bad, or FQ1 FQ2 was bad)
     {
@@ -3817,7 +3838,7 @@ ADJUST_TMR3:
             // result stored in 1 then CRC recalulation on 1 
             // 3. attempt to find matchiong size of any 1-2 or 2-3 or 3-1
             // reported len will be 2 bytes less (CRC) then original recieved len (28)
-            if ((BTqueueInLen == 28) && (BTqueueInLen2 == 28) && (BTqueueInLen3 == 28)) // all 3 matched size
+            if ((BTqueueInLen == LEN_OFFSET_INPUT_BUF) && (BTqueueInLen2 == LEN_OFFSET_INPUT_BUF) && (BTqueueInLen3 == LEN_OFFSET_INPUT_BUF)) // all 3 matched size
             {
                 BTokMsg = BTFix3();
                 //BTokMsg = 0x80  | BTFix3();
@@ -3828,13 +3849,13 @@ ADJUST_TMR3:
                 }
                 //BTokMsg = 0x80  | CheckPacket(BTqueueIn, BTqueueInLen);
             }
-            else if ((BTqueueInLen == 28) && (BTqueueInLen2 == 28)) // all 2 matched size FQ1 & FQ2
+            else if ((BTqueueInLen == LEN_OFFSET_INPUT_BUF) && (BTqueueInLen2 == LEN_OFFSET_INPUT_BUF)) // all 2 matched size FQ1 & FQ2
             {
             }
-            else if ((BTqueueInLen == 28) && (BTqueueInLen3 == 28)) // all 2 matched size FQ1 & FQ3
+            else if ((BTqueueInLen == LEN_OFFSET_INPUT_BUF) && (BTqueueInLen3 == LEN_OFFSET_INPUT_BUF)) // all 2 matched size FQ1 & FQ3
             {
             }
-            else if ((BTqueueInLen2 == 28) && (BTqueueInLen3 == 28)) // all 3 matched size FQ2 & FQ3
+            else if ((BTqueueInLen2 == LEN_OFFSET_INPUT_BUF) && (BTqueueInLen3 == LEN_OFFSET_INPUT_BUF)) // all 3 matched size FQ2 & FQ3
             {
             }
         }
@@ -4055,6 +4076,7 @@ SEND_GOOD:      BTbyteCRC(BTqueueOutCopy[i]);
                     // SYNC_DEBUG 1 set the same value and in TransmitBTdata to have perfect sync
                     //Tmr1LoadLowCopy = 0x97ed;
                     //TMR1ON = 1; // start temporary stoped timer (if it was stopped!)
+                    DistMeasure.TXPeriod = Tmr1LoadLowCopy; 
                 }
             }
 #ifdef DEBUG_SIM
@@ -4075,7 +4097,7 @@ TRANSMIT_ON_TMR1_INT:
 void SwitchToRXdata(void)
 {
     BTCE_low(); // Chip Enable Activates RX or TX mode (now disable)
-    BTType = 1; // type RX
+    
 
     PORT_AMPL.BT_TX = 0;              // off TX amplifier
     nop();
@@ -4117,6 +4139,7 @@ void SwitchToRXdata(void)
 
     INT0_FLG = 0;
     INT0_ENBL = 1;
+    BTType = 1; // type RX
     BTCE_high(); // Chip Enable Activates RX or TX mode (now RX mode) 
     //BTType &= 0xfd; // 0x02 // clean TX mode
     //BTType |= 0x01; // set RX mode
@@ -4288,7 +4311,8 @@ void SetupBT(unsigned char SetupBtMode)
                        //           0 Pipe not used 1 = 1 byte à32 = 32 bytes
                        //           for TX length defined by amount bytes clocked to RF24l01+
        SendBTbyte(0x31); // 0011  0001 command W_REGISTER to register 10001 == RX_PW_P0
-       SendBTbyte(32-4);  // data = 32 byte payload will be preambul+addr1+addr2+addr3 
+       //SendBTbyte(32-4);  // data = 32 byte payload will be preambul+addr1+addr2+addr3
+       SendBTbyte(32);  // data = 32 byte payload will be preambul+addr1+addr2+addr3 
        bitset(PORT_BT,Tx_CSN);
 /*
        bitclr(PORT_BT,Tx_CSN); // SPI Chip Select // pipe 1
