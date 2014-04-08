@@ -1620,6 +1620,7 @@ TMR0_DONE:
                                  DistMeasure.RXaTmr1H = INTTimer1HCount;
                                  DistMeasure.RXaTmr1 = INTTimer1;
                              }
+                             // SYNC_DEBUG 8:  skip adjust the TMR3
                              DataB0.Timer3Ready2Sync = 1;
                          }
                          else 
@@ -1669,7 +1670,7 @@ IGNORE_BAD_PKT:         DataB0.RXPktIsBad = 1;
                                 Tmr3LoadLowCopy += 3;// difference (btw start and stop timer) in ofset from begining of a interrupt routine 
                                 // SYNC_DEBUG 1 set the same value and in TransmitBTdata to have perfect sync
                                 // SYNC_DEBUG 2 set different value in both to have out of sync case
-                                //Tmr3LoadLowCopy = 0x97dd;//0x97ed;
+                                //Tmr3LoadLowCopy = 0x977b;//0x97ed;
                                 Tmr3LoadLow = Tmr3LoadLowCopy;//+0x30;//0x36;
                                 
                                 
