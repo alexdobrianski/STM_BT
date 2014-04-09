@@ -3186,6 +3186,16 @@ unsigned char BTFixlen(unsigned char*MyData, unsigned char iLen)
        while(i<5);
        return 0xff; 
 FIND_NONPRT:
+#if 1
+       if (FqRXCount == 0)
+           T2Byte2 = i;
+       else if (FqRXCount == 1)
+           T2Byte2 += i<<4;
+       else
+           T2Byte3=i;
+#endif
+       if (i > 1)
+           T2Byte1=i;
        i -=3; // that will be byte shift offset
        if (i & 0x80) // negative
        {
@@ -3307,6 +3317,10 @@ unsigned char BTFix3(void)
     unsigned char iCrc = 26;
     CRCcmp=0;
     CRC=0xffff;   
+#if 1
+    if (T2Byte2 == 0)
+       CRC=0xffff;
+#endif
 
     /*for (i = 0; i < 4; i++)
     {
@@ -3773,6 +3787,18 @@ INIT_FQ_RX:
     
     // TBD: output data as it is over com2 with speed at least 150000 bits/sec - ground station only
     i = BTFixlen(ptrMy, bret); // if it is posible to fix packet and packet was fixed i == 0
+#if 1
+    if (i==0)
+    {
+                if (WasRXCount == 0)
+                   T2Count1++;
+                else if (WasRXCount == 1)
+                   T2Count2++;
+                else
+                   T2Count3++;
+    }
+#endif
+
     if (!DataB0.Tmr3DoneMeasureFq1Fq2)  // FQ1-FQ2 measurements was not done yet
     {
 
@@ -3782,10 +3808,6 @@ INIT_FQ_RX:
                 goto LOOKS_GOOD;
             // message looks bad on FQ1 == continue to listen on F1
             BTCE_high(); // Chip Enable Activates RX or TX mode (now RX mode) 
-#if 1
-            T2Byte1++;
-#endif
-
             return 0;
         }
         else if (FqRXCount == 1) 
@@ -3853,18 +3875,6 @@ SKIP_SWITCH:
         {
             if (CheckPacket(ptrMy, bret) == 0)    // now possible to do CRC check ???
             {
-
-#if 1
-    //if (i==0)
-    {
-                if (WasRXCount == 0)
-                   T2Count1++;
-                //else if (WasRXCount == 1)
-                //   T2Count2++;
-                //else
-                //   T2Count3++;
-    }
-#endif
                 if (WasRXCount == 0)      // set OK messaghe only on FQ1
                 {
                     DataB0.RXMessageWasOK = 1;
@@ -3882,6 +3892,7 @@ SKIP_SWITCH:
                         FqRXRealCount = 1; 
                         DataB0.Timer3OutSyncRQ =0;
                         DataB0.Timer3Ready2Sync = 0;
+
                     }    
                 }
 
@@ -3907,8 +3918,8 @@ ADJUST_TMR3:
         {
             if (CheckPacket(ptrMy, bret) == 0)
             {
-#if 1
-    //if (i==0)
+#if 0
+    if (i==0)
     {
                 if (WasRXCount == 0)
                    T2Count1++;
@@ -3928,12 +3939,10 @@ ADJUST_TMR3:
     }
     
     // huck - but who cares? = len of a packet in offset of 28 
+    if (i)
+        bret = 0;
+    ptrMy[LEN_OFFSET_INPUT_BUF] = bret;
 
-    ptrMy[LEN_OFFSET_INPUT_BUF] = bret;;
-
-#if 1
-                //T2Byte1++;
-#endif
 
 
     if (WasRXCount == 2) // recevie over FQ3
@@ -3955,6 +3964,10 @@ ADJUST_TMR3:
 
                 if (BTokMsg == 0)
                 {
+#if 1
+                    T2Byte1++;
+#endif
+
                     OutSyncCounter = 250; // 2.5 sec no packets == switch for out of sync
                     //AdjTimer3();
 
@@ -4086,7 +4099,7 @@ void TransmitBTdata(void)
 #ifndef ERROR_IN_PK_1
             BTbyteCRC(BTqueueOutCopy[i]);
 #else
-            if ((BTqueueOutCopy[0] == 'P') || (BTqueueOutCopy[0] == 'p'))
+            if ((BTqueueOutCopy[0] != 'P') && (BTqueueOutCopy[0] != 'p'))
                 goto SEND_GOOD;
             if (i == 0)
             {
@@ -4347,22 +4360,6 @@ void SetupBT(unsigned char SetupBtMode)
        SendBTbyte(00);  // 00 0 0 0 0 0 0 all ack on all pipes are disabled
        bitset(PORT_BT,Tx_CSN);
 
-       /////////////////////////////////////////////////////////////////////////////////////////////////
-       // for case very slow communication
-       //  pipe preamble adr1 adr2 adr3 dat1 dat2 dat3 dat4 dat5 dat6 dat7 dat8       mean  len TX len RX
-       //    1     AA   |  AA   AA   00|  AA   AA   AA   00   AA   AA   AA   00        = 0    8      4
-       //    2     AA   |  AA   AA   FF|  AA   AA   AA   FF   AA   AA   AA   FF        = 1    8      4
-       //    3     AA   |  AA   AA   AA|  AA   AA   AA  <byte>AA   AA   AA   <byte>    =<byte>8      4 
-       //    4     AA   |  AA   AA   C0|  AA   AA   AA   C0  <byte>AAAAAAC0<byte>      =<byte>10     5
-       //////////////////////////////////////////////////////////////////////////////////////////////////
-       // sequence for transmitting is:
-       // (a) pipe3 
-       // (b) pipe1|pipe2|pipe1|pipe2|pipe1|pipe2|pipe1|pipe2
-       // (c) pipe4
-       // byte receved on pipe 3 must match byte receved on pipe4 and concatenated byte over pipe1+pipe2
-       // error correction by best of 3
-       // receving paket on pipe 1 mean receiving 0
-       // receving paket on pipe 2 mean receving 1
        //////////////////////////////////////////////////////////////////////////////////////////////////
        bitclr(PORT_BT,Tx_CSN); // SPI Chip Select // pipe 0
        SendBTbyte(0x22); // 0010  0011 command W_REGISTER to register 00010 == EN_RXADDR
@@ -4390,14 +4387,16 @@ void SetupBT(unsigned char SetupBtMode)
 
        bitclr(PORT_BT,Tx_CSN);
        SendBTbyte(0x26); // 0010  0110 command W_REGISTER to register 00110 == RF_SETUP
-       //SendBTbyte(0b00100110);  // 0 - continues carrier; 0; 1(0-force PLL)0 - 250 kbs;11 - 0dBm ; 0
-                                // Only 000          - allowed, (001 and it is twice time of the TX packet) 
-                                //         0         - Force PLL lock signal. Only used in test 
-                                //          0        - Air Data Rate 1Mbps (‘1’ – 2Mbps)
-                                //           11      - Set RF output power in TX mode '00' – -18dBm '01' – -12dBm '10' – -6dBm '11' – 0dBm
-                                //             0     - Setup LNA gain The LNA gain makes it possible to reduce 
-                                //                     the current consumption in RX mode with 0.8mA at the cost of
-                                //                     1.5dB reduction in receiver sensitivity
+                         // CONT_WAVE 0          R/W Enables continuous carrier transmit when high.
+                         // Reserved   0         R/W Only '0' allowed
+                         // RF_DR_LOW   0        R/W Set RF Data Rate to 250kbps. See RF_DR_HIGH for encoding.
+                         // PLL_LOCK     0       R/W Force PLL lock signal. Only used in test
+                         // RF_DR_HIGH     0     R/W Select between the high speed data rates. This bit 
+                         //                          is don’t care if RF_DR_LOW is set.
+                         //                          Encoding:‘00’ – 1Mbps ‘01’ – 2Mbps ‘10’ – 250kbps ‘11’ – Reserved
+                         // RF_PWR          11   R/W Set RF output power in TX mode '00' – -18dBm '01' – -12dBm '10' – -6dBm '11' – 0dBm
+                         // Obsolete          0  Don’t care
+                                //
        SendBTbyte(0b00000110);
        bitset(PORT_BT,Tx_CSN);
  
