@@ -3086,15 +3086,20 @@ void BTbyteCRC(unsigned char bByte)
     wCRCupdt(bByte);
 }
 unsigned char CheckPacket(unsigned char*MyData, unsigned char iLen)
-{
+{  
+    unsigned char PktNumb;
     unsigned char i;
-    unsigned char iCrc = 26;
+    unsigned char iCrc = iLen;//26;
     CRCcmp=0;
     CRC=0xffff;
     FSR_REGISTER = MyData;
     for (i = 0; i < iCrc; i++)
     {
-        wCRCupdt(PTR_FSR);
+        if (i != 4) // packet 0;1;2 added last
+            wCRCupdt(PTR_FSR);
+        else
+            PktNumb = PTR_FSR;
+
         if (i == PACKET_LEN_OFFSET)
         {
             if (PTR_FSR<= BT_TX_MAX_LEN)
@@ -3105,29 +3110,22 @@ unsigned char CheckPacket(unsigned char*MyData, unsigned char iLen)
 
         FSR_REGISTER++;
     }
+    wCRCupdt(PktNumb);
     CRCcmp = ((((UWORD)PTR_FSR))<<8); FSR_REGISTER++;
     CRCcmp += ((UWORD)PTR_FSR);
     if (CRC == CRCcmp)
-    {
-//#if 0
-//            if (RXreceiveFQ == 0)
-//            {
-//            }
-//            else if (RXreceiveFQ == 1)
-//               putch('1');
-//            else if (RXreceiveFQ == 2)
-//               putch('2');
-//#endif
         return 0;
-    }
+
 RETURN_ERROR:
     return 0xff;
-
 }
+
+// 
 unsigned char BTFixlen(unsigned char*MyData, unsigned char iLen)
 {
    unsigned char i;
    unsigned char j;
+   unsigned char res;
    
    unsigned char bByte;
    unsigned char bByte1;
@@ -3154,7 +3152,7 @@ unsigned char BTFixlen(unsigned char*MyData, unsigned char iLen)
                 FSR_REGISTER++;
                 if ((PTR_FSR &0xf8) == 0xc0)
                 {
-                    iShift = 2;
+                    iShift = 6;
                     goto FIND_NONPRT;
                 }
            }
@@ -3183,8 +3181,8 @@ unsigned char BTFixlen(unsigned char*MyData, unsigned char iLen)
            }
            i++;
        }
-       while(i<5);
-       return 0xff; 
+       while(i<10);
+       return 0; 
 FIND_NONPRT:
 #if 1
        if (FqRXCount == 0)
@@ -3193,10 +3191,12 @@ FIND_NONPRT:
            T2Byte2 += i<<4;
        else
            T2Byte3=i;
-#endif
        if (i > 1)
            T2Byte1=i;
+#endif
+
        i -=3; // that will be byte shift offset
+       res = i;
        if (i & 0x80) // negative
        {
            FSR_REGISTER=&MyData[iLen];
@@ -3216,19 +3216,26 @@ FIND_NONPRT:
        }
        else if (i>0)
        {
-           FSR1 = FSR_REGISTER; FSR1-=i;
-           i = iLen - i -3;
+           FSR1 = MyData;
+           FSR_REGISTER = FSR1+i;
+           j = i;
+           i = iLen - i -1;
            do
            {
               INDF1 = PTR_FSR; FSR_REGISTER++; FSR1++;
            }
            while(--i);
+           do
+           {
+               INDF1 = 0;FSR1++;
+           }while(--j);
        }
        if (iShift)
        {
+           //j++;
            FSR_REGISTER=&MyData[1];
            bByte = 0xaa;
-           i = iLen-1;
+           i = iLen-res - 1;
            do
            {
                bByte1 = PTR_FSR;
@@ -3242,7 +3249,7 @@ FIND_NONPRT:
 #else
                    pizdec
 #endif             
-                   bByte = bByte1 & 0x3;
+                   bByte = bByte1 & 0x03;
                    bByte1 &= 0xfc;
                }
                else if (iShift == 4)
@@ -3302,7 +3309,7 @@ FIND_NONPRT:
 */
    }
 
-   return 0; 
+   return iLen - res; 
 }
 unsigned char BTFix3(void)
 {
@@ -3314,13 +3321,13 @@ unsigned char BTFix3(void)
     unsigned char bByte3;
     unsigned char mask;
     unsigned char i;
-    unsigned char iCrc = 26;
+    unsigned char iCrc = BTqueueInLen;
     CRCcmp=0;
     CRC=0xffff;   
-#if 1
-    if (T2Byte2 == 0)
-       CRC=0xffff;
-#endif
+    if (iCrc < BTqueueInLen2)
+        iCrc = BTqueueInLen2;
+    if (iCrc < BTqueueInLen3)
+        iCrc = BTqueueInLen3;
 
     /*for (i = 0; i < 4; i++)
     {
@@ -3337,19 +3344,19 @@ unsigned char BTFix3(void)
     for (i = 0; i < iCrc; i++)
     {
         bByte1 = *ptr1;
-        if (i == 4) // offset of a FQ because this is a FQ1 then it easy to set
+        if (i != 4)
         {
-            //if (ATCMD & MODE_CONNECT)
-            //    bByte1 = OpponentFreq1;
-            goto CONTINUE;
-        }
-        mask = (bByte1 ^ *ptr2);
-        bByte1 &= mask ^ 0xff; 
-        bByte1 |= mask & (*ptr3);
-CONTINUE:
-        *ptr1 = bByte1;
+            mask = (bByte1 ^ *ptr2);
+            bByte1 &= mask ^ 0xff; 
+            bByte1 |= mask & (*ptr3);
+            *ptr1 = bByte1;
 
-        wCRCupdt(bByte1);
+            wCRCupdt(bByte1);
+        }
+        else
+        {
+            *ptr1 = 0;
+        }
         if (i == PACKET_LEN_OFFSET)
         {
             if (bByte1<= BT_TX_MAX_LEN)
@@ -3360,6 +3367,7 @@ CONTINUE:
 
         ptr1++;ptr2++;ptr3++;
     }
+    wCRCupdt(0);
     CRCcmp = ((((UWORD)*ptr1))<<8); ptr1++;
     CRCcmp += ((UWORD)*ptr1);
     if (CRC == CRCcmp)
@@ -3756,6 +3764,8 @@ INIT_FQ_RX:
         BTFlags.RxInProc = 1;
 #if 1
         TMR2Count++;
+        T2Byte2 = 0;
+        T2Byte3=0;
 #endif
     }
     else if (FqRXCount == 1) // received over FQ2
@@ -3786,9 +3796,10 @@ INIT_FQ_RX:
 
     
     // TBD: output data as it is over com2 with speed at least 150000 bits/sec - ground station only
+    // return len of the packet
     i = BTFixlen(ptrMy, bret); // if it is posible to fix packet and packet was fixed i == 0
 #if 1
-    if (i==0)
+    if (i)
     {
                 if (WasRXCount == 0)
                    T2Count1++;
@@ -3804,7 +3815,7 @@ INIT_FQ_RX:
 
         if (FqRXCount == 0) 
         {
-            if (i == 0)
+            if (i)
                 goto LOOKS_GOOD;
             // message looks bad on FQ1 == continue to listen on F1
             BTCE_high(); // Chip Enable Activates RX or TX mode (now RX mode) 
@@ -3812,7 +3823,7 @@ INIT_FQ_RX:
         }
         else if (FqRXCount == 1) 
         {
-            if (i == 0)
+            if (i)
             {
                 DataB0.Tmr3DoneMeasureFq1Fq2 = 1; // that set TMR3 to properly switch RX 
                 goto LOOKS_GOOD;                  // from that moment RX switched by TMR3
@@ -3871,7 +3882,7 @@ SKIP_SWITCH:
 
     if (BTokMsg == 0xff) // if paket was not recevet yet correctly (i.e. FQ1 not evaluated, or FQ1 was bad, or FQ1 FQ2 was bad)
     {
-        if (i == 0)  // if packet possible to fix (and/or it was fixed by shift)
+        if (i)  // if packet possible to fix (and/or it was fixed by shift)
         {
             if (CheckPacket(ptrMy, bret) == 0)    // now possible to do CRC check ???
             {
@@ -3919,7 +3930,7 @@ ADJUST_TMR3:
             if (CheckPacket(ptrMy, bret) == 0)
             {
 #if 0
-    if (i==0)
+    if (i)
     {
                 if (WasRXCount == 0)
                    T2Count1++;
@@ -3939,9 +3950,9 @@ ADJUST_TMR3:
     }
     
     // huck - but who cares? = len of a packet in offset of 28 
-    if (i)
-        bret = 0;
-    ptrMy[LEN_OFFSET_INPUT_BUF] = bret;
+    //if (i)
+    //    bret = 0;
+    ptrMy[LEN_OFFSET_INPUT_BUF] = i;//bret;
 
 
 
@@ -3957,7 +3968,7 @@ ADJUST_TMR3:
             // result stored in 1 then CRC recalulation on 1 
             // 3. attempt to find matchiong size of any 1-2 or 2-3 or 3-1
             // reported len will be 2 bytes less (CRC) then original recieved len (28)
-            if ((BTqueueInLen == LEN_OFFSET_INPUT_BUF) && (BTqueueInLen2 == LEN_OFFSET_INPUT_BUF) && (BTqueueInLen3 == LEN_OFFSET_INPUT_BUF)) // all 3 matched size
+            if ((BTqueueInLen > 0) && (BTqueueInLen2 > 0) && (BTqueueInLen3 >0)) // all 3 matched size
             {
                 BTokMsg = BTFix3();
                 //BTokMsg = 0x80  | BTFix3();
@@ -3974,13 +3985,13 @@ ADJUST_TMR3:
                 }
                 //BTokMsg = 0x80  | CheckPacket(BTqueueIn, BTqueueInLen);
             }
-            else if ((BTqueueInLen == LEN_OFFSET_INPUT_BUF) && (BTqueueInLen2 == LEN_OFFSET_INPUT_BUF)) // all 2 matched size FQ1 & FQ2
+            else if ((BTqueueInLen >0 ) && (BTqueueInLen2 > 0)) // all 2 matched size FQ1 & FQ2
             {
             }
-            else if ((BTqueueInLen == LEN_OFFSET_INPUT_BUF) && (BTqueueInLen3 == LEN_OFFSET_INPUT_BUF)) // all 2 matched size FQ1 & FQ3
+            else if ((BTqueueInLen > 0) && (BTqueueInLen3 > 0)) // all 2 matched size FQ1 & FQ3
             {
             }
-            else if ((BTqueueInLen2 == LEN_OFFSET_INPUT_BUF) && (BTqueueInLen3 == LEN_OFFSET_INPUT_BUF)) // all 3 matched size FQ2 & FQ3
+            else if ((BTqueueInLen2 > 0) && (BTqueueInLen3 > 0)) // all 3 matched size FQ2 & FQ3
             {
             }
         }
@@ -4089,7 +4100,7 @@ void TransmitBTdata(void)
         //BTbyteCRC(Addr2);  // addr2 offset 2
         //BTbyteCRC(Addr3);  // addr3   // done for a case of missing first preambul+addr offset 3
         BTbyteCRC(BTpktCopy);  // sequence/packet offset 3
-        BTbyteCRC(FqTXCount);  // current frequency offset 4
+        SendBTbyte(FqTXCount);//BTbyteCRC(FqTXCount);  // current frequency offset 4
         BTbyteCRC(BTqueueOutCopyLen);  // length   offset 5
         
         for (i = 0; i <BTqueueOutCopyLen;i++)
@@ -4134,6 +4145,7 @@ SEND_GOOD:      BTbyteCRC(BTqueueOutCopy[i]);
             }
 #endif
         }
+        wCRCupdt(FqTXCount);
         SendBTbyte(CRC>>8);  
         SendBTbyte(CRC&0x00ff);  
         SendBTbyte(0xff);  
@@ -4404,7 +4416,9 @@ void SetupBT(unsigned char SetupBtMode)
        SendBTbyte(0x30); // 0011  0000 command W_REGISTER to register 10000 == TX_ADDR_P0
        SendBTbyte(Addr1);   
        SendBTbyte(Addr2);   
-       SendBTbyte(Addr3);   
+       SendBTbyte(Addr3);
+       SendBTbyte(0xaa);   
+       SendBTbyte(0xaa);   
        bitset(PORT_BT,Tx_CSN);
 
        bitclr(PORT_BT,Tx_CSN); // SPI Chip Select // address 
