@@ -267,7 +267,7 @@ see www.adobri.com for communication protocol spec
 //   for a blinking LED behive like CUBESAT/CRAFT
 //   it is waiting for connection, wait for p/kt, and when pkt is Ok it send back to earth reply packet, and blinks
 ///////////////////////////////////////////////////////////////
-#define DEBUG_LED_CALL_EARTH
+//#define DEBUG_LED_CALL_EARTH
 // for test sequence 
 //// "5atsx=...CBabbcgg
 // atdtl
@@ -276,7 +276,7 @@ see www.adobri.com for communication protocol spec
 ///////////////////////////////////////////////////////////////
 //   for a blinking LED behive like Ground Station, it is constantly sends pktm if received pkt, then it blinks
 ///////////////////////////////////////////////////////////////
-//#define DEBUG_LED_CALL_LUNA
+#define DEBUG_LED_CALL_LUNA
 // for test sequence 
 // "5atsx=...CBabbcgg
 // atdtl
@@ -704,14 +704,23 @@ unsigned char BTqueueInLen2;
 
 unsigned char BTqueueIn3[LEN_OFFSET_INPUT_BUF];
 unsigned char BTqueueInLen3;
+
+UWORD CRC;
+UWORD CRC16TX;
+#pragma rambank RAM_BANK_0
 struct _BTFLAGS
 {
     unsigned BT3fqProcessed:1;
     unsigned BTFirstInit:1;
     unsigned RxInProc:1;
+    unsigned CRCM8F:1;
 } BTFlags;
 
-UWORD CRC;
+unsigned char CRCM8TX;
+#pragma rambank RAM_BANK_1
+
+unsigned CRCM8Cmp;
+
 UWORD CRCcmp;
 UWORD TMR2Count;
 
@@ -3079,13 +3088,47 @@ void ShowMessage(void)
 
 #include "commc8.h"
 
+void BTbyteCRCAA(unsigned char bByte)
+{
+
+    wCRCupdt(bByte);
+    SendBTbyte(bByte^0xAA);  
+#ifdef      _18F2321_18F25K20
+    if (!BTFlags.CRCM8F)
+        CRCM8TX = (CRCM8TX ^ bByte) * 251;
+    else
+        CRCM8TX = (CRCM8TX ^ bByte) * 239;
+    #asm
+    BTG BTFlags,3,1
+    #endasm
+#else
+    pizdec
+    if (!BTFlags.CRCM8F)
+    {
+
+        CRCM8TX = WREG * 251;
+        BTFlags.CRCM8F = 1;
+    }
+    else
+    {
+        CRCM8TX = WREG * 239;
+        BTFlags.CRCM8F = 0;
+    }
+#endif             
+    
+}
+void BTbyteCRC55(unsigned char bByte)
+{
+    //wCRCupdt(bByte);
+    SendBTbyte(bByte^0x55);  
+}
 
 void BTbyteCRC(unsigned char bByte)
 {
-    SendBTbyte(bByte);  
     wCRCupdt(bByte);
+    SendBTbyte(bByte);  
 }
-unsigned char CheckPacket(unsigned char*MyData, unsigned char iLen)
+unsigned char CheckPacket(unsigned char*MyData, unsigned char iLen)  // used WasRXCount as a number of the RF Ch
 {  
     unsigned char PktNumb;
     unsigned char i;
@@ -3093,26 +3136,65 @@ unsigned char CheckPacket(unsigned char*MyData, unsigned char iLen)
     CRCcmp=0;
     CRC=0xffff;
     FSR_REGISTER = MyData;
+    //                               0  1  2  3  4  5 6--
+    // new ctrl packet format is  : AA AA AA F0 CH LN CTRL CRC16 CRCM8
+    // new data packet format is  : AA AA AA F1 CH LN DATA CRC16 CRCM8
+    //   RF Ch1 from len everything is ^ 0xAA
+    //   RF Ch2 from len everything is ^ 0x55
+    // restoration of the packet done by 
     for (i = 0; i < iCrc; i++)
     {
         if (i != 4) // packet 0;1;2 added last
+        {
+            if (i>=5)
+            {
+                if (WasRXCount == 0)
+                    PTR_FSR ^= 0xaa;
+                else //if (WasRXCount == 1)
+                    PTR_FSR ^= 0x55;
+                //else // if (WasRXCount == 2)
+                //    PTR_FSR ^= 0x55;
+            }   
             wCRCupdt(PTR_FSR);
+            if (i == PACKET_LEN_OFFSET)
+            {
+                if (PTR_FSR<= BT_TX_MAX_LEN)
+                    iCrc = PTR_FSR + PACKET_LEN_OFFSET+1;// + sizeof(PacketStart);
+                else
+                    goto RETURN_ERROR;
+            }
+        }
         else
             PktNumb = PTR_FSR;
 
-        if (i == PACKET_LEN_OFFSET)
-        {
-            if (PTR_FSR<= BT_TX_MAX_LEN)
-                iCrc = PTR_FSR + PACKET_LEN_OFFSET+1;// + sizeof(PacketStart);
-            else
-                goto RETURN_ERROR;
-        }
-
         FSR_REGISTER++;
     }
-    wCRCupdt(PktNumb);
+    // from now no CRC packages on that field (ch count)
+    //wCRCupdt(PktNumb);
+    if (WasRXCount == 0)
+        PTR_FSR ^= 0xaa;
+    else //if (WasRXCount == 1)
+        PTR_FSR ^= 0x55;
+    //else // if (WasRXCount == 2)
+    //    PTR_FSR ^= 0x55;
+
     CRCcmp = ((((UWORD)PTR_FSR))<<8); FSR_REGISTER++;
+    if (WasRXCount == 0)
+        PTR_FSR ^= 0xaa;
+    else //if (WasRXCount == 1)
+        PTR_FSR ^= 0x55;
+    //else // if (WasRXCount == 2)
+    //    PTR_FSR ^= 0x55;
+
     CRCcmp += ((UWORD)PTR_FSR);
+    
+    FSR_REGISTER++;
+    if (WasRXCount == 0)
+        PTR_FSR ^= 0xaa;
+    else //if (WasRXCount == 1)
+        PTR_FSR ^= 0x55;
+    //else // if (WasRXCount == 2)
+    //    PTR_FSR ^= 0x55;
     if (CRC == CRCcmp)
         return 0;
 
@@ -3181,7 +3263,7 @@ unsigned char BTFixlen(unsigned char*MyData, unsigned char iLen)
            }
            i++;
        }
-       while(i<10);
+       while(i<11);
        return 0; 
 FIND_NONPRT:
 #if 1
@@ -3286,7 +3368,6 @@ FIND_NONPRT:
            }
            while(--i);
        } 
-
 /*
         if ((MyData[0] == 0xaa) && (MyData[1] == Addr1) && (MyData[2] == Addr2) && (MyData[3] == Addr3))
             return 0xff;
@@ -3308,9 +3389,9 @@ FIND_NONPRT:
         }
 */
    }
-
    return iLen - res; 
 }
+
 unsigned char BTFix3(void)
 {
     unsigned char *ptr1 = BTqueueIn;
@@ -3350,7 +3431,6 @@ unsigned char BTFix3(void)
             bByte1 &= mask ^ 0xff; 
             bByte1 |= mask & (*ptr3);
             *ptr1 = bByte1;
-
             wCRCupdt(bByte1);
         }
         else
@@ -3367,7 +3447,21 @@ unsigned char BTFix3(void)
 
         ptr1++;ptr2++;ptr3++;
     }
-    wCRCupdt(0);
+
+    // now needs to restore additional 3 bytes CRC16 and CRCM8
+    for (i = 0; i < 3; i++)
+    {
+        bByte1 = *ptr1;
+        mask = (bByte1 ^ *ptr2);
+        bByte1 &= mask ^ 0xff; 
+        bByte1 |= mask & (*ptr3);
+        *ptr1 = bByte1;
+        ptr1++;ptr2++;ptr3++;
+    }
+
+    ptr1-=3;
+   
+    //wCRCupdt(0);
     CRCcmp = ((((UWORD)*ptr1))<<8); ptr1++;
     CRCcmp += ((UWORD)*ptr1);
     if (CRC == CRCcmp)
@@ -3377,6 +3471,93 @@ unsigned char BTFix3(void)
 RETURN_ERROR:
     return 0xff;
 }
+
+unsigned char BTFixAA55()
+{
+    unsigned char *ptr1 = &BTqueueIn[5];
+    unsigned char *ptr2 = &BTqueueIn2[5];
+    unsigned char bByte1;
+    unsigned char bByte2;
+    unsigned char bByte3;
+    unsigned char Error;
+    unsigned char NotError;
+    unsigned char i;
+    unsigned char iCrc = BTqueueInLen;
+    CRCcmp=0;
+    CRC=0xffff;   
+    
+
+    if ((BTqueueInLen2 > 0) && (BTqueueInLen3 > 0)) // all 2 matched size FQ2 & FQ3
+    {
+    }
+    else
+    {
+        if (iCrc < BTqueueInLen2)
+            iCrc = BTqueueInLen2;
+        if ((BTqueueInLen > 0) && (BTqueueInLen3 > 0)) // all 2 matched size FQ1 & FQ3
+        {
+            if (BTqueueInLen < BTqueueInLen3)
+                iCrc = BTqueueInLen3;
+            else
+                iCrc = BTqueueInLen;
+            ptr2 = BTqueueIn3[5];
+        }
+    }
+    BTFlags.CRCM8F = 0;
+    for (i = 5; i < iCrc; i++)
+    {
+        bByte1 = *ptr1^0xAA;
+        bByte2 = (*ptr2^0x55);
+        Error = bByte1 ^ bByte2;
+        if (Error != 0xff)
+        {
+            NotError = Error ^ 0xff;
+            //bByte1 = (Error & bByte1) | (((NotError & bByte1) ^ 0xff) ^ NotError); 
+            bByte3 = (Error & bByte1);
+            WREG = (((NotError & bByte1) ^ 0xff) ^ NotError);
+            bByte3 |= WREG;
+            *ptr1 =bByte3 ^ 0xAA;
+            bByte3 = (Error & bByte2);
+            WREG = (((NotError & bByte2) ^ 0xff) ^ NotError);
+            bByte3 |= WREG;
+            *ptr2 = bByte3 ^ 0xAA;
+        }
+        bByte1 = *ptr1;
+        bByte2 = *ptr2;
+#ifdef      _18F2321_18F25K20
+        if (!BTFlags.CRCM8F)
+            CRCM8TX = (CRCM8TX ^ bByte1) * 251;
+        else
+            CRCM8TX = (CRCM8TX ^ bByte1) * 239;
+        #asm
+        BTG BTFlags,3,1
+        #endasm
+#else
+        pizdec
+#endif       
+        if (i == 5)
+        {
+            if (bByte1<= BT_TX_MAX_LEN)
+                iCrc = bByte1 + PACKET_LEN_OFFSET+1+3;
+            else if (bByte2<= BT_TX_MAX_LEN)
+                iCrc = bByte2 + PACKET_LEN_OFFSET+1+3;
+            else
+                goto RETURN_ERROR;
+        }      
+        ptr1++;ptr2++;
+    }
+    // check CRCM8 first - it is 9 cycles per byte
+    if (CRCM8TX == *--ptr1)
+    {
+        // TBD need to check CRC for first message
+    }    
+    else
+    {
+    }
+RETURN_ERROR:
+    return 0xff;
+}
+
 //=========================================================================================================
 //   received data -> to output
 //=========================================================================================================
@@ -3752,7 +3933,7 @@ unsigned char ReceiveBTdata(void)
         // that will continue RX on the same frequency
         return 0;
     }
-    if (FqRXCount == 0) // received over FQ1
+    if (WasRXCount == 0) // received over FQ1
     {
         ptrMy =&BTqueueIn[0];
 INIT_FQ_RX:
@@ -3768,13 +3949,13 @@ INIT_FQ_RX:
         T2Byte3=0;
 #endif
     }
-    else if (FqRXCount == 1) // received over FQ2
+    else if (WasRXCount == 1) // received over FQ2
     {
         ptrMy =&BTqueueIn2[0] ;
         if (!BTFlags.RxInProc)
            goto INIT_FQ_RX;
     }
-    else if (FqRXCount == 2) // received over FQ3
+    else //if (FqRXCount == 2) // received over FQ3
     {
         ptrMy =&BTqueueIn3[0] ;
         if (!BTFlags.RxInProc)
@@ -3884,7 +4065,7 @@ SKIP_SWITCH:
     {
         if (i)  // if packet possible to fix (and/or it was fixed by shift)
         {
-            if (CheckPacket(ptrMy, bret) == 0)    // now possible to do CRC check ???
+            if (CheckPacket(ptrMy, bret) == 0)  //used WasRXCount  // now possible to do CRC check ???
             {
                 if (WasRXCount == 0)      // set OK messaghe only on FQ1
                 {
@@ -3927,7 +4108,7 @@ ADJUST_TMR3:
     {
         if (DataB0.Tmr3DoneMeasureFq1Fq2)
         {
-            if (CheckPacket(ptrMy, bret) == 0)
+            if (CheckPacket(ptrMy, bret) == 0) // used WasRXCount
             {
 #if 0
     if (i)
@@ -3973,27 +4154,28 @@ ADJUST_TMR3:
                 BTokMsg = BTFix3();
                 //BTokMsg = 0x80  | BTFix3();
 
-                if (BTokMsg == 0)
-                {
-#if 1
-                    T2Byte1++;
-#endif
-
-                    OutSyncCounter = 250; // 2.5 sec no packets == switch for out of sync
-                    //AdjTimer3();
-
-                }
                 //BTokMsg = 0x80  | CheckPacket(BTqueueIn, BTqueueInLen);
             }
             else if ((BTqueueInLen >0 ) && (BTqueueInLen2 > 0)) // all 2 matched size FQ1 & FQ2
             {
+                BTokMsg = BTFixAA55();
             }
             else if ((BTqueueInLen > 0) && (BTqueueInLen3 > 0)) // all 2 matched size FQ1 & FQ3
             {
+                BTokMsg = BTFixAA55();
             }
             else if ((BTqueueInLen2 > 0) && (BTqueueInLen3 > 0)) // all 3 matched size FQ2 & FQ3
             {
+                BTokMsg = BTFixAA55();
             }
+            if (BTokMsg == 0)
+            {
+#if 1
+                T2Byte1++;
+#endif
+                OutSyncCounter = 250; // 2.5 sec no packets == switch for out of sync
+            }
+
         }
     }
 DONE_RX:
@@ -4017,7 +4199,6 @@ DONE_RX:
 //===============================================================================================
 void TransmitBTdata(void)
 {
-//#define ERROR_IN_PK_1 1
     // calculation of a transmit time:
     //  10mks after PTX CE high
     //  130mks PLL lock
@@ -4037,7 +4218,7 @@ void TransmitBTdata(void)
     PORT_AMPL.BT_RX = 0;              // off RX amplifier
     nop();
     PORT_AMPL.BT_TX = 1;              // TX amplifier : TBD: is it enought time to start amplifier?
-    CRC = 0xffff;
+    
     if (BTqueueOutLen)
     {
         if (FqTXCount == 0) // send over FQ1
@@ -4083,6 +4264,9 @@ void TransmitBTdata(void)
             BTqueueOutLen = 0;	
 
             BTpktCopy = BTpkt;
+            CRC = 0xffff;
+            CRCM8TX = 0xFF;
+            BTFlags.CRCM8F = 0;
         }
     }
     if (BTqueueOutCopyLen)
@@ -4101,54 +4285,117 @@ void TransmitBTdata(void)
         //BTbyteCRC(Addr3);  // addr3   // done for a case of missing first preambul+addr offset 3
         BTbyteCRC(BTpktCopy);  // sequence/packet offset 3
         SendBTbyte(FqTXCount);//BTbyteCRC(FqTXCount);  // current frequency offset 4
-        BTbyteCRC(BTqueueOutCopyLen);  // length   offset 5
-        
-        for (i = 0; i <BTqueueOutCopyLen;i++)
-        {
+
+// RF ctrl pkt AA AA AA F0 CH LN CTRL CRC16 CRCM8
+// RF data pkt AA AA AA F1 CH LN DATA CRC16 CRCM8
+// from now pkt over FQ1 is ^ B where B=0xAA
+//                   FQ2 is ^ D where D=0x55
+//                   FQ3 is ^ D where D=0x55  
+//  that allow to restore from two packets with B and B (FQ1+FQ2 or FQ1+FQ3) based on formula
+//  A ^ B = C; A ^ D = E; where B ^ D = 1; that allow to detect error by checking C ^ E == 1, restoration by itself done by 
+//  formula  A1 = ((C ^ B) & (B ^ D)) | ((((C ^ B) & (~(B ^ D))) ^ (~(B ^ D)))
+//           A2 = ((E ^ D) & (B ^ D)) | ((((C ^ B) & (~(B ^ D))) ^ (~(B ^ D)))
+// A1 or A2 match confirmed by CRCM8 and then finally by CRC16    
+
 // SYNC_DEBUG 9 - set errors in 3 send packets
 //#define ERROR_IN_PK_1 1
-#ifndef ERROR_IN_PK_1
-            BTbyteCRC(BTqueueOutCopy[i]);
-#else
-            if ((BTqueueOutCopy[0] != 'P') && (BTqueueOutCopy[0] != 'p'))
-                goto SEND_GOOD;
-            if (i == 0)
+        
+        if (FqTXCount ==0)
+        {
+            BTbyteCRCAA(BTqueueOutCopyLen);  // length   offset 5
+
+            for (i = 0; i <BTqueueOutCopyLen;i++)
             {
-               if (FqTXCount == 0)
-               {
+#ifndef ERROR_IN_PK_1
+                BTbyteCRCAA(BTqueueOutCopy[i]);
+#else
+                if ((BTqueueOutCopy[0] != 'P') && (BTqueueOutCopy[0] != 'p'))
+                    goto SEND_GOOD;
+                if (i == 0)
+                {
                     SendBTbyte(0);
                     wCRCupdt(BTqueueOutCopy[i]);
-               }
-               else goto SEND_GOOD;
-            }
-            else if (i == 1)
-            {
-               if (FqTXCount == 1)
-               {
-                   SendBTbyte(0xff);
-                   wCRCupdt(BTqueueOutCopy[i]);
-               }
-               else goto SEND_GOOD;
-            }
-            else if (i == 2)
-            {
-               if (FqTXCount == 2)
-               {
-                   SendBTbyte(0xf0);
-                   wCRCupdt(BTqueueOutCopy[i]);
-               }
-               else goto SEND_GOOD;
-            }
-            else
-            {
-SEND_GOOD:      BTbyteCRC(BTqueueOutCopy[i]);
-            }
+                    goto SEND_GOOD;
+                }
+                else
+                {
+SEND_GOOD:          BTbyteCRCAA(BTqueueOutCopy[i]);
+                }
 #endif
+            }
+            CRC16TX = CRC;
+            CRCM8TX = 0xff;
+
+            WREG=(CRC16TX>>8); WREG^=0xAA;
+            SendBTbyte(WREG);
+            //SendBTbyte((CRC>>8)^0xAA);
+            WREG = (CRC16TX&0x00ff);WREG^=0xAA;
+            SendBTbyte(WREG);
+            //SendBTbyte((CRC&0x00ff)^0xAA);  
+            SendBTbyte(CRCM8TX^0xAA);
         }
-        wCRCupdt(FqTXCount);
-        SendBTbyte(CRC>>8);  
-        SendBTbyte(CRC&0x00ff);  
-        SendBTbyte(0xff);  
+        else if (FqTXCount ==1)
+        {
+            BTbyteCRC55(BTqueueOutCopyLen);  // length   offset 5
+            for (i = 0; i <BTqueueOutCopyLen;i++)
+            {
+#ifndef ERROR_IN_PK_1
+                BTbyteCRC55(BTqueueOutCopy[i]);
+#else
+                if ((BTqueueOutCopy[0] != 'P') && (BTqueueOutCopy[0] != 'p'))
+                    goto SEND_GOOD;
+                if (i == 1)
+                {
+                    SendBTbyte(0xff);
+                    goto SEND_GOOD;
+                }
+                else
+                {
+SEND_GOOD:          BTbyteCRC55(BTqueueOutCopy[i]);
+                }
+#endif
+            } 
+            // was already calculated on TX FQ1
+            WREG=(CRC16TX>>8);WREG^=0x55;
+            SendBTbyte(WREG);
+            //SendBTbyte((CRC>>8)^0x55);
+            WREG = (CRC16TX&0x00ff);WREG^=0x55;
+            SendBTbyte(WREG);
+            //SendBTbyte((CRC&0x00ff)^0x55);  
+            SendBTbyte(CRCM8TX^0x55);
+        }
+        else // if (FqTXCount ==2)
+        {
+            BTbyteCRC55(BTqueueOutCopyLen);  // length   offset 5
+            for (i = 0; i <BTqueueOutCopyLen;i++)
+            {
+#ifndef ERROR_IN_PK_1
+                BTbyteCRC55(BTqueueOutCopy[i]);
+#else
+                if ((BTqueueOutCopy[0] != 'P') && (BTqueueOutCopy[0] != 'p'))
+                    goto SEND_GOOD;
+                if (i == 2)
+                {
+                    SendBTbyte(0xf0);
+                    goto SEND_GOOD;
+                }
+                else
+                {
+SEND_GOOD:          BTbyteCRC55(BTqueueOutCopy[i]);
+                }
+#endif
+            }
+            WREG=(CRC16TX>>8);WREG^=0x55;
+            SendBTbyte(WREG);
+            //SendBTbyte((CRC>>8)^0x55);
+            WREG = (CRC16TX&0x00ff);WREG^=0x55;
+            SendBTbyte(WREG);
+            //SendBTbyte((CRC&0x00ff)^0x55);  
+            SendBTbyte(CRCM8TX^0x55);
+        }
+        // NO CRC - from now CRC is exect for all 3 packages
+        //wCRCupdt(FqTXCount);
+          
         //   max len  header              CRC  end  Len
         i =    32    -6 -2    -1  -BTqueueOutCopyLen;
 #ifdef SAVE_SPACE
@@ -4165,7 +4412,6 @@ SEND_GOOD:      BTbyteCRC(BTqueueOutCopy[i]);
 #endif
         bitset(PORT_BT,Tx_CSN);
 
-    
         SwitchFQ(FqTX); // set current FQX to be transmitted (advance for FqTXCount will be in TMR1)
 
       //if (BTStatus & 0x40)
