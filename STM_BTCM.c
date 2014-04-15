@@ -233,9 +233,9 @@ see www.adobri.com for communication protocol spec
 
 #define TIME_FOR_PACKET 0xff98
 #define TIME_FOR_PACKET0 0xff97
-//#define DELAY_BTW_SEND_PACKET 0xfe03
+#define DELAY_BTW_SEND_PACKET 0xfe03
 //#define DELAY_BTW_SEND_PACKET 0xffa3
-#define DELAY_BTW_SEND_PACKET 0xffd1
+//#define DELAY_BTW_SEND_PACKET 0xffd1
 //#define MAX_TX_POSSIBLE 0xE0bf
 #define MAX_TX_POSSIBLE 0xD8EF
 //#define MIN_TX_POSSIBLE 0xB9AF
@@ -267,7 +267,7 @@ see www.adobri.com for communication protocol spec
 //   for a blinking LED behive like CUBESAT/CRAFT
 //   it is waiting for connection, wait for p/kt, and when pkt is Ok it send back to earth reply packet, and blinks
 ///////////////////////////////////////////////////////////////
-//#define DEBUG_LED_CALL_EARTH
+#define DEBUG_LED_CALL_EARTH
 // for test sequence 
 //// "5atsx=...CBabbcgg
 // atdtl
@@ -276,7 +276,7 @@ see www.adobri.com for communication protocol spec
 ///////////////////////////////////////////////////////////////
 //   for a blinking LED behive like Ground Station, it is constantly sends pktm if received pkt, then it blinks
 ///////////////////////////////////////////////////////////////
-#define DEBUG_LED_CALL_LUNA
+//#define DEBUG_LED_CALL_LUNA
 // for test sequence 
 // "5atsx=...CBabbcgg
 // atdtl
@@ -3597,7 +3597,7 @@ void ProcessBTdata(void)
 #endif
     if (MyPacket->BTpacket == PCKT_DIAL)// (ptrMy[5] & PCKT_DIAL) // receved packet = dial call
     {
-        if ((MyPacket->Type == 'e') || (MyPacket->Type == 'e'))
+        if ((MyPacket->Type == 'e') || (MyPacket->Type == 'l'))
         {
             //          6                          7                  8                  9 
             //BTqueueOut[0] = 'L'/*'l'*/;BTqueueOut[1] = 'u';BTqueueOut[2] = 'n';BTqueueOut[3] = 'a';
@@ -4310,16 +4310,16 @@ void TransmitBTdata(void)
                 BTbyteCRCAA(BTqueueOutCopy[i]);
 #else
                 if ((BTqueueOutCopy[0] != 'P') && (BTqueueOutCopy[0] != 'p'))
-                    goto SEND_GOOD;
+                    goto SEND_GOOD1;
                 if (i == 0)
                 {
                     SendBTbyte(0);
                     wCRCupdt(BTqueueOutCopy[i]);
-                    goto SEND_GOOD;
+                    goto SEND_GOOD1;
                 }
                 else
                 {
-SEND_GOOD:          BTbyteCRCAA(BTqueueOutCopy[i]);
+SEND_GOOD1:          BTbyteCRCAA(BTqueueOutCopy[i]);
                 }
 #endif
             }
@@ -4343,15 +4343,15 @@ SEND_GOOD:          BTbyteCRCAA(BTqueueOutCopy[i]);
                 BTbyteCRC55(BTqueueOutCopy[i]);
 #else
                 if ((BTqueueOutCopy[0] != 'P') && (BTqueueOutCopy[0] != 'p'))
-                    goto SEND_GOOD;
+                    goto SEND_GOOD2;
                 if (i == 1)
                 {
                     SendBTbyte(0xff);
-                    goto SEND_GOOD;
+                    goto SEND_GOOD2;
                 }
                 else
                 {
-SEND_GOOD:          BTbyteCRC55(BTqueueOutCopy[i]);
+SEND_GOOD2:          BTbyteCRC55(BTqueueOutCopy[i]);
                 }
 #endif
             } 
@@ -4373,15 +4373,15 @@ SEND_GOOD:          BTbyteCRC55(BTqueueOutCopy[i]);
                 BTbyteCRC55(BTqueueOutCopy[i]);
 #else
                 if ((BTqueueOutCopy[0] != 'P') && (BTqueueOutCopy[0] != 'p'))
-                    goto SEND_GOOD;
+                    goto SEND_GOOD3;
                 if (i == 2)
                 {
                     SendBTbyte(0xf0);
-                    goto SEND_GOOD;
+                    goto SEND_GOOD3;
                 }
                 else
                 {
-SEND_GOOD:          BTbyteCRC55(BTqueueOutCopy[i]);
+SEND_GOOD3:          BTbyteCRC55(BTqueueOutCopy[i]);
                 }
 #endif
             }
