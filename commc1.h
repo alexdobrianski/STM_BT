@@ -339,7 +339,7 @@ TMR2_COUNT_DONE:
                             }
                         }
                     }
-                    else
+                    else // TX state 
                     {   // SYNC_DEBUG 3 change to "#if 0" (case without syncronization of FqRXRealCount on TX operation)
                         // in TX real and vluctuating RXCounter will be syncronized
 #if 1
@@ -1581,7 +1581,7 @@ TMR0_DONE:
                 //bitclr(PORT_BT,Tx_CE);	// Chip Enable (Activates RX or TX mode) == now standby
                 DataB0.RXPktIsBad = 0;
                 DataB0.RXPkt2IsBad = 0;
-
+                IntRXCount =  FqRXCount;
                 if (DataB0.Tmr3DoneMeasureFq1Fq2) // receive set
                 {    
                     AdjustTimer3 = INTTimer3;//TIMER3;

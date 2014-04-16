@@ -233,7 +233,8 @@ see www.adobri.com for communication protocol spec
 
 #define TIME_FOR_PACKET 0xff98
 #define TIME_FOR_PACKET0 0xff97
-#define DELAY_BTW_SEND_PACKET 0xfe03
+//#define DELAY_BTW_SEND_PACKET 0xfe03
+#define DELAY_BTW_SEND_PACKET 0xff73
 //#define DELAY_BTW_SEND_PACKET 0xffa3
 //#define DELAY_BTW_SEND_PACKET 0xffd1
 //#define MAX_TX_POSSIBLE 0xE0bf
@@ -555,7 +556,7 @@ UWORD AdjRX;
 int iAdjRX;
 
 unsigned char FqRXRealCount;
-unsigned char WasRXCount;
+unsigned char IntRXCount;
 unsigned char FqRXCount;
 unsigned char FqRX;
 
@@ -2149,6 +2150,7 @@ NEXT_TRANSMIT:
                         else
                             FqRX = Freq1;
                     }
+                    IntRXCount = FqRXCount;
                     goto MAIN_INT_ENTRY;//MAIN_INT;
                 }
                 // BTCE_low() now!!
@@ -2157,6 +2159,7 @@ NEXT_TRANSMIT:
                 {
                     // TBD - needs to check - does such case exsist?? normally it should not
                     Main.ExtInterrupt = 1;
+                    IntRXCount = FqRXCount;
                     goto MAIN_INT_ENTRY;//MAIN_INT;
                 }
                 if (DataB0.Tmr3DoneMeasureFq1Fq2)
@@ -3128,7 +3131,7 @@ void BTbyteCRC(unsigned char bByte)
     wCRCupdt(bByte);
     SendBTbyte(bByte);  
 }
-unsigned char CheckPacket(unsigned char*MyData, unsigned char iLen)  // used WasRXCount as a number of the RF Ch
+unsigned char CheckPacket(unsigned char*MyData, unsigned char iLen)  // used IntRXCount as a number of the RF Ch
 {  
     unsigned char PktNumb;
     unsigned char i;
@@ -3148,12 +3151,12 @@ unsigned char CheckPacket(unsigned char*MyData, unsigned char iLen)  // used Was
         {
             if (i>=5)
             {
-                if (WasRXCount == 0)
+                if (IntRXCount == 0)
                     PTR_FSR ^= 0xaa;
-                else //if (WasRXCount == 1)
+                else if (IntRXCount == 1)
                     PTR_FSR ^= 0x55;
-                //else // if (WasRXCount == 2)
-                //    PTR_FSR ^= 0x55;
+                else if (IntRXCount == 2)
+                    PTR_FSR ^= 0x55;
             }   
             wCRCupdt(PTR_FSR);
             if (i == PACKET_LEN_OFFSET)
@@ -3171,30 +3174,30 @@ unsigned char CheckPacket(unsigned char*MyData, unsigned char iLen)  // used Was
     }
     // from now no CRC packages on that field (ch count)
     //wCRCupdt(PktNumb);
-    if (WasRXCount == 0)
+    if (IntRXCount == 0)
         PTR_FSR ^= 0xaa;
-    else //if (WasRXCount == 1)
+    else if (IntRXCount == 1)
         PTR_FSR ^= 0x55;
-    //else // if (WasRXCount == 2)
-    //    PTR_FSR ^= 0x55;
+    else if (IntRXCount == 2)
+        PTR_FSR ^= 0x55;
 
     CRCcmp = ((((UWORD)PTR_FSR))<<8); FSR_REGISTER++;
-    if (WasRXCount == 0)
+    if (IntRXCount == 0)
         PTR_FSR ^= 0xaa;
-    else //if (WasRXCount == 1)
+    else if (IntRXCount == 1)
         PTR_FSR ^= 0x55;
-    //else // if (WasRXCount == 2)
-    //    PTR_FSR ^= 0x55;
+    else if (IntRXCount == 2)
+        PTR_FSR ^= 0x55;
 
     CRCcmp += ((UWORD)PTR_FSR);
     
     FSR_REGISTER++;
-    if (WasRXCount == 0)
+    if (IntRXCount == 0)
         PTR_FSR ^= 0xaa;
-    else //if (WasRXCount == 1)
+    else if (IntRXCount == 1)
         PTR_FSR ^= 0x55;
-    //else // if (WasRXCount == 2)
-    //    PTR_FSR ^= 0x55;
+    else if (IntRXCount == 2)
+        PTR_FSR ^= 0x55;
     if (CRC == CRCcmp)
         return 0;
 
@@ -3267,9 +3270,9 @@ unsigned char BTFixlen(unsigned char*MyData, unsigned char iLen)
        return 0; 
 FIND_NONPRT:
 #if 1
-       if (FqRXCount == 0)
+       if (IntRXCount == 0)
            T2Byte2 = i;
-       else if (FqRXCount == 1)
+       else if (IntRXCount == 1)
            T2Byte2 += i<<4;
        else
            T2Byte3=i;
@@ -3917,7 +3920,7 @@ unsigned char ReceiveBTdata(void)
     //SendBTbyte(0x40); // clean RX interrupt
     //bitset(PORT_BT,Tx_CSN);
 
-    WasRXCount = FqRXCount;
+    //IntRXCount = FqRXCount;
     DataB0.RXMessageWasOK = 0;
 
     // read len of the RX packet
@@ -3933,7 +3936,7 @@ unsigned char ReceiveBTdata(void)
         // that will continue RX on the same frequency
         return 0;
     }
-    if (WasRXCount == 0) // received over FQ1
+    if (IntRXCount == 0) // received over FQ1
     {
         ptrMy =&BTqueueIn[0];
 INIT_FQ_RX:
@@ -3949,13 +3952,13 @@ INIT_FQ_RX:
         T2Byte3=0;
 #endif
     }
-    else if (WasRXCount == 1) // received over FQ2
+    else if (IntRXCount == 1) // received over FQ2
     {
         ptrMy =&BTqueueIn2[0] ;
         if (!BTFlags.RxInProc)
            goto INIT_FQ_RX;
     }
-    else //if (FqRXCount == 2) // received over FQ3
+    else if (IntRXCount == 2) // received over FQ3
     {
         ptrMy =&BTqueueIn3[0] ;
         if (!BTFlags.RxInProc)
@@ -3982,9 +3985,9 @@ INIT_FQ_RX:
 #if 1
     if (i)
     {
-                if (WasRXCount == 0)
+                if (IntRXCount == 0)
                    T2Count1++;
-                else if (WasRXCount == 1)
+                else if (IntRXCount == 1)
                    T2Count2++;
                 else
                    T2Count3++;
@@ -3994,7 +3997,7 @@ INIT_FQ_RX:
     if (!DataB0.Tmr3DoneMeasureFq1Fq2)  // FQ1-FQ2 measurements was not done yet
     {
 
-        if (FqRXCount == 0) 
+        if (IntRXCount == 0) 
         {
             if (i)
                 goto LOOKS_GOOD;
@@ -4002,7 +4005,7 @@ INIT_FQ_RX:
             BTCE_high(); // Chip Enable Activates RX or TX mode (now RX mode) 
             return 0;
         }
-        else if (FqRXCount == 1) 
+        else if (IntRXCount == 1) 
         {
             if (i)
             {
@@ -4039,11 +4042,11 @@ LOOKS_GOOD:
             goto SKIP_SWITCH;
 
         // SYNC_DEBUG 4 if next if will be commented == will be no sync of FQ with FqRXRealCount on RX operation
-        if (FqRXCount == 0 && FqRXRealCount == 2)
+        if (IntRXCount == 0 && FqRXRealCount == 2)
             goto SKIP_SWITCH;
-        else if (FqRXCount == 1 && FqRXRealCount== 0)
+        else if (IntRXCount == 1 && FqRXRealCount== 0)
             goto SKIP_SWITCH;
-        else if (FqRXCount == 2 && FqRXRealCount== 1)
+        else if (IntRXCount == 2 && FqRXRealCount== 1)
             goto SKIP_SWITCH;
     }
     BTCE_low();  // Chip Enable (RX or TX mode) now disable== standby
@@ -4065,9 +4068,9 @@ SKIP_SWITCH:
     {
         if (i)  // if packet possible to fix (and/or it was fixed by shift)
         {
-            if (CheckPacket(ptrMy, bret) == 0)  //used WasRXCount  // now possible to do CRC check ???
+            if (CheckPacket(ptrMy, bret) == 0)  //used IntRXCount  // now possible to do CRC check ???
             {
-                if (WasRXCount == 0)      // set OK messaghe only on FQ1
+                if (IntRXCount == 0)      // set OK messaghe only on FQ1
                 {
                     DataB0.RXMessageWasOK = 1;
                     // case: was out of synch but now get packet on FQ1
@@ -4088,7 +4091,7 @@ SKIP_SWITCH:
                     }    
                 }
 
-                BTokMsg = WasRXCount;
+                BTokMsg = IntRXCount;
                 if (DataB0.Tmr3DoneMeasureFq1Fq2)  // FQ1-FQ2 timeing was measured by timer3 (RX)
                 {
 ADJUST_TMR3:
@@ -4108,14 +4111,14 @@ ADJUST_TMR3:
     {
         if (DataB0.Tmr3DoneMeasureFq1Fq2)
         {
-            if (CheckPacket(ptrMy, bret) == 0) // used WasRXCount
+            if (CheckPacket(ptrMy, bret) == 0) // used IntRXCount
             {
 #if 0
     if (i)
     {
-                if (WasRXCount == 0)
+                if (IntRXCount == 0)
                    T2Count1++;
-                else if (WasRXCount == 1)
+                else if (IntRXCount == 1)
                    T2Count2++;
                 else
                 {
@@ -4137,7 +4140,7 @@ ADJUST_TMR3:
 
 
 
-    if (WasRXCount == 2) // recevie over FQ3
+    if (IntRXCount == 2) // recevie over FQ3
     {
 
         //RXreceiveFQ = 0;
@@ -4186,7 +4189,7 @@ DONE_RX:
     //     SkipRXTmr3++;
     //     TMR3ON =1;
     //}
-    if (WasRXCount == 2)
+    if (IntRXCount == 2)
     {
         BTFlags.RxInProc = 0;
     }
