@@ -4058,7 +4058,20 @@ LOOKS_GOOD:
     //}
 
 SKIP_SWITCH:
-    BTCE_high(); // Chip Enable Activates RX or TX mode (now RX mode) 
+    // now needs to deside - to continue to listen or need to do TX?
+    // flag DataB0.RXLoopBlocked = 1 will set for such case 
+    if (FqRXCount == 0)
+    {
+        if (DataB0.RXLoopAllowed) // if it was request to TX then need to switch off round-robin
+        {
+            BTCE_high();          // continue listeniong on FQ1
+            DataB0.RXLoopBlocked = 0;
+        }
+        else                          // do not initate listenning
+            DataB0.RXLoopBlocked = 1; // listenning was blocked
+    }
+    else
+        BTCE_high(); // Chip Enable Activates RX or TX mode (now RX mode) 
          
     // next packet ready to receive (on next frequency) - now prcocessing  
     if (bret > LEN_OFFSET_INPUT_BUF)
