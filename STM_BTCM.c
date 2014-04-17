@@ -227,16 +227,18 @@ see www.adobri.com for communication protocol spec
 
 //#define DELAY_BTW_NEXT_DIAL 0xfeec
 #define DELAY_BTW_NEXT_DIAL 0xe00c
-#define PING_DELAY 3
+#define PING_DELAY 4
 #define DEBUG_LED_COUNT 1
 #define TO_BTW_CHARS 0xff00
 
 #define TIME_FOR_PACKET 0xff98
 #define TIME_FOR_PACKET0 0xff97
+
 //#define DELAY_BTW_SEND_PACKET 0xfe03
 #define DELAY_BTW_SEND_PACKET 0xff73
 //#define DELAY_BTW_SEND_PACKET 0xffa3
 //#define DELAY_BTW_SEND_PACKET 0xffd1
+
 //#define MAX_TX_POSSIBLE 0xE0bf
 #define MAX_TX_POSSIBLE 0xD8EF
 //#define MIN_TX_POSSIBLE 0xB9AF
@@ -268,7 +270,7 @@ see www.adobri.com for communication protocol spec
 //   for a blinking LED behive like CUBESAT/CRAFT
 //   it is waiting for connection, wait for p/kt, and when pkt is Ok it send back to earth reply packet, and blinks
 ///////////////////////////////////////////////////////////////
-#define DEBUG_LED_CALL_EARTH
+//#define DEBUG_LED_CALL_EARTH
 // for test sequence 
 //// "5atsx=...CBabbcgg
 // atdtl
@@ -277,7 +279,7 @@ see www.adobri.com for communication protocol spec
 ///////////////////////////////////////////////////////////////
 //   for a blinking LED behive like Ground Station, it is constantly sends pktm if received pkt, then it blinks
 ///////////////////////////////////////////////////////////////
-//#define DEBUG_LED_CALL_LUNA
+#define DEBUG_LED_CALL_LUNA
 // for test sequence 
 // "5atsx=...CBabbcgg
 // atdtl
@@ -2333,7 +2335,7 @@ INIT_TX:
                 {
                      if (BTqueueOutLen == 0)   // only when nothing in BT output queue
                      {
-                         if (FqRXCount == 0) // only if it is listening on FQ1
+                         //if (FqRXCount == 0) // only if it is listening on FQ1
                          {
                              BTqueueOut[0] = 'P'; BTqueueOut[1] = 'I';BTqueueOut[2] = 'N';BTqueueOut[3] = 'G';
                              Main.PingRQ = 0;
@@ -3269,16 +3271,6 @@ unsigned char BTFixlen(unsigned char*MyData, unsigned char iLen)
        while(i<11);
        return 0; 
 FIND_NONPRT:
-#if 1
-       if (IntRXCount == 0)
-           T2Byte2 = i;
-       else if (IntRXCount == 1)
-           T2Byte2 += i<<4;
-       else
-           T2Byte3=i;
-       if (i > 1)
-           T2Byte1=i;
-#endif
 
        i -=3; // that will be byte shift offset
        res = i;
@@ -3986,11 +3978,23 @@ INIT_FQ_RX:
     if (i)
     {
                 if (IntRXCount == 0)
+                {
                    T2Count1++;
+                   if (++T2Byte1 == 2)
+                      T2Byte1 = 2;
+                }
                 else if (IntRXCount == 1)
+                {
                    T2Count2++;
+                   if (T2Byte2 == 2)
+                      T2Byte2 = 2;
+                }      
                 else
+                {
                    T2Count3++;
+                   if (++T2Byte3 == 2)
+                      T2Byte3 = 2;
+                }  
     }
 #endif
 
@@ -4039,8 +4043,10 @@ LOOKS_GOOD:
     {
         // out of sycn case: stay on FqRxCount = 0 indefinetly intill Ok packet
         if (DataB0.Timer3OutSyncRQ)
-            goto SKIP_SWITCH;
-
+        {
+            BTCE_high();
+            goto SKIP_SWITCH_2;
+        }
         // SYNC_DEBUG 4 if next if will be commented == will be no sync of FQ with FqRXRealCount on RX operation
         if (IntRXCount == 0 && FqRXRealCount == 2)
             goto SKIP_SWITCH;
@@ -4072,6 +4078,7 @@ SKIP_SWITCH:
     }
     else
         BTCE_high(); // Chip Enable Activates RX or TX mode (now RX mode) 
+SKIP_SWITCH_2:
          
     // next packet ready to receive (on next frequency) - now prcocessing  
     if (bret > LEN_OFFSET_INPUT_BUF)
@@ -4260,10 +4267,13 @@ void TransmitBTdata(void)
             BTStatus= SendBTcmd(0x20); // 001 0  0000 W_REGISTER to register 00000 == Configuration Register
             SendBTbyte(0x12);
             bitset(PORT_BT,Tx_CSN); // SPI Chip Select
-            //if (BTStatus & 0x20)
-            //{
-            //    BTStatus=BTStatus&0xfe;
-            //}
+            if (BTStatus & 0x60)
+            {
+                bitclr(PORT_BT,Tx_CSN);
+                SendBTbyte(0x27); // 0010 0111 command W_REGISTER =register is status = clean TX interrupt
+                SendBTbyte(0x70); // clean TX RX MAX_RT interrupt
+                bitset(PORT_BT,Tx_CSN);
+            }
             if (BTStatus & 0x40) // explanation: it is TX now any sudden RX must be cleaned
             {
                 bitclr(PORT_BT,Tx_CSN);
@@ -4340,7 +4350,7 @@ SEND_GOOD1:          BTbyteCRCAA(BTqueueOutCopy[i]);
 #endif
             }
             CRC16TX = CRC;
-            CRCM8TX = 0xff;
+            //CRCM8TX = 0xff;
 
             WREG=(CRC16TX>>8); WREG^=0xAA;
             SendBTbyte(WREG);
@@ -4501,18 +4511,20 @@ void SwitchToRXdata(void)
 {
     BTCE_low(); // Chip Enable Activates RX or TX mode (now disable)
     
-
     PORT_AMPL.BT_TX = 0;              // off TX amplifier
     nop();
     PORT_AMPL.BT_RX = 1;              // on RX amplifier
 
-
     BTStatus = SwitchFQ(FqRX); // switch back FQX (whatever it is); BTStatus updated
-    //if (BTStatus & 0x20)  // ?? interrupt TX on last FQ3
+    //if (BTStatus & 0x60)  // ?? interrupt TX on last FQ3
     //{
+    //    bitclr(PORT_BT,Tx_CSN);
+    //    SendBTbyte(0xe2); // 1110  0010 command flash RX FIFO
+    //    bitset(PORT_BT,Tx_CSN);
+
     //    bitclr(PORT_BT,Tx_CSN); // SPI Chip Select // pipe 0
     //    SendBTbyte(0x27); // 0010  0111 command W_REGISTER to register 00111 == STATUS
-    //    SendBTbyte(0x20); // clean TX interrupt
+    //    SendBTbyte(0x60); // clean TX interrupt
     //    bitset(PORT_BT,Tx_CSN);
     //}
     
@@ -4533,7 +4545,6 @@ void SwitchToRXdata(void)
                  //        1 PWR_UP 1: POWER UP, 0:POWER DOWN
                  //         1PRIM_RX	RX/TX control 1: PRX, 0: PTX
 	
-
 
     bitclr(PORT_BT,Tx_CSN);
     BTStatus= SendBTcmd(0x20); // 001 0  0000 W_REGISTER to register 00000 == Configuration Register
