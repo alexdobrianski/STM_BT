@@ -1621,7 +1621,10 @@ TMR0_DONE:
                                  DistMeasure.RXaTmr1 = INTTimer1;
                              }
                              // SYNC_DEBUG 8:  skip adjust the TMR3
-                             DataB0.Timer3Ready2Sync = 1;
+                             if (DataB0.IntitialTmr3OffsetDone)  // set 1  -> set 0 on Tmr3 measure and set 1 again on next interrupr all done to skip AdjustTimer3 on first (FQ2) RX  
+                                 DataB0.Timer3Ready2Sync = 1;
+                             else 
+                                 DataB0.IntitialTmr3OffsetDone = 1;
                          }
                          else 
                              goto IGNORE_BAD_PKT;
@@ -1647,6 +1650,7 @@ IGNORE_BAD_PKT:         DataB0.RXPktIsBad = 1;
                         Tmr3LoadLow =TIMER3 -INTTimer3;
                         TMR3H = (Tmr3LoadLow>>8);
                         TMR3L = (unsigned char)(Tmr3LoadLow&0xFF);
+                        DataB0.IntitialTmr3OffsetDone = 1;  // set 1  -> set 0 on Tmr3 measure and set 1 again on next interrupr all done to skip AdjustTimer3 on first (FQ2) RX 
                     }
                     else if (FqRXCount == 1) // it was receive over Fq2
                     {
@@ -1685,6 +1689,7 @@ IGNORE_BAD_PKT:         DataB0.RXPktIsBad = 1;
                                 // FqRXCount can fluctuate
                                 // but FqRXRealCount is solid value
                                 FqRXRealCount = 2;//FqRXCount;
+                                DataB0.IntitialTmr3OffsetDone = 0; // set 1  -> set 0 on Tmr3 measure and set 1 again on next interrupr all done to skip AdjustTimer3 on first (FQ2) RX 
                             }
                             else
                             {

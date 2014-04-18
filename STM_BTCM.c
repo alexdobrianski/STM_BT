@@ -505,6 +505,7 @@ unsigned RXLoopBlocked:1;
 unsigned RXMessageWasOK:1;
 unsigned RXPktIsBad:1;
 unsigned RXPkt2IsBad:1;
+unsigned IntitialTmr3OffsetDone:1;// set 1  -> set 0 on Tmr3 measure and set 1 again on next interrupr all done to skip AdjustTimer3 on first (FQ2) RX 
 } DataB0;
 #ifdef DEBUG_LED
 int PingDelay;
@@ -1002,6 +1003,8 @@ void main()
     T2Count3=0;
     T2Byte3=0;
     TMR2Count = 0;
+    Timer1HCount = 0;
+    Timer3HCount = 0;
 
 #ifdef DEBUG_LED
     DEBUG_LED_OFF;
@@ -2091,7 +2094,18 @@ MAIN_INT:
                             DataB0.RXLoopAllowed = 1;
 
                             SwitchToRXdata();
-
+#if 0
+#define STOP_COUNT 3
+                            if (++T2Byte3 == STOP_COUNT)
+                            {
+                                T2Byte1 = Timer1HCount;
+                                T2Byte2 = TIMER1;
+                            }
+                            else if (T2Byte3 > (STOP_COUNT+1))
+                            {
+                                T2Byte3 = STOP_COUNT+1;
+                            }
+#endif
                             if (!(ATCMD & MODE_CONNECT)) // connection was not established == earth get responce from luna
                             {
                                 SetTimer0(DELAY_BTW_NEXT_DIAL); // 0x0000 == 4 sec till next attempt for earth to dial luna
@@ -2135,6 +2149,22 @@ NEXT_TRANSMIT:
             // and FqRXCount will stay zero
             // in another case (normal sync FQ1-FQ2 measured) needs to advance FQ to a next listenning 
             DataB0.Tmr3Inturrupt = 0;
+#if 0
+
+    {
+#define STOP_COUNT 1
+                            if (++T2Byte3 == STOP_COUNT)
+                            {
+                                T2Byte1 = Timer1HCount;
+                                T2Byte2 = TIMER1;
+                            }
+                            else if (T2Byte3 > (STOP_COUNT+1))
+                            {
+                                T2Byte3 = STOP_COUNT+1;
+                            }
+    }
+#endif
+
             if (BTType == 1) // RX mode
             {
                 // for check it will stop listenning ->BTCE_low()
@@ -3938,11 +3968,6 @@ INIT_FQ_RX:
         BTFlags.BT3fqProcessed = 0; // set flag that process was not done yet
         BTokMsg = 0xff;
         BTFlags.RxInProc = 1;
-#if 1
-        TMR2Count++;
-        T2Byte2 = 0;
-        T2Byte3=0;
-#endif
     }
     else if (IntRXCount == 1) // received over FQ2
     {
@@ -3974,26 +3999,44 @@ INIT_FQ_RX:
     // TBD: output data as it is over com2 with speed at least 150000 bits/sec - ground station only
     // return len of the packet
     i = BTFixlen(ptrMy, bret); // if it is posible to fix packet and packet was fixed i == 0
+
+
 #if 1
+    if (i)
+    {
+#define STOP_COUNT 3
+                            if (++T2Byte3 == STOP_COUNT)
+                            {
+                                T2Byte1 = Timer1HCount;
+                                T2Byte2 = TIMER1;
+                            }
+                            else if (T2Byte3 > (STOP_COUNT+1))
+                            {
+                                T2Byte3 = STOP_COUNT+1;
+                            }
+    }
+#endif
+
+#if 0
     if (i)
     {
                 if (IntRXCount == 0)
                 {
                    T2Count1++;
-                   if (++T2Byte1 == 2)
-                      T2Byte1 = 2;
+                   //if (++T1Byte1 == 2)
+                   //   T1Byte1 = 2;
                 }
                 else if (IntRXCount == 1)
                 {
                    T2Count2++;
-                   if (T2Byte2 == 2)
-                      T2Byte2 = 2;
+                   //if (T2Byte2 == 2)
+                   //   T2Byte2 = 2;
                 }      
                 else
                 {
                    T2Count3++;
-                   if (++T2Byte3 == 2)
-                      T2Byte3 = 2;
+                   //if (++T2Byte3 == 2)
+                   //   T2Byte3 = 2;
                 }  
     }
 #endif
@@ -4078,6 +4121,7 @@ SKIP_SWITCH:
     }
     else
         BTCE_high(); // Chip Enable Activates RX or TX mode (now RX mode) 
+  
 SKIP_SWITCH_2:
          
     // next packet ready to receive (on next frequency) - now prcocessing  
@@ -4193,9 +4237,6 @@ ADJUST_TMR3:
             }
             if (BTokMsg == 0)
             {
-#if 1
-                T2Byte1++;
-#endif
                 OutSyncCounter = 250; // 2.5 sec no packets == switch for out of sync
             }
 
