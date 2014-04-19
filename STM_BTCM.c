@@ -224,6 +224,11 @@ see www.adobri.com for communication protocol spec
 #define MEDIAN_TIME_LOW  0x0010
 #define MEDIAN_TIME_HIGH 0x2000
 
+#define MEDIAN_TIME      0x2000
+#define MEDIAN_TIME_LOW  0x0010
+#define MEDIAN_TIME_HIGH 0x4000
+
+
 
 //#define DELAY_BTW_NEXT_DIAL 0xfeec
 #define DELAY_BTW_NEXT_DIAL 0xe00c
@@ -786,8 +791,9 @@ typedef struct PacketStart
     UWORD Tmr1LLowOpponent;
 };
 
-
-
+#if 1
+void DebugLock(UWORD StopCount);
+#endif
 void wCRCupdt(int bByte);
 unsigned char SendBTcmd(unsigned char cmd);
 void SendBTbyte(unsigned char cmd);
@@ -2066,6 +2072,10 @@ MAIN_INT:
                 }
                 if (BTStatus & 0x20)
                 {
+#if 0
+                            DebugLock(6);
+#endif
+
                     // transmit timing with setup:
                     // <setup = 401.mks> <upload = 960/480 mks> <transmit = 442mks><IRQ 6mks> <dealy XXX>
                     // transmit timeing without setup:
@@ -2092,20 +2102,11 @@ MAIN_INT:
                             }
                             DataB0.RXLoopBlocked = 0;
                             DataB0.RXLoopAllowed = 1;
+#if 0
+                            DebugLock(2);
+#endif
 
                             SwitchToRXdata();
-#if 0
-#define STOP_COUNT 3
-                            if (++T2Byte3 == STOP_COUNT)
-                            {
-                                T2Byte1 = Timer1HCount;
-                                T2Byte2 = TIMER1;
-                            }
-                            else if (T2Byte3 > (STOP_COUNT+1))
-                            {
-                                T2Byte3 = STOP_COUNT+1;
-                            }
-#endif
                             if (!(ATCMD & MODE_CONNECT)) // connection was not established == earth get responce from luna
                             {
                                 SetTimer0(DELAY_BTW_NEXT_DIAL); // 0x0000 == 4 sec till next attempt for earth to dial luna
@@ -2150,19 +2151,7 @@ NEXT_TRANSMIT:
             // in another case (normal sync FQ1-FQ2 measured) needs to advance FQ to a next listenning 
             DataB0.Tmr3Inturrupt = 0;
 #if 0
-
-    {
-#define STOP_COUNT 1
-                            if (++T2Byte3 == STOP_COUNT)
-                            {
-                                T2Byte1 = Timer1HCount;
-                                T2Byte2 = TIMER1;
-                            }
-                            else if (T2Byte3 > (STOP_COUNT+1))
-                            {
-                                T2Byte3 = STOP_COUNT+1;
-                            }
-    }
+            DebugLock(12);
 #endif
 
             if (BTType == 1) // RX mode
@@ -3296,6 +3285,8 @@ unsigned char BTFixlen(unsigned char*MyData, unsigned char iLen)
                 FSR_REGISTER--;
                 goto FIND_NONPRT;
            }
+           else
+               FSR_REGISTER++;
            i++;
        }
        while(i<11);
@@ -3393,6 +3384,15 @@ FIND_NONPRT:
            }
            while(--i);
        } 
+       if ((MyData[0] == 0xaa) || (MyData[1] == 0xaa) || (MyData[2] == 0xaa))
+       {
+           FSR_REGISTER = MyData;
+           PTR_FSR = 0xaa;
+           FSR_REGISTER++;
+           PTR_FSR = 0xaa;
+           FSR_REGISTER++;
+           PTR_FSR = 0xaa;
+       }
 /*
         if ((MyData[0] == 0xaa) && (MyData[1] == Addr1) && (MyData[2] == Addr2) && (MyData[3] == Addr3))
             return 0xff;
@@ -3859,6 +3859,21 @@ void BTCE_high(void)
 {
     bitset(PORT_BT,Tx_CE);	// Chip Enable Activates RX or TX mode (now TX mode) 
 }
+#if 1
+
+void DebugLock(UWORD StopCount)
+{
+                            if (++T2Byte3 == StopCount)
+                            {
+                                T2Byte1 = Timer1HCount;
+                                T2Byte2 = TIMER1;
+                            }
+                            else if (T2Byte3 > StopCount)
+                            {
+                                T2Byte3 = StopCount+1;
+                            }
+}
+#endif
 void AdjTimer3(void)
 {
     if (DataB0.Timer3Ready2Sync)
@@ -4001,30 +4016,21 @@ INIT_FQ_RX:
     i = BTFixlen(ptrMy, bret); // if it is posible to fix packet and packet was fixed i == 0
 
 
-#if 1
+#if 0
     if (i)
     {
-#define STOP_COUNT 3
-                            if (++T2Byte3 == STOP_COUNT)
-                            {
-                                T2Byte1 = Timer1HCount;
-                                T2Byte2 = TIMER1;
-                            }
-                            else if (T2Byte3 > (STOP_COUNT+1))
-                            {
-                                T2Byte3 = STOP_COUNT+1;
-                            }
+        DebugLock(4);
     }
 #endif
 
-#if 0
+#if 1
     if (i)
     {
                 if (IntRXCount == 0)
                 {
                    T2Count1++;
-                   //if (++T1Byte1 == 2)
-                   //   T1Byte1 = 2;
+                   if (++T2Byte1 == 2)
+                      T2Byte1 = 2;
                 }
                 else if (IntRXCount == 1)
                 {
@@ -4035,8 +4041,8 @@ INIT_FQ_RX:
                 else
                 {
                    T2Count3++;
-                   //if (++T2Byte3 == 2)
-                   //   T2Byte3 = 2;
+                   if (++T2Byte3 == 2)
+                      T2Byte3 = 2;
                 }  
     }
 #endif
