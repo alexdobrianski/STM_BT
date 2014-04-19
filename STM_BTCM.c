@@ -224,9 +224,9 @@ see www.adobri.com for communication protocol spec
 #define MEDIAN_TIME_LOW  0x0010
 #define MEDIAN_TIME_HIGH 0x2000
 
-#define MEDIAN_TIME      0x2000
-#define MEDIAN_TIME_LOW  0x0010
-#define MEDIAN_TIME_HIGH 0x4000
+//#define MEDIAN_TIME      0x2000
+//#define MEDIAN_TIME_LOW  0x0010
+//#define MEDIAN_TIME_HIGH 0x4000
 
 
 
@@ -275,7 +275,7 @@ see www.adobri.com for communication protocol spec
 //   for a blinking LED behive like CUBESAT/CRAFT
 //   it is waiting for connection, wait for p/kt, and when pkt is Ok it send back to earth reply packet, and blinks
 ///////////////////////////////////////////////////////////////
-//#define DEBUG_LED_CALL_EARTH
+#define DEBUG_LED_CALL_EARTH
 // for test sequence 
 //// "5atsx=...CBabbcgg
 // atdtl
@@ -284,7 +284,7 @@ see www.adobri.com for communication protocol spec
 ///////////////////////////////////////////////////////////////
 //   for a blinking LED behive like Ground Station, it is constantly sends pktm if received pkt, then it blinks
 ///////////////////////////////////////////////////////////////
-#define DEBUG_LED_CALL_LUNA
+//#define DEBUG_LED_CALL_LUNA
 // for test sequence 
 // "5atsx=...CBabbcgg
 // atdtl
@@ -3285,13 +3285,36 @@ unsigned char BTFixlen(unsigned char*MyData, unsigned char iLen)
                 FSR_REGISTER--;
                 goto FIND_NONPRT;
            }
-           else
+           else 
+           {
                FSR_REGISTER++;
+           }
            i++;
        }
        while(i<11);
        return 0; 
 FIND_NONPRT:
+#if 0
+                if (IntRXCount == 0)
+                {
+                   T2Count1++;
+                   if (++T2Byte1 == 2)
+                      T2Byte1 = 2;
+                }
+                else if (IntRXCount == 1)
+                {
+                   T2Count2++;
+                   //if (T2Byte2 == 2)
+                   //   T2Byte2 = 2;
+                }      
+                else
+                {
+                   T2Count3++;
+                   if (++T2Byte3 == 2)
+                      T2Byte3 = 2;
+                }  
+#endif
+
 
        i -=3; // that will be byte shift offset
        res = i;
@@ -3428,6 +3451,7 @@ unsigned char BTFix3(void)
     unsigned char mask;
     unsigned char i;
     unsigned char iCrc = BTqueueInLen;
+    unsigned char iCrcLen = BTqueueInLen;
     CRCcmp=0;
     CRC=0xffff;   
     if (iCrc < BTqueueInLen2)
@@ -3447,7 +3471,7 @@ unsigned char BTFix3(void)
     }
     wCRCupdt(*ptr1);
     ptr1++;ptr2++;ptr3++;*/
-    for (i = 0; i < iCrc; i++)
+    for (i = 0; i < iCrcLen; i++)
     {
         bByte1 = *ptr1;
         if (i != 4)
@@ -3456,7 +3480,8 @@ unsigned char BTFix3(void)
             bByte1 &= mask ^ 0xff; 
             bByte1 |= mask & (*ptr3);
             *ptr1 = bByte1;
-            wCRCupdt(bByte1);
+            if (i < iCrc) 
+                wCRCupdt(bByte1);
         }
         else
         {
@@ -3465,7 +3490,10 @@ unsigned char BTFix3(void)
         if (i == PACKET_LEN_OFFSET)
         {
             if (bByte1<= BT_TX_MAX_LEN)
-                iCrc = PTR_FSR + PACKET_LEN_OFFSET+1;// + sizeof(PacketStart);
+            {
+                iCrcLen = PTR_FSR + PACKET_LEN_OFFSET+1+3;// + sizeof(PacketStart);
+                iCrc = PTR_FSR + PACKET_LEN_OFFSET+1;
+            }     
             else
                 goto RETURN_ERROR;
         }
@@ -3474,15 +3502,15 @@ unsigned char BTFix3(void)
     }
 
     // now needs to restore additional 3 bytes CRC16 and CRCM8
-    for (i = 0; i < 3; i++)
-    {
-        bByte1 = *ptr1;
-        mask = (bByte1 ^ *ptr2);
-        bByte1 &= mask ^ 0xff; 
-        bByte1 |= mask & (*ptr3);
-        *ptr1 = bByte1;
-        ptr1++;ptr2++;ptr3++;
-    }
+    //for (i = 0; i < 3; i++)
+    //{
+    //    bByte1 = *ptr1;
+    //    mask = (bByte1 ^ *ptr2);
+    //    bByte1 &= mask ^ 0xff; 
+    //    bByte1 |= mask & (*ptr3);
+    //    *ptr1 = bByte1;
+    //    ptr1++;ptr2++;ptr3++;
+    //}
 
     ptr1-=3;
    
@@ -4241,8 +4269,9 @@ ADJUST_TMR3:
             {
                 BTokMsg = BTFixAA55();
             }
-            if (BTokMsg == 0)
+            if (BTokMsg != 0xff)
             {
+                AdjTimer3();
                 OutSyncCounter = 250; // 2.5 sec no packets == switch for out of sync
             }
 
@@ -4371,7 +4400,7 @@ void TransmitBTdata(void)
 // A1 or A2 match confirmed by CRCM8 and then finally by CRC16    
 
 // SYNC_DEBUG 9 - set errors in 3 send packets
-//#define ERROR_IN_PK_1 1
+#define ERROR_IN_PK_1 1
         
         if (FqTXCount ==0)
         {
@@ -4384,11 +4413,10 @@ void TransmitBTdata(void)
 #else
                 if ((BTqueueOutCopy[0] != 'P') && (BTqueueOutCopy[0] != 'p'))
                     goto SEND_GOOD1;
-                if (i == 0)
+                if ((i&0x03) == 0)
                 {
                     SendBTbyte(0);
                     wCRCupdt(BTqueueOutCopy[i]);
-                    goto SEND_GOOD1;
                 }
                 else
                 {
@@ -4417,10 +4445,9 @@ SEND_GOOD1:          BTbyteCRCAA(BTqueueOutCopy[i]);
 #else
                 if ((BTqueueOutCopy[0] != 'P') && (BTqueueOutCopy[0] != 'p'))
                     goto SEND_GOOD2;
-                if (i == 1)
+                if ((i&0x03) == 1)
                 {
                     SendBTbyte(0xff);
-                    goto SEND_GOOD2;
                 }
                 else
                 {
@@ -4447,10 +4474,9 @@ SEND_GOOD2:          BTbyteCRC55(BTqueueOutCopy[i]);
 #else
                 if ((BTqueueOutCopy[0] != 'P') && (BTqueueOutCopy[0] != 'p'))
                     goto SEND_GOOD3;
-                if (i == 2)
+                if ((i&0x03) == 2)
                 {
                     SendBTbyte(0xf0);
-                    goto SEND_GOOD3;
                 }
                 else
                 {
