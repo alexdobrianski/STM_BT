@@ -275,7 +275,7 @@ see www.adobri.com for communication protocol spec
 //   for a blinking LED behive like CUBESAT/CRAFT
 //   it is waiting for connection, wait for p/kt, and when pkt is Ok it send back to earth reply packet, and blinks
 ///////////////////////////////////////////////////////////////
-#define DEBUG_LED_CALL_EARTH
+//#define DEBUG_LED_CALL_EARTH
 // for test sequence 
 //// "5atsx=...CBabbcgg
 // atdtl
@@ -284,7 +284,7 @@ see www.adobri.com for communication protocol spec
 ///////////////////////////////////////////////////////////////
 //   for a blinking LED behive like Ground Station, it is constantly sends pktm if received pkt, then it blinks
 ///////////////////////////////////////////////////////////////
-//#define DEBUG_LED_CALL_LUNA
+#define DEBUG_LED_CALL_LUNA
 // for test sequence 
 // "5atsx=...CBabbcgg
 // atdtl
@@ -3451,13 +3451,13 @@ unsigned char BTFix3(void)
     unsigned char mask;
     unsigned char i;
     unsigned char iCrc = BTqueueInLen;
-    unsigned char iCrcLen = BTqueueInLen;
+    unsigned char iLenTotal = BTqueueInLen;
     CRCcmp=0;
     CRC=0xffff;   
-    if (iCrc < BTqueueInLen2)
-        iCrc = BTqueueInLen2;
-    if (iCrc < BTqueueInLen3)
-        iCrc = BTqueueInLen3;
+    if (iLenTotal < BTqueueInLen2)
+        iLenTotal = BTqueueInLen2;
+    if (iLenTotal < BTqueueInLen3)
+        iLenTotal = BTqueueInLen3;
 
     /*for (i = 0; i < 4; i++)
     {
@@ -3471,7 +3471,7 @@ unsigned char BTFix3(void)
     }
     wCRCupdt(*ptr1);
     ptr1++;ptr2++;ptr3++;*/
-    for (i = 0; i < iCrcLen; i++)
+    for (i = 0; i < iLenTotal; i++)
     {
         bByte1 = *ptr1;
         if (i != 4)
@@ -3491,7 +3491,7 @@ unsigned char BTFix3(void)
         {
             if (bByte1<= BT_TX_MAX_LEN)
             {
-                iCrcLen = PTR_FSR + PACKET_LEN_OFFSET+1+3;// + sizeof(PacketStart);
+                iLenTotal = PTR_FSR + PACKET_LEN_OFFSET+1+3;// + sizeof(PacketStart);
                 iCrc = PTR_FSR + PACKET_LEN_OFFSET+1;
             }     
             else
@@ -3529,15 +3529,17 @@ unsigned char BTFixAA55()
 {
     unsigned char *ptr1 = &BTqueueIn[5];
     unsigned char *ptr2 = &BTqueueIn2[5];
-    unsigned char bByte1;
-    unsigned char bByte2;
-    unsigned char bByte3;
+    unsigned char bXORByte1;
+    unsigned char bXORByte2;
+    unsigned char bCorrection;
     unsigned char Error;
     unsigned char NotError;
     unsigned char i;
-    unsigned char iCrc = BTqueueInLen;
-    CRCcmp=0;
+    unsigned char iCrcPosition = BTqueueInLen;
+    unsigned char iLenTotal = BTqueueInLen;
+
     CRC=0xffff;   
+    CRCM8TX = 0xff;
     
 
     if ((BTqueueInLen2 > 0) && (BTqueueInLen3 > 0)) // all 2 matched size FQ2 & FQ3
@@ -3545,43 +3547,40 @@ unsigned char BTFixAA55()
     }
     else
     {
-        if (iCrc < BTqueueInLen2)
-            iCrc = BTqueueInLen2;
+        if (iLenTotal < BTqueueInLen2)
+            iLenTotal = BTqueueInLen2;
         if ((BTqueueInLen > 0) && (BTqueueInLen3 > 0)) // all 2 matched size FQ1 & FQ3
         {
             if (BTqueueInLen < BTqueueInLen3)
-                iCrc = BTqueueInLen3;
+                iLenTotal = BTqueueInLen3;
             else
-                iCrc = BTqueueInLen;
+                iLenTotal = BTqueueInLen;
             ptr2 = BTqueueIn3[5];
         }
     }
     BTFlags.CRCM8F = 0;
-    for (i = 5; i < iCrc; i++)
+    for (i = 5; i < iLenTotal; i++)
     {
-        bByte1 = *ptr1^0xAA;
-        bByte2 = (*ptr2^0x55);
-        Error = bByte1 ^ bByte2;
-        if (Error != 0xff)
+        bXORByte1 = *ptr1;
+        bXORByte2 = *ptr2;
+        NotError = bXORByte1 ^ bXORByte2;
+        if (NotError)
         {
-            NotError = Error ^ 0xff;
+            Error = NotError ^ 0xff;
             //bByte1 = (Error & bByte1) | (((NotError & bByte1) ^ 0xff) ^ NotError); 
-            bByte3 = (Error & bByte1);
-            WREG = (((NotError & bByte1) ^ 0xff) ^ NotError);
-            bByte3 |= WREG;
-            *ptr1 =bByte3 ^ 0xAA;
-            bByte3 = (Error & bByte2);
-            WREG = (((NotError & bByte2) ^ 0xff) ^ NotError);
-            bByte3 |= WREG;
-            *ptr2 = bByte3 ^ 0xAA;
+            bCorrection = (Error & bXORByte1);
+            WREG = (NotError & bXORByte1)^0xff;
+            *ptr1 = WREG | bCorrection;
+            bCorrection = (Error & bXORByte2);
+            WREG = (NotError & bXORByte2)^0xff;
+            *ptr2 = WREG | bCorrection;
         }
-        bByte1 = *ptr1;
-        bByte2 = *ptr2;
+        bXORByte1 = *ptr1;
 #ifdef      _18F2321_18F25K20
         if (!BTFlags.CRCM8F)
-            CRCM8TX = (CRCM8TX ^ bByte1) * 251;
+            CRCM8TX = (CRCM8TX ^ bXORByte1) * 251;
         else
-            CRCM8TX = (CRCM8TX ^ bByte1) * 239;
+            CRCM8TX = (CRCM8TX ^ bXORByte1) * 239;
         #asm
         BTG BTFlags,3,1
         #endasm
@@ -3590,10 +3589,17 @@ unsigned char BTFixAA55()
 #endif       
         if (i == 5)
         {
-            if (bByte1<= BT_TX_MAX_LEN)
-                iCrc = bByte1 + PACKET_LEN_OFFSET+1+3;
-            else if (bByte2<= BT_TX_MAX_LEN)
-                iCrc = bByte2 + PACKET_LEN_OFFSET+1+3;
+            bXORByte2 = *ptr2;
+            if (bXORByte1<= BT_TX_MAX_LEN)
+            {
+                iLenTotal = bXORByte1 + PACKET_LEN_OFFSET+1+3;
+                iCrcPosition = bXORByte1 + PACKET_LEN_OFFSET+1+2;
+            }
+            else if (bXORByte2<= BT_TX_MAX_LEN)
+            {
+                iLenTotal = bXORByte2 + PACKET_LEN_OFFSET+1+3;
+                iCrcPosition = bXORByte2 + PACKET_LEN_OFFSET+1+2;
+            }
             else
                 goto RETURN_ERROR;
         }      
