@@ -7,18 +7,31 @@
 #include <Windows.h>
 typedef WORD UWORD; 
 
-    UWORD CRC;
-    UWORD CRC16TX;
-    unsigned char BTqueueOutCopy[512];
-    int imessage1;
-    unsigned char message1[512];
-    int imessage2;
-    unsigned char message2[512];
-    int imessage3;
-    unsigned char message3[512];
-    unsigned char OutputMsg[512];
+//////////////////////////////////////////////////////////////
+unsigned int i;         // int -> char
+unsigned int iTotalLen; // int -> char
+unsigned int iCrc;      // int -> char
+//unsigned char *ptr1;
+//unsigned char *ptr2;
+//unsigned char *ptr3;
+unsigned char CRCM8TX;
+unsigned char CRCM8TX2;
+unsigned char CRCM8TX3;
+UWORD CRCcmp;
+UWORD CRC;
+UWORD CRC16TX;
+unsigned char BTqueueOutCopy[512];
+int BTqueueInLen;
+unsigned char BTqueueIn[512];
+int BTqueueInLen2;
+unsigned char BTqueueIn2[512];
+int BTqueueInLen3;
+unsigned char BTqueueIn3[512];
+unsigned char OutputMsg[512];
 
-    struct _BTFLAGS
+
+
+struct _BTFLAGS
 {
     unsigned BT3fqProcessed:1;
     unsigned BTFirstInit:1;
@@ -26,19 +39,19 @@ typedef WORD UWORD;
     unsigned CRCM8F:1;
 } BTFlags;
 
-unsigned char CRCM8TX;
 unsigned char WREG;
+
 void SendBTbyteM1(unsigned char bByte)
 {
-    message1[imessage1++]=bByte;
+    BTqueueIn[BTqueueInLen++]=bByte;
 }
 void SendBTbyteM2(unsigned char bByte)
 {
-    message2[imessage2++]=bByte;
+    BTqueueIn2[BTqueueInLen2++]=bByte;
 }
 void SendBTbyteM3(unsigned char bByte)
 {
-    message3[imessage3++]=bByte;
+    BTqueueIn3[BTqueueInLen3++]=bByte;
 }
 void wCRCupdt(int bByte)
 {
@@ -90,11 +103,10 @@ void BTbyteCRCm1(unsigned char bByte)
 #endif
     CRCM8TX ^= bByte;
     SendBTbyteM1(CRCM8TX);
-    
+    CRCM8TX|=1;
 }
 void BTbyteCRCM1(unsigned char bByte)
 {
-
     wCRCupdt(bByte);
     BTbyteCRCm1(bByte);
 }
@@ -126,6 +138,7 @@ void BTbyteCRCM2(unsigned char bByte)
 #endif
     CRCM8TX ^= bByte;
     SendBTbyteM2(CRCM8TX);
+    CRCM8TX|=1;
 }
 // 227 151
 void BTbyteCRCM3(unsigned char bByte)
@@ -153,17 +166,17 @@ void BTbyteCRCM3(unsigned char bByte)
 #endif
     CRCM8TX ^= bByte;
     SendBTbyteM3(CRCM8TX);
+    CRCM8TX|=1;
 }
-UWORD CRCcmp;
+
 unsigned char *FSR_REGISTER;
 #define PTR_FSR (*FSR_REGISTER)
 int IntRXCount;
 unsigned char *FSR1;
 #define INDF1 (*FSR1)
+unsigned char *FSR2;
+#define INDF2 (*FSR2)
 
-unsigned int i;
-unsigned int iTotalLen;
-unsigned int iCrc;
 unsigned char CheckPacket(unsigned char*MyData, unsigned int iLen)  // used IntRXCount as a number of the RF Ch
 {  
     iTotalLen = iCrc = iLen;//26;
@@ -191,7 +204,7 @@ unsigned char CheckPacket(unsigned char*MyData, unsigned int iLen)  // used IntR
             {
                 if (IntRXCount == 0)
                 {
- #ifdef      _18F2321_18F25K20
+#ifdef      _18F2321_18F25K20
                     if (!BTFlags.CRCM8F)
                         CRCM8TX *= 251;    
                     else
@@ -255,10 +268,10 @@ unsigned char CheckPacket(unsigned char*MyData, unsigned int iLen)  // used IntR
                 #endasm
 #endif
                 INDF1 = PTR_FSR ^CRCM8TX;
-                CRCM8TX = PTR_FSR;
+                CRCM8TX = PTR_FSR|1;
             }   
-            //if (i<iCrc)
-            //    wCRCupdt(INDF1);
+            if (i<iCrc)
+                wCRCupdt(INDF1);
 #ifndef WIN32
             if (i == PACKET_LEN_OFFSET)
             {
@@ -275,36 +288,135 @@ unsigned char CheckPacket(unsigned char*MyData, unsigned int iLen)  // used IntR
         FSR_REGISTER++;
         FSR1++;
     }
-    FSR_REGISTER--;
-    if (CRCM8TX == PTR_FSR)
-    {
-        FSR1 = OutputMsg;
-        for (i = 0; i < iTotalLen; i++)
-        {
-#ifndef WIN32
-            if (i != 4) // packet 0;1;2 added last
-            {
-#endif
-                if (i<iCrc)
-                    wCRCupdt(INDF1);
-#ifndef WIN32
-            }
-#endif
-            FSR1++;
-        }
-    
 
-        FSR1-=2;
-        CRCcmp = ((((UWORD)INDF1))<<8); FSR1++;
-        CRCcmp += ((UWORD)INDF1);
+    FSR1-=2;
+    CRCcmp = ((((UWORD)INDF1))<<8); FSR1++;
+    CRCcmp += ((UWORD)INDF1);
     
-        if (CRC == CRCcmp)
-            return 0;
-    }
+    if (CRC == CRCcmp)
+        return 0;
 RETURN_ERROR:
     return 0xff;
 }
 
+unsigned char BTFix3(void)
+{
+    
+    unsigned char bByte1;
+    unsigned char mask;
+    iCrc = BTqueueInLen;
+    iTotalLen = BTqueueInLen;
+#ifdef WIN32
+    iCrc = iTotalLen-2; 
+#endif
+    FSR_REGISTER = BTqueueIn;
+    FSR1 = BTqueueIn2;
+    FSR2 = BTqueueIn3;
+    CRCcmp=0;
+    CRC=0xffff;   
+    CRCM8TX3 = CRCM8TX2 = CRCM8TX = 0xff;
+    BTFlags.CRCM8F = 0;
+    if (iTotalLen < BTqueueInLen2)
+        iTotalLen = BTqueueInLen2;
+    if (iTotalLen < BTqueueInLen3)
+        iTotalLen = BTqueueInLen3;
+
+    /*for (i = 0; i < 4; i++)
+    {
+        bByte1 = *ptr1;
+        mask = (bByte1 ^ *ptr2);
+        bByte1 &= mask ^ 0xff; 
+        bByte1 |= mask & (*ptr3);
+        *ptr1 = bByte1;
+        wCRCupdt(bByte1);
+        ptr1++;ptr2++;ptr3++;
+    }
+    wCRCupdt(*ptr1);
+    ptr1++;ptr2++;ptr3++;*/
+    for (i = 0; i < iTotalLen; i++)
+    {
+#ifdef      _18F2321_18F25K20
+        if (!BTFlags.CRCM8F)
+        {
+            CRCM8TX *= 251;
+            CRCM8TX2 *= 239;
+            CRCM8TX3 *= 227;
+        }
+        else
+        {
+            CRCM8TX *= 223;
+            CRCM8TX2 *= 139;
+            CRCM8TX3 *= 151;
+        }
+        #asm
+        BTG BTFlags,3,1
+        #endasm
+#else
+        if (!BTFlags.CRCM8F)
+        {
+            CRCM8TX = (CRCM8TX * 251)%256;
+            CRCM8TX2 = (CRCM8TX2 * 239)%256;
+            CRCM8TX3 = (CRCM8TX3 * 227)%256;
+            BTFlags.CRCM8F = 1;
+        }
+        else
+        {
+            CRCM8TX = (CRCM8TX * 223)%256;
+            CRCM8TX2 = (CRCM8TX2 * 139)%256;
+            CRCM8TX3 = (CRCM8TX3 * 151)%256;
+            BTFlags.CRCM8F = 0;
+        }
+#endif
+        bByte1 = PTR_FSR ^ CRCM8TX;
+        CRCM8TX = PTR_FSR|1;
+#ifndef WIN32
+        if (i != 4)
+        {
+#endif
+            mask = INDF1 ^ CRCM8TX2;
+            CRCM8TX2 = INDF1|1;
+            mask ^= bByte1;
+            bByte1 &= mask ^ 0xff;
+            mask &= INDF2 ^ CRCM8TX3;
+            CRCM8TX3 = INDF2|1;
+            bByte1 |= mask;
+            PTR_FSR = bByte1;
+            if (i < iCrc) 
+                wCRCupdt(bByte1);
+#ifndef WIN32
+        }
+        else
+        {
+            *ptr1 = 0;
+        }
+        if (i == PACKET_LEN_OFFSET)
+        {
+            if (bByte1<= BT_TX_MAX_LEN)
+            {
+                iLenTotal = PTR_FSR + PACKET_LEN_OFFSET+1+3;// + sizeof(PacketStart);
+                iCrc = PTR_FSR + PACKET_LEN_OFFSET+1;
+            }     
+            else
+                goto RETURN_ERROR;
+        }
+#endif
+        FSR_REGISTER++;
+        FSR1++;
+        FSR2++;
+    }
+
+    FSR_REGISTER-=2;
+   
+    //wCRCupdt(0);
+    CRCcmp = ((((UWORD)PTR_FSR))<<8); FSR_REGISTER++;
+    CRCcmp += ((UWORD)PTR_FSR);
+    if (CRC == CRCcmp)
+    {
+        return 0;
+    }
+RETURN_ERROR:
+    return 0xff;
+}
 
 int main(int argc,char *argv[])
 {
@@ -318,9 +430,9 @@ int main(int argc,char *argv[])
     179,    181,    191,    193,    197,    199,    211,    223,    227,    229,
     233,    239,    241,    251,};
     int Rep[256];
-    imessage1=0;
-    imessage2=0;
-    imessage3=0;
+    BTqueueInLen=0;
+    BTqueueInLen2=0;
+    BTqueueInLen3=0;
     /*
     int ii=0;
     int jj=0;
@@ -551,7 +663,7 @@ SEND_GOOD1:          BTbyteCRCM1(BTqueueOutCopy[i]);
             BTbyteCRCm1(WREG);
             WREG = (CRC16TX&0x00ff);
             BTbyteCRCm1(WREG);  
-            SendBTbyteM1(CRCM8TX);
+            //SendBTbyteM1(CRCM8TX^0xAA);
         }
         else if (FqTXCount ==1)
         {
@@ -578,7 +690,7 @@ SEND_GOOD2:          BTbyteCRCM2(BTqueueOutCopy[i]);
             BTbyteCRCM2(WREG);
             WREG = (CRC16TX&0x00ff);
             BTbyteCRCM2(WREG);
-            SendBTbyteM2(CRCM8TX);
+            //SendBTbyteM2(CRCM8TX^0xAA);
         }
         else // if (FqTXCount ==2)
         {
@@ -604,25 +716,39 @@ SEND_GOOD3:          BTbyteCRCM3(BTqueueOutCopy[i]);
             BTbyteCRCM3(WREG);
             WREG = (CRC16TX&0x00ff);
             BTbyteCRCM3(WREG);  
-            SendBTbyteM3(CRCM8TX);
+            //SendBTbyteM3(CRCM8TX^0xAA);
         }
         // NO CRC - from now CRC is exect for all 3 packages
         /////////////////////////////////////////////////////////////////////
     }
     IntRXCount = 0;
-    if (CheckPacket(message1, sizeof(message1)-1)<0xff)
-        printf("\n message1 ok");
+    if (CheckPacket(BTqueueIn, sizeof(BTqueueIn)-1)<0xff)
+        printf("\n BTqueueIn ok");
     IntRXCount =1;
-    if (CheckPacket(message2, sizeof(message2)-1)<0xff)
-        printf("\n message2 ok");
+    if (CheckPacket(BTqueueIn2, sizeof(BTqueueIn2)-1)<0xff)
+        printf("\n BTqueueIn2 ok");
     IntRXCount=2;
-    if (CheckPacket(message3, sizeof(message3)-1)<0xff)
-        printf("\n message3 ok");
+    if (CheckPacket(BTqueueIn3, sizeof(BTqueueIn3)-1)<0xff)
+        printf("\n BTqueueIn3 ok");
         
 
-    //memcpy(message1,message,sizeof(message));
-    //memcpy(message2,message,sizeof(message));
-    //memcpy(message3,message,sizeof(message));
+    BTqueueIn[10]=0xff;
+    BTqueueIn2[11]=0xff;
+    BTqueueIn3[12]=0xff;
+    IntRXCount = 0;
+    if (CheckPacket(BTqueueIn, sizeof(BTqueueIn)-1)<0xff)
+        printf("\n BTqueueIn ok");
+    else
+        printf("\n BTqueueIn bnroken");
+
+    if (BTFix3() < 0xff)
+        printf("\n BTFix3 fixed");
+    else
+        printf("\n BTFix3 not fixed");
+    
+    //memcpy(BTqueueIn,message,sizeof(message));
+    //memcpy(BTqueueIn2,message,sizeof(message));
+    //memcpy(BTqueueIn3,message,sizeof(message));
     // encrypt
     /*  
     int FisrtR=251;
@@ -645,71 +771,71 @@ SEND_GOOD3:          BTbyteCRCM3(BTqueueOutCopy[i]);
        // first error restoration
 #if 0
         if ((i&1) == 0)
-            message1[i]=0;
+            BTqueueIn[i]=0;
 #endif
         // second error restoration
 #if 0
             if ((i&1) == 1)
-            message2[i]=0;
+            BTqueueIn2[i]=0;
 #endif
             // third error restoration
 #if 0
-            message1[i]=1;
+            BTqueueIn[i]=1;
 #endif
             // fourth error restoration
-#if 1
-            message2[i]=0xff;
+#if 0
+            BTqueueIn2[i]=0xff;
 #endif
  
  
     }
     /*
-    int iOld=message1[0];
-    for (int i = 1; i < sizeof(message1);i++)
+    int iOld=BTqueueIn[0];
+    for (int i = 1; i < sizeof(BTqueueIn);i++)
     {
         if (i&1)
             iVal=(iOld*FisrtR)%256;
         else
             iVal=(iOld*SecondR)%256;
-        if (message2[i] != (iVal ^ message1[i]))
+        if (BTqueueIn2[i] != (iVal ^ BTqueueIn[i]))
         {
-            // byte not matched - two cases error in (a) message or (b) in message2
-            if (i < (sizeof(message1)-1))
+            // byte not matched - two cases error in (a) message or (b) in BTqueueIn2
+            if (i < (sizeof(BTqueueIn)-1))
             {
                 // check that error in message
-                int iCurrent = iVal ^ message2[i];
+                int iCurrent = iVal ^ BTqueueIn2[i];
                 int iValNext;
                 if ((i+1)&1)
                    iValNext=(iCurrent*FisrtR)%256;
                 else
                    iValNext=(iCurrent*SecondR)%256;
-                if (message1[i+1] == (message2[i+1]^iValNext))
+                if (BTqueueIn[i+1] == (BTqueueIn2[i+1]^iValNext))
                 {
                     iOld = iCurrent;
-                    message1[i] = message2[i];
+                    BTqueueIn[i] = BTqueueIn2[i];
                 }
-                else // the error in message2
+                else // the error in BTqueueIn2
                 {
-                    iOld = message1[i];
-                    message1[i] = message1[i]^iVal;
+                    iOld = BTqueueIn[i];
+                    BTqueueIn[i] = BTqueueIn[i]^iVal;
                 }
             }
             else
             {
-                iOld = message1[i];
-                message1[i] = message1[i]^iVal;
+                iOld = BTqueueIn[i];
+                BTqueueIn[i] = BTqueueIn[i]^iVal;
             }
         }
         else
         {
-            iOld = message1[i];
-            message1[i] = message1[i]^iVal;
+            iOld = BTqueueIn[i];
+            BTqueueIn[i] = BTqueueIn[i]^iVal;
         }
     }
     
     if (iCrc8 != (iOld*FisrtR)%256)
     {
-        memcpy(message1,message2,sizeof(message1));
+        memcpy(BTqueueIn,BTqueueIn2,sizeof(BTqueueIn));
     }*/
  
  
@@ -727,7 +853,7 @@ SEND_GOOD3:          BTbyteCRCM3(BTqueueOutCopy[i]);
         iOld = message[i];
         message[i] = message[i]^iVal;
     }*/
-    if (memcmp(message1,BTqueueOutCopy,sizeof(BTqueueOutCopy)-3)==0)
+    if (memcmp(BTqueueIn,BTqueueOutCopy,sizeof(BTqueueOutCopy)-3)==0)
         printf("message matched");
  
     return(0);
