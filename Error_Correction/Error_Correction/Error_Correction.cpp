@@ -28,8 +28,9 @@ unsigned char BTqueueIn2[512];
 int BTqueueInLen3;
 unsigned char BTqueueIn3[512];
 unsigned char OutputMsg[512];
-
-
+unsigned char *ptrOut;
+unsigned char *ptrTemp;
+unsigned char mask;
 
 struct _BTFLAGS
 {
@@ -37,6 +38,8 @@ struct _BTFLAGS
     unsigned BTFirstInit:1;
     unsigned RxInProc:1;
     unsigned CRCM8F:1;
+    unsigned Check01:1;
+    unsigned Check02:1;
 } BTFlags;
 
 unsigned char WREG;
@@ -289,7 +292,8 @@ unsigned char CheckPacket(unsigned char*MyData, unsigned int iLen)  // used IntR
         FSR1++;
     }
 
-    FSR1-=2;
+    FSR1--;
+    FSR1--;
     CRCcmp = ((((UWORD)INDF1))<<8); FSR1++;
     CRCcmp += ((UWORD)INDF1);
     
@@ -303,7 +307,6 @@ unsigned char BTFix3(void)
 {
     
     unsigned char bByte1;
-    unsigned char mask;
     iCrc = BTqueueInLen;
     iTotalLen = BTqueueInLen;
 #ifdef WIN32
@@ -312,6 +315,7 @@ unsigned char BTFix3(void)
     FSR_REGISTER = BTqueueIn;
     FSR1 = BTqueueIn2;
     FSR2 = BTqueueIn3;
+    ptrOut = OutputMsg;
     CRCcmp=0;
     CRC=0xffff;   
     CRCM8TX3 = CRCM8TX2 = CRCM8TX = 0xff;
@@ -380,9 +384,13 @@ unsigned char BTFix3(void)
             mask &= INDF2 ^ CRCM8TX3;
             CRCM8TX3 = INDF2|1;
             bByte1 |= mask;
-            PTR_FSR = bByte1;
             if (i < iCrc) 
                 wCRCupdt(bByte1);
+            // crazy - only 3 FSR on the processor
+            ptrTemp = FSR_REGISTER;
+            FSR_REGISTER = ptrOut;
+            PTR_FSR = bByte1;
+            FSR_REGISTER = ptrTemp;
 #ifndef WIN32
         }
         else
@@ -403,17 +411,179 @@ unsigned char BTFix3(void)
         FSR_REGISTER++;
         FSR1++;
         FSR2++;
+        ptrOut++;
     }
-
-    FSR_REGISTER-=2;
+    FSR_REGISTER = ptrOut;
+    FSR_REGISTER--;
+    FSR_REGISTER--;
    
     //wCRCupdt(0);
     CRCcmp = ((((UWORD)PTR_FSR))<<8); FSR_REGISTER++;
     CRCcmp += ((UWORD)PTR_FSR);
     if (CRC == CRCcmp)
-    {
         return 0;
+RETURN_ERROR:
+    return 0xff;
+}
+
+unsigned char BTFix2(void)
+{
+    
+    unsigned char bByte1;
+    unsigned char FisrtR;
+    unsigned char SecondR;
+    unsigned char FisrtR2;
+    unsigned char SecondR2;
+
+    unsigned char OldCRCM8TX;
+    unsigned char OldCRCM8TX2;
+
+    unsigned char NextByte;
+    unsigned char NextByte2;
+
+    iCrc = BTqueueInLen;
+    iTotalLen = BTqueueInLen;
+#ifdef WIN32
+    iCrc = iTotalLen-2; 
+#endif
+    BTFlags.Check01 = 0;
+    if ((BTqueueInLen > 0) && (BTqueueInLen2 > 0))
+    {
+        FSR_REGISTER = &BTqueueIn[5];
+        FSR1 = &BTqueueIn2[5];
+        if (BTqueueInLen > BTqueueInLen2)
+            iTotalLen = BTqueueInLen2;
+        FisrtR = 251;
+        SecondR = 223;
+        FisrtR2 = 239;
+        SecondR2 = 139;
     }
+    else if ((BTqueueInLen2 > 0) && (BTqueueInLen3 > 0))
+    {
+        FSR_REGISTER = &BTqueueIn2[5];
+        FSR1 = &BTqueueIn3[5];
+        if (BTqueueInLen2 > BTqueueInLen3)
+            iTotalLen = BTqueueInLen3;
+        else
+            iTotalLen = BTqueueInLen2;
+        FisrtR = 251;
+        SecondR = 223;
+        FisrtR2 = 227;
+        SecondR2 = 151;
+    }
+    else if ((BTqueueInLen > 0) && (BTqueueInLen3 > 0))
+    {
+        FSR_REGISTER = &BTqueueIn[5];
+        FSR1 = &BTqueueIn3[5];
+        if (BTqueueInLen > BTqueueInLen3)
+            iTotalLen = BTqueueInLen3;
+        else
+            iTotalLen = BTqueueInLen;
+        FisrtR = 239;
+        SecondR = 139;
+        FisrtR2 = 227;
+        SecondR2 = 151;
+    }
+    else
+        goto RETURN_ERROR;
+
+    FSR2 = OutputMsg;
+    CRCcmp=0;
+    CRC=0xffff;   
+    OldCRCM8TX = OldCRCM8TX2 = CRCM8TX2 = CRCM8TX = 0xff;
+    BTFlags.CRCM8F = 0;
+    
+#ifdef WIN32
+    for (i = 0; i < iTotalLen; i++)
+#else
+    for (i = 5; i < iTotalLen; i++)
+#endif
+    {
+        if (!BTFlags.CRCM8F)
+        {
+            CRCM8TX *= FisrtR;
+            CRCM8TX2 *= FisrtR2;
+        }
+        else
+        {
+            CRCM8TX *= SecondR;
+            CRCM8TX2 *= SecondR2;
+        }
+
+#ifdef      _18F2321_18F25K20
+        #asm
+        BTG BTFlags,3,1
+        #endasm
+#endif    
+        bByte1 = PTR_FSR ^ CRCM8TX;
+        CRCM8TX = PTR_FSR|1;
+        mask = INDF1 ^ CRCM8TX2;
+        CRCM8TX2 = INDF1|1;
+        if (mask != bByte1)
+        {
+            FSR_REGISTER++;
+            FSR1++;
+            if (!BTFlags.CRCM8F)
+            {
+                NextByte = CRCM8TX * FisrtR;
+                NextByte2= CRCM8TX2 *FisrtR2;
+            }
+            else
+            {
+                NextByte = CRCM8TX * SecondR;
+                NextByte2= CRCM8TX2 *SecondR2;
+            }
+        }
+#ifndef WIN32
+        if (i != 5)
+        {
+#endif
+            mask = INDF1 ^ CRCM8TX2;
+            CRCM8TX2 = INDF1|1;
+
+            mask ^= bByte1;
+            bByte1 &= mask ^ 0xff;
+            mask &= INDF2 ^ CRCM8TX3;
+            CRCM8TX3 = INDF2|1;
+            bByte1 |= mask;
+            if (i < iCrc) 
+                wCRCupdt(bByte1);
+            // crazy - only 3 FSR on the processor
+            ptrTemp = FSR_REGISTER;
+            FSR_REGISTER = ptrOut;
+            PTR_FSR = bByte1;
+            FSR_REGISTER = ptrTemp;
+#ifndef WIN32
+        }
+        else
+        {
+            *ptr1 = 0;
+        }
+        if (i == PACKET_LEN_OFFSET)
+        {
+            if (bByte1<= BT_TX_MAX_LEN)
+            {
+                iLenTotal = PTR_FSR + PACKET_LEN_OFFSET+1+3;// + sizeof(PacketStart);
+                iCrc = PTR_FSR + PACKET_LEN_OFFSET+1;
+            }     
+            else
+                goto RETURN_ERROR;
+        }
+#endif
+        FSR_REGISTER++;
+        FSR1++;
+        FSR2++;
+        ptrOut++;
+    }
+    FSR_REGISTER = ptrOut;
+    FSR_REGISTER--;
+    FSR_REGISTER--;
+   
+    //wCRCupdt(0);
+    CRCcmp = ((((UWORD)PTR_FSR))<<8); FSR_REGISTER++;
+    CRCcmp += ((UWORD)PTR_FSR);
+    if (CRC == CRCcmp)
+        return 0;
 RETURN_ERROR:
     return 0xff;
 }

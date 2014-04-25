@@ -600,6 +600,41 @@ unsigned char CurFlashCmd;
 unsigned char AdrFlash1;
 unsigned char AdrFlash2;
 unsigned char AdrFlash3;
+UWORD TMR2Count;
+
+UWORD T2Byte0;
+
+UWORD T2Count1;
+UWORD T2Byte1;
+
+UWORD T2Count2;
+UWORD T2Byte2;
+
+UWORD T2Count3;
+UWORD T2Byte3;
+unsigned char AdrBH;
+unsigned int  wAddr;
+
+unsigned char FlashEntryBH;
+unsigned int  FlashEntry;
+
+unsigned char FlashExitBH;
+unsigned int  FlashExit;
+
+unsigned char FlashQueueSizeBH;
+unsigned int  FlashQueueSize;
+
+#define FLASH_BUFFER_LEN_BH      0x01
+#define FLASH_BUFFER_LEN         0x2000
+
+#define FLASH_BUFFER_HALF_LEN_BH 0x00
+#define FLASH_BUFFER_HALF_LEN    0x8100
+
+// structure of a packet acsepted from BT
+unsigned char PrevLen;
+unsigned char NextLen;
+unsigned char TypePkt;
+
 #pragma rambank RAM_BANK_1
 ///////////////////////////////////////BANK 1//////////////////////////
 
@@ -714,6 +749,9 @@ unsigned char BTqueueInLen2;
 unsigned char BTqueueIn3[LEN_OFFSET_INPUT_BUF];
 unsigned char BTqueueInLen3;
 
+unsigned char OutputMsg[LEN_OFFSET_INPUT_BUF];
+unsigned char OutputMsgLen;
+
 UWORD CRC;
 UWORD CRC16TX;
 #pragma rambank RAM_BANK_0
@@ -731,18 +769,6 @@ unsigned char CRCM8TX;
 unsigned CRCM8Cmp;
 
 UWORD CRCcmp;
-UWORD TMR2Count;
-
-UWORD T2Byte0;
-
-UWORD T2Count1;
-UWORD T2Byte1;
-
-UWORD T2Count2;
-UWORD T2Byte2;
-
-UWORD T2Count3;
-UWORD T2Byte3;
 
 /*
 typedef struct PacketDial
@@ -877,28 +903,6 @@ void InitModem(void)
 // adr 0x002000 (8k)== Adr2B = 0x20  (var Ard2BH = 0x00)
 // adr 0x010000 (65536)Adr2B = 0x00  (var Adr2BH = 0x01)
 
-unsigned char AdrBH;
-unsigned int  wAddr;
-
-unsigned char FlashEntryBH;
-unsigned int  FlashEntry;
-
-unsigned char FlashExitBH;
-unsigned int  FlashExit;
-
-unsigned char FlashQueueSizeBH;
-unsigned int  FlashQueueSize;
-
-#define FLASH_BUFFER_LEN_BH      0x01
-#define FLASH_BUFFER_LEN         0x2000
-
-#define FLASH_BUFFER_HALF_LEN_BH 0x00
-#define FLASH_BUFFER_HALF_LEN    0x8100
-
-// structure of a packet acsepted from BT
-unsigned char PrevLen;
-unsigned char NextLen;
-unsigned char TypePkt;
 
 void Erace4K(unsigned char Adr2B);
 #endif
@@ -3403,7 +3407,8 @@ FIND_NONPRT:
                PTR_FSR  = bByte1;
                FSR_REGISTER--;
                PTR_FSR  |= bByte;
-               FSR_REGISTER+=2;
+               FSR_REGISTER++;
+               FSR_REGISTER++;
            }
            while(--i);
        } 
@@ -3445,6 +3450,8 @@ unsigned char BTFix3(void)
     unsigned char *ptr1 = BTqueueIn;
     unsigned char *ptr2 = BTqueueIn2;
     unsigned char *ptr3 = BTqueueIn3;
+    unsigned char *ptrOut;
+    UWORD ptrTemp;
     unsigned char bByte1;
     unsigned char bByte2;
     unsigned char bByte3;
@@ -3458,7 +3465,20 @@ unsigned char BTFix3(void)
         iLenTotal = BTqueueInLen2;
     if (iLenTotal < BTqueueInLen3)
         iLenTotal = BTqueueInLen3;
-
+    ///////////////////////////////////////////////
+    //   testing assembler
+    //ptr1 = BTqueueIn;
+    //FSR_REGISTER = ptr1;
+    //FSR_REGISTER = BTqueueIn;
+    //ptr1 = FSR_REGISTER;
+    //ptr1++;
+    //FSR_REGISTER-=25;
+    //FSR_REGISTER+=25;
+    ptrTemp = FSR_REGISTER;
+    FSR_REGISTER = ptrOut;
+    PTR_FSR = bByte1;
+    FSR_REGISTER = ptrTemp;
+    ///////////////////////////////////////////////
     /*for (i = 0; i < 4; i++)
     {
         bByte1 = *ptr1;
