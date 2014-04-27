@@ -430,16 +430,18 @@ unsigned char BTFix2(void)
 {
     
     unsigned char bByte1;
+    unsigned char bByte2;
+
     unsigned char FisrtR;
     unsigned char SecondR;
     unsigned char FisrtR2;
     unsigned char SecondR2;
 
-    unsigned char OldCRCM8TX;
-    unsigned char OldCRCM8TX2;
-
-    unsigned char NextByte;
+    unsigned char NextByte1;
     unsigned char NextByte2;
+
+    unsigned char CRCM8TXNext;
+    unsigned char CRCM8TX2Next;
 
     iCrc = BTqueueInLen;
     iTotalLen = BTqueueInLen;
@@ -487,10 +489,10 @@ unsigned char BTFix2(void)
     else
         goto RETURN_ERROR;
 
-    FSR2 = OutputMsg;
+    FSR2 = &OutputMsg[5];
     CRCcmp=0;
     CRC=0xffff;   
-    OldCRCM8TX = OldCRCM8TX2 = CRCM8TX2 = CRCM8TX = 0xff;
+    CRCM8TX2 = CRCM8TX = 0xff;
     BTFlags.CRCM8F = 0;
     
 #ifdef WIN32
@@ -516,16 +518,68 @@ unsigned char BTFix2(void)
         #endasm
 #endif    
         bByte1 = PTR_FSR ^ CRCM8TX;
-        CRCM8TX = PTR_FSR|1;
-        mask = INDF1 ^ CRCM8TX2;
-        CRCM8TX2 = INDF1|1;
-        if (mask != bByte1)
+        bByte2 = INDF1 ^ CRCM8TX2;
+        if (bByte1 == bByte2)
         {
-            FSR_REGISTER++;
-            FSR1++;
-            if (!BTFlags.CRCM8F)
+BYTE_GOOD:
+            INDF2 = bByte1;
+        }
+        else
+        {
+            if (i < (iTotalLen-1))
             {
-                NextByte = CRCM8TX * FisrtR;
+                // check case first is wrong; second may be OK 
+                CRCM8TXNext = (CRCM8TX ^ bByte2);
+                CRCM8TX2Next = INDF1|1;
+                if (!BTFlags.CRCM8F)
+                {
+                    CRCM8TXNext *= FisrtR;
+                    CRCM8TX2Next *= FisrtR2;
+                }
+                else
+                {
+                    CRCM8TXNext *= SecondR;
+                    CRCM8TX2Next *= SecondR2;
+                }
+                FSR_REGISTER++;
+                FSR1++;
+                NextByte1 = PTR_FSR ^ CRCM8TXNext;
+                NextByte2 = INDF1 ^ CRCM8TX2Next;
+                FSR_REGISTER--;
+                FSR1--;
+                if (NextByte1 == NextByte2)
+                {
+                    bByte1 = bByte2;
+                    goto BYTE_GOOD;
+                }
+                else
+                {
+                    CRCM8TXNext = PTR_FSR|1;
+                    CRCM8TX2Next = (CRCM8TX ^ bByte1);
+                    if (!BTFlags.CRCM8F)
+                    {
+                        CRCM8TXNext *= FisrtR;
+                        CRCM8TX2Next *= FisrtR2;
+                    }
+                    else
+                    {
+                        CRCM8TXNext *= SecondR;
+                        CRCM8TX2Next *= SecondR2;
+                    }
+                    FSR_REGISTER++;
+                    FSR1++;
+                    NextByte1 = PTR_FSR ^ CRCM8TXNext;
+                    NextByte2 = INDF1 ^ CRCM8TX2Next;
+                    FSR_REGISTER--;
+                    FSR1--;
+                    if (NextByte1 == NextByte2)
+                        goto BYTE_GOOD;
+                }
+                FSR_REGISTER++;
+                FSR1++;
+                if (!BTFlags.CRCM8F)
+                {
+                    NextByte = CRCM8TX * FisrtR;
                 NextByte2= CRCM8TX2 *FisrtR2;
             }
             else
@@ -534,6 +588,7 @@ unsigned char BTFix2(void)
                 NextByte2= CRCM8TX2 *SecondR2;
             }
         }
+        INDF2 = bByte1;
 #ifndef WIN32
         if (i != 5)
         {
@@ -573,7 +628,6 @@ unsigned char BTFix2(void)
         FSR_REGISTER++;
         FSR1++;
         FSR2++;
-        ptrOut++;
     }
     FSR_REGISTER = ptrOut;
     FSR_REGISTER--;
@@ -910,6 +964,11 @@ SEND_GOOD3:          BTbyteCRCM3(BTqueueOutCopy[i]);
         printf("\n BTqueueIn ok");
     else
         printf("\n BTqueueIn bnroken");
+    IntRXCount = 1;
+    if (CheckPacket(BTqueueIn2, sizeof(BTqueueIn2)-1)<0xff)
+        printf("\n BTqueueIn2 ok");
+    else
+        printf("\n BTqueueIn2 bnroken");
 
     if (BTFix3() < 0xff)
         printf("\n BTFix3 fixed");
