@@ -307,6 +307,9 @@ unsigned char BTFix3(void)
 {
     
     unsigned char bByte1;
+    unsigned char bByte2;
+    unsigned char bByte3;
+    unsigned char bByteOut;
     iCrc = BTqueueInLen;
     iTotalLen = BTqueueInLen;
 #ifdef WIN32
@@ -317,7 +320,7 @@ unsigned char BTFix3(void)
     FSR2 = BTqueueIn3;
     ptrOut = OutputMsg;
     CRCcmp=0;
-    CRC=0xffff;   
+    CRC=0xffff; 
     CRCM8TX3 = CRCM8TX2 = CRCM8TX = 0xff;
     BTFlags.CRCM8F = 0;
     if (iTotalLen < BTqueueInLen2)
@@ -371,38 +374,42 @@ unsigned char BTFix3(void)
             BTFlags.CRCM8F = 0;
         }
 #endif
-        bByte1 = PTR_FSR ^ CRCM8TX;
-        CRCM8TX = PTR_FSR|1;
 #ifndef WIN32
         if (i != 4)
         {
 #endif
-            mask = INDF1 ^ CRCM8TX2;
-            CRCM8TX2 = INDF1|1;
-            mask ^= bByte1;
-            bByte1 &= mask ^ 0xff;
-            mask &= INDF2 ^ CRCM8TX3;
-            CRCM8TX3 = INDF2|1;
-            bByte1 |= mask;
+            bByteOut = bByte1 = PTR_FSR ^ CRCM8TX;
+            //CRCM8TX = PTR_FSR|1;
+            bByte2 = INDF1 ^ CRCM8TX2;
+            //CRCM8TX2 = INDF1|1;
+            mask = bByte1 ^ bByte2;
+            bByteOut &= mask ^ 0xff;
+            bByte3 = INDF2 ^ CRCM8TX3;
+            mask &= bByte3;
+            //CRCM8TX3 = INDF2|1;
+            bByteOut |= mask;
             if (i < iCrc) 
-                wCRCupdt(bByte1);
+                wCRCupdt(bByteOut);
             // crazy - only 3 FSR on the processor
             ptrTemp = FSR_REGISTER;
             FSR_REGISTER = ptrOut;
-            PTR_FSR = bByte1;
+            PTR_FSR = bByteOut;
             FSR_REGISTER = ptrTemp;
+            CRCM8TX =  (CRCM8TX ^ bByteOut)|1;
+            CRCM8TX2 =  (CRCM8TX2 ^ bByteOut)|1;
+            CRCM8TX3 =  (CRCM8TX3 ^ bByteOut)|1;
 #ifndef WIN32
         }
         else
         {
-            *ptr1 = 0;
+            *ptrOut = 0;
         }
         if (i == PACKET_LEN_OFFSET)
         {
-            if (bByte1<= BT_TX_MAX_LEN)
+            if (bByteOut<= BT_TX_MAX_LEN)
             {
-                iLenTotal = PTR_FSR + PACKET_LEN_OFFSET+1+3;// + sizeof(PacketStart);
-                iCrc = PTR_FSR + PACKET_LEN_OFFSET+1;
+                iLenTotal = bByteOut + PACKET_LEN_OFFSET+1+3;// + sizeof(PacketStart);
+                iCrc = bByteOut + PACKET_LEN_OFFSET+1;
             }     
             else
                 goto RETURN_ERROR;
@@ -428,9 +435,11 @@ RETURN_ERROR:
 
 unsigned char BTFix2(void)
 {
-    
+    int  Vote;
+    unsigned char CmpCount;
     unsigned char bByte1;
     unsigned char bByte2;
+    unsigned char bByteOut;
 
     unsigned char FisrtR;
     unsigned char SecondR;
@@ -442,17 +451,18 @@ unsigned char BTFix2(void)
 
     unsigned char CRCM8TXNext;
     unsigned char CRCM8TX2Next;
-
-    iCrc = BTqueueInLen;
+    Vote = 128;
     iTotalLen = BTqueueInLen;
-#ifdef WIN32
-    iCrc = iTotalLen-2; 
-#endif
     BTFlags.Check01 = 0;
     if ((BTqueueInLen > 0) && (BTqueueInLen2 > 0))
     {
-        FSR_REGISTER = &BTqueueIn[5];
+#ifdef WIN32
+        FSR_REGISTER = &BTqueueIn[0];
+        FSR1 = &BTqueueIn2[0];
+#else
+        FSR_REGISTER = &BTqueueIn[4];
         FSR1 = &BTqueueIn2[5];
+#endif
         if (BTqueueInLen > BTqueueInLen2)
             iTotalLen = BTqueueInLen2;
         FisrtR = 251;
@@ -462,36 +472,64 @@ unsigned char BTFix2(void)
     }
     else if ((BTqueueInLen2 > 0) && (BTqueueInLen3 > 0))
     {
-        FSR_REGISTER = &BTqueueIn2[5];
+#ifdef WIN32
+        FSR_REGISTER = &BTqueueIn2[0];
+        FSR1 = &BTqueueIn3[0];
+#else
+        FSR_REGISTER = &BTqueueIn2[4];
         FSR1 = &BTqueueIn3[5];
+#endif
         if (BTqueueInLen2 > BTqueueInLen3)
             iTotalLen = BTqueueInLen3;
         else
             iTotalLen = BTqueueInLen2;
-        FisrtR = 251;
-        SecondR = 223;
-        FisrtR2 = 227;
-        SecondR2 = 151;
-    }
-    else if ((BTqueueInLen > 0) && (BTqueueInLen3 > 0))
-    {
-        FSR_REGISTER = &BTqueueIn[5];
-        FSR1 = &BTqueueIn3[5];
-        if (BTqueueInLen > BTqueueInLen3)
-            iTotalLen = BTqueueInLen3;
-        else
-            iTotalLen = BTqueueInLen;
         FisrtR = 239;
         SecondR = 139;
         FisrtR2 = 227;
         SecondR2 = 151;
     }
+    else if ((BTqueueInLen > 0) && (BTqueueInLen3 > 0))
+    {
+#ifdef WIN32
+        FSR_REGISTER = &BTqueueIn[0];
+        FSR1 = &BTqueueIn3[0];
+#else
+        FSR_REGISTER = &BTqueueIn[4];
+        FSR1 = &BTqueueIn3[5];
+#endif
+        if (BTqueueInLen > BTqueueInLen3)
+            iTotalLen = BTqueueInLen3;
+        else
+            iTotalLen = BTqueueInLen;
+        FisrtR = 251;
+        SecondR = 223;
+        FisrtR2 = 227;
+        SecondR2 = 151;
+    }
     else
         goto RETURN_ERROR;
+    iCrc = iTotalLen;
+#ifdef WIN32
+    iCrc = iTotalLen-2; 
+#endif
 
+#ifdef WIN32
+    FSR2 = &OutputMsg[0];
+#else
     FSR2 = &OutputMsg[5];
+#endif
     CRCcmp=0;
+#ifdef WIN32
     CRC=0xffff;   
+#else
+    CRC=0x50d4;   
+    //wCRCupdt(0xaa);
+    //wCRCupdt(0xaa);
+    //wCRCupdt(0xaa);
+    wCRCupdt(PTR_FSR);
+    FSR_REGISTER++;
+#endif
+
     CRCM8TX2 = CRCM8TX = 0xff;
     BTFlags.CRCM8F = 0;
     
@@ -516,20 +554,22 @@ unsigned char BTFix2(void)
         #asm
         BTG BTFlags,3,1
         #endasm
+#else
+         BTFlags.CRCM8F = !BTFlags.CRCM8F;
 #endif    
-        bByte1 = PTR_FSR ^ CRCM8TX;
+        bByteOut = bByte1 = PTR_FSR ^ CRCM8TX;
         bByte2 = INDF1 ^ CRCM8TX2;
-        if (bByte1 == bByte2)
-        {
-BYTE_GOOD:
-            INDF2 = bByte1;
-        }
-        else
+        CmpCount=0;
+        if (bByte1 != bByte2)
         {
             if (i < (iTotalLen-1))
             {
+                if (Vote>=128)
+                    goto CHECK_SECOND_MSG;
+CHECK_SECOND_MSG:
                 // check case first is wrong; second may be OK 
-                CRCM8TXNext = (CRCM8TX ^ bByte2);
+                CmpCount++;
+                CRCM8TXNext = (CRCM8TX ^ bByte2)|1;
                 CRCM8TX2Next = INDF1|1;
                 if (!BTFlags.CRCM8F)
                 {
@@ -549,13 +589,29 @@ BYTE_GOOD:
                 FSR1--;
                 if (NextByte1 == NextByte2)
                 {
-                    bByte1 = bByte2;
-                    goto BYTE_GOOD;
+                    Vote++;
+                    bByteOut = bByte2;
+                    CRCM8TX =  (CRCM8TX ^ bByte2)|1;
+                    CRCM8TX2 = INDF1|1;
                 }
                 else
                 {
+                    if (CmpCount >=2)
+                        goto EXIT_WITH_CHECK;
+TEST_FIRST_MSG:
+                    CmpCount++;
+#if 0
+                    // covered cases (a) two consequetive error bytes in second message
+                    //               (b) first byte correct
+                    //               (c) first byte correct and second wrong in second message
+                    //               (d) first byte wrong and second wrong in second message
+                    //  probability for (d) is p = 1/(28*27)*p(1-byte-error-in paket) = 0.001322*p(error)
+                    // for ground station better to store packet and fixed it later from DB 
+                    CRCM8TX = PTR_FSR|1;
+                    CRCM8TX2 = (CRCM8TX2 ^ bByte1)|1;
+#else
                     CRCM8TXNext = PTR_FSR|1;
-                    CRCM8TX2Next = (CRCM8TX ^ bByte1);
+                    CRCM8TX2Next = (CRCM8TX2 ^ bByte1)|1;
                     if (!BTFlags.CRCM8F)
                     {
                         CRCM8TXNext *= FisrtR;
@@ -573,53 +629,47 @@ BYTE_GOOD:
                     FSR_REGISTER--;
                     FSR1--;
                     if (NextByte1 == NextByte2)
-                        goto BYTE_GOOD;
+                    {
+                        Vote--;
+                        CRCM8TX = PTR_FSR|1;
+                        CRCM8TX2 = (CRCM8TX2 ^ bByte1)|1;
+                        //bByte2= bByte1;
+                    }
+                    else // case that two sequensed bytes are broken in two messages
+                    {
+                        if (CmpCount >=2)
+                        {
+EXIT_WITH_CHECK:
+                            CRCM8TX = PTR_FSR|1;
+                            CRCM8TX2 = INDF1|1;
+                        }
+                        else
+                            goto CHECK_SECOND_MSG;
+                    }
+#endif
                 }
-                FSR_REGISTER++;
-                FSR1++;
-                if (!BTFlags.CRCM8F)
-                {
-                    NextByte = CRCM8TX * FisrtR;
-                NextByte2= CRCM8TX2 *FisrtR2;
             }
             else
             {
-                NextByte = CRCM8TX * SecondR;
-                NextByte2= CRCM8TX2 *SecondR2;
+                if (Vote>128)
+                    bByteOut = bByte2;
             }
         }
-        INDF2 = bByte1;
-#ifndef WIN32
-        if (i != 5)
+        else // if (bByte1 == bByte2)
         {
-#endif
-            mask = INDF1 ^ CRCM8TX2;
-            CRCM8TX2 = INDF1|1;
-
-            mask ^= bByte1;
-            bByte1 &= mask ^ 0xff;
-            mask &= INDF2 ^ CRCM8TX3;
-            CRCM8TX3 = INDF2|1;
-            bByte1 |= mask;
-            if (i < iCrc) 
-                wCRCupdt(bByte1);
-            // crazy - only 3 FSR on the processor
-            ptrTemp = FSR_REGISTER;
-            FSR_REGISTER = ptrOut;
-            PTR_FSR = bByte1;
-            FSR_REGISTER = ptrTemp;
+            CRCM8TX =  (CRCM8TX ^ bByteOut)|1;
+            CRCM8TX2 =  (CRCM8TX2 ^ bByteOut)|1;
+        }
+        INDF2 = bByteOut;
+        if (i < iCrc) 
+            wCRCupdt(bByteOut);
 #ifndef WIN32
-        }
-        else
-        {
-            *ptr1 = 0;
-        }
         if (i == PACKET_LEN_OFFSET)
         {
-            if (bByte1<= BT_TX_MAX_LEN)
+            if (bByteOut<= BT_TX_MAX_LEN)
             {
-                iLenTotal = PTR_FSR + PACKET_LEN_OFFSET+1+3;// + sizeof(PacketStart);
-                iCrc = PTR_FSR + PACKET_LEN_OFFSET+1;
+                iTotalLen = bByteOut + PACKET_LEN_OFFSET+1+3;// + sizeof(PacketStart);
+                iCrc = bByteOut + PACKET_LEN_OFFSET+1;
             }     
             else
                 goto RETURN_ERROR;
@@ -629,13 +679,12 @@ BYTE_GOOD:
         FSR1++;
         FSR2++;
     }
-    FSR_REGISTER = ptrOut;
-    FSR_REGISTER--;
-    FSR_REGISTER--;
+    FSR2--;
+    FSR2--;
    
     //wCRCupdt(0);
-    CRCcmp = ((((UWORD)PTR_FSR))<<8); FSR_REGISTER++;
-    CRCcmp += ((UWORD)PTR_FSR);
+    CRCcmp = ((((UWORD)INDF2))<<8); FSR2++;
+    CRCcmp += ((UWORD)INDF2);
     if (CRC == CRCcmp)
         return 0;
 RETURN_ERROR:
@@ -954,11 +1003,24 @@ SEND_GOOD3:          BTbyteCRCM3(BTqueueOutCopy[i]);
     IntRXCount=2;
     if (CheckPacket(BTqueueIn3, sizeof(BTqueueIn3)-1)<0xff)
         printf("\n BTqueueIn3 ok");
-        
+   
+#if 0
+    for (i = 0; i <sizeof(BTqueueIn)-1;i+=3)
+        BTqueueIn[i]=0xaa;
+    for (i = 1; i <sizeof(BTqueueIn)-1;i+=3)
+        BTqueueIn2[i]=0xff;
+    for (i = 2; i <sizeof(BTqueueIn)-1;i+=3)
+        BTqueueIn3[i]=0xff;
+#endif
 
-    BTqueueIn[10]=0xff;
-    BTqueueIn2[11]=0xff;
-    BTqueueIn3[12]=0xff;
+#if 1
+    for (i = 0; i <sizeof(BTqueueIn)-1;i+=4)
+        BTqueueIn[i]=0xaa;
+    for (i = 2; i <sizeof(BTqueueIn)-1;i+=4)
+        BTqueueIn2[i]=0xee;
+#endif
+
+
     IntRXCount = 0;
     if (CheckPacket(BTqueueIn, sizeof(BTqueueIn)-1)<0xff)
         printf("\n BTqueueIn ok");
@@ -970,11 +1032,28 @@ SEND_GOOD3:          BTbyteCRCM3(BTqueueOutCopy[i]);
     else
         printf("\n BTqueueIn2 bnroken");
 
-    if (BTFix3() < 0xff)
+    if (BTFix3() < 3)
         printf("\n BTFix3 fixed");
     else
         printf("\n BTFix3 not fixed");
     
+    if(BTFix2() <3)
+        printf("\n BTFix2 fixed 0-1");
+    else
+        printf("\n BTFix2 not fixed 0-1");
+
+    BTqueueInLen = 0;
+    if(BTFix2() < 3)
+        printf("\n BTFix2 fixed 2-3");
+    else
+        printf("\n BTFix2 not fixed 2-3");
+
+    BTqueueInLen = BTqueueInLen2;
+    BTqueueInLen2 = 0;
+    if(BTFix2() <3)
+        printf("\n BTFix2 fixed 0-3");
+    else
+        printf("\n BTFix2 not fixed 0-3");
     //memcpy(BTqueueIn,message,sizeof(message));
     //memcpy(BTqueueIn2,message,sizeof(message));
     //memcpy(BTqueueIn3,message,sizeof(message));

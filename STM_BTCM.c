@@ -751,6 +751,16 @@ unsigned char BTqueueInLen3;
 
 unsigned char OutputMsg[LEN_OFFSET_INPUT_BUF];
 unsigned char OutputMsgLen;
+unsigned char iTotalLen; // int -> char
+unsigned char iCrc;
+unsigned char i;
+unsigned char *ptrOut;
+unsigned char *ptrTemp;
+unsigned char mask;
+unsigned char CRCM8TX;
+unsigned char CRCM8TX2;
+unsigned char CRCM8TX3;
+
 
 UWORD CRC;
 UWORD CRC16TX;
@@ -761,6 +771,7 @@ struct _BTFLAGS
     unsigned BTFirstInit:1;
     unsigned RxInProc:1;
     unsigned CRCM8F:1;
+    unsigned Check01:1;
 } BTFlags;
 
 unsigned char CRCM8TX;
@@ -3116,117 +3127,266 @@ void ShowMessage(void)
 
 #include "commc8.h"
 
-void BTbyteCRCAA(unsigned char bByte)
-{
 
-    wCRCupdt(bByte);
-    SendBTbyte(bByte^0xAA);  
-#ifdef      _18F2321_18F25K20
-    if (!BTFlags.CRCM8F)
-        CRCM8TX = (CRCM8TX ^ bByte) * 251;
-    else
-        CRCM8TX = (CRCM8TX ^ bByte) * 239;
-    #asm
-    BTG BTFlags,3,1
-    #endasm
-#else
-    pizdec
-    if (!BTFlags.CRCM8F)
-    {
 
-        CRCM8TX = WREG * 251;
-        BTFlags.CRCM8F = 1;
-    }
-    else
-    {
-        CRCM8TX = WREG * 239;
-        BTFlags.CRCM8F = 0;
-    }
-#endif             
-    
-}
-void BTbyteCRC55(unsigned char bByte)
-{
-    //wCRCupdt(bByte);
-    SendBTbyte(bByte^0x55);  
-}
+    // 251 223
+    // a=251 b=223 max=128
+    // 0=1 1=223 2=165 3=187 4=89 5=135 6=93 7=3 8=241 9=239 10=85 11=11 12=201 13=23 14=141 15=211 
+    // 16=225 17=255 18=5 19=91 20=57 21=167 22=189 23=163 24=209 25=15 26=181 27=171 28=169 29=55 30=237 31=115 
+    // 32=193 33=31 34=101 35=251 36=25 37=199 38=29 39=67 40=177 41=47 42=21 43=75 44=137 45=87 46=77 47=19 
+    // 48=161 49=63 50=197 51=155 52=249 53=231 54=125 55=227 56=145 57=79 58=117 59=235 60=105 61=119 62=173 63=179 
+    // 64=129 65=95 66=37 67=59 68=217 69=7 70=221 71=131 72=113 73=111 74=213 75=139 76=73 77=151 78=13 
+    // 79=83 80=97 81=127 82=133 83=219 84=185 85=39 86=61 87=35 88=81 89=143 90=53 91=43 92=41 
+    // 93=183 94=109 95=243 96=65 97=159 98=229 99=123 100=153 101=71 102=157 103=195 104=49 105=175 
+    // 106=149 107=203 108=9 109=215 110=205 111=147 112=33 113=191 114=69 115=27 116=121 117=103 118=253 
+    // 119=99 120=17 121=207 122=245 123=107 124=233 125=247 126=45 127=51 128=1 
+
+    // 239 139
+    // a=239 b=139 max=128
+    // 0=1 1=139 2=197 3=247 4=153 5=19 6=189 7=159 8=113 9=91 10=245 11=7 12=137 13=99 14=109 15=47 
+    // 16=225 17=43 18=37 19=23 20=121 21=179 22=29 23=191 24=81 25=251 26=85 27=39 28=105 29=3 30=205 31=79 
+    // 32=193 33=203 34=133 35=55 36=89 37=83 38=125 39=223 40=49 41=155 42=181 43=71 44=73 45=163 46=45 47=111 
+    // 48=161 49=107 50=229 51=87 52=57 53=243 54=221 55=255 56=17 57=59 58=21 59=103 60=41 61=67 62=141 63=143 
+    // 64=129 65=11 66=69 67=119 68=25 69=147 70=61 71=31 72=241 73=219 74=117 75=135 76=9 77=227 78=237 
+    // 79=175 80=97 81=171 82=165 83=151 84=249 85=51 86=157 87=63 88=209 89=123 90=213 91=167 92=233 
+    // 93=131 94=77 95=207 96=65 97=75 98=5 99=183 100=217 101=211 102=253 103=95 104=177 105=27 
+    // 106=53 107=199 108=201 109=35 110=173 111=239 112=33 113=235 114=101 115=215 116=185 117=115 118=93 
+    // 119=127 120=145 121=187 122=149 123=231 124=169 125=195 126=13 127=15 128=1 
+
+    // 227 151
+    // a=227 b=151 max=128
+    // 0=1 1=151 2=229 3=19 4=217 5=255 6=29 7=27 8=241 9=39 10=149 11=227 12=73 13=15 14=77 15=107 
+    // 16=225 17=183 18=69 19=179 20=185 21=31 22=125 23=187 24=209 25=71 26=245 27=131 28=41 29=47 30=173 31=11 
+    // 32=193 33=215 34=165 35=83 36=153 37=63 38=221 39=91 40=177 41=103 42=85 43=35 44=9 45=79 46=13 47=171 
+    // 48=161 49=247 50=5 51=243 52=121 53=95 54=61 55=251 56=145 57=135 58=181 59=195 60=233 61=111 62=109 63=75 
+    // 64=129 65=23 66=101 67=147 68=89 69=127 70=157 71=155 72=113 73=167 74=21 75=99 76=201 77=143 78=205 
+    // 79=235 80=97 81=55 82=197 83=51 84=57 85=159 86=253 87=59 88=81 89=199 90=117 91=3 92=169 
+    // 93=175 94=45 95=139 96=65 97=87 98=37 99=211 100=25 101=191 102=93 103=219 104=49 105=231 
+    // 106=213 107=163 108=137 109=207 110=141 111=43 112=33 113=119 114=133 115=115 116=249 117=223 118=189 
+    // 119=123 120=17 121=7 122=53 123=67 124=105 125=239 126=237 127=203 128=1 
 
 void BTbyteCRC(unsigned char bByte)
 {
     wCRCupdt(bByte);
     SendBTbyte(bByte);  
 }
-unsigned char CheckPacket(unsigned char*MyData, unsigned char iLen)  // used IntRXCount as a number of the RF Ch
+
+    // 251 223
+void BTbyteCRCm1(unsigned char bByte)
+{
+#ifdef      _18F2321_18F25K20
+    if (!BTFlags.CRCM8F)
+        CRCM8TX *= 251;    
+    else
+        CRCM8TX *= 223;
+    #asm
+    BTG BTFlags,3,1
+    #endasm
+#else
+    WREG=CRCM8TX;
+    if (!BTFlags.CRCM8F)
+    {
+        CRCM8TX = (WREG * 251)%256;
+        BTFlags.CRCM8F = 1;
+    }
+    else
+    {
+        CRCM8TX = (WREG * 223)%256;
+        BTFlags.CRCM8F = 0;
+    }
+#endif
+    CRCM8TX ^= bByte;
+    SendBTbyte(CRCM8TX);
+    CRCM8TX|=1;
+}
+void BTbyteCRCM1(unsigned char bByte)
+{
+    wCRCupdt(bByte);
+    BTbyteCRCm1(bByte);
+}
+
+// 239 139
+void BTbyteCRCM2(unsigned char bByte)
+{
+    //wCRCupdt(bByte);
+#ifdef      _18F2321_18F25K20
+    if (!BTFlags.CRCM8F)
+        CRCM8TX *= 239;    
+    else
+        CRCM8TX *= 139;
+    #asm
+    BTG BTFlags,3,1
+    #endasm
+#else
+    WREG=CRCM8TX;
+    if (!BTFlags.CRCM8F)
+    {
+        CRCM8TX = (WREG * 239)%256;
+        BTFlags.CRCM8F = 1;
+    }
+    else
+    {
+        CRCM8TX = (WREG * 139)%256;
+        BTFlags.CRCM8F = 0;
+    }
+#endif
+    CRCM8TX ^= bByte;
+    SendBTbyte(CRCM8TX);
+    CRCM8TX|=1;
+}
+// 227 151
+void BTbyteCRCM3(unsigned char bByte)
+{
+#ifdef      _18F2321_18F25K20
+    if (!BTFlags.CRCM8F)
+        CRCM8TX *= 227;    
+    else
+        CRCM8TX *= 151;
+    #asm
+    BTG BTFlags,3,1
+    #endasm
+#else
+    WREG=CRCM8TX;
+    if (!BTFlags.CRCM8F)
+    {
+        CRCM8TX = (WREG * 227)%256;
+        BTFlags.CRCM8F = 1;
+    }
+    else
+    {
+        CRCM8TX = (WREG * 151)%256;
+        BTFlags.CRCM8F = 0;
+    }
+#endif
+    CRCM8TX ^= bByte;
+    SendBTbyte(CRCM8TX);
+    CRCM8TX|=1;
+}
+
+unsigned char CheckPacket(unsigned char*MyData, unsigned int iLen)  // used IntRXCount as a number of the RF Ch
 {  
-    unsigned char PktNumb;
-    unsigned char i;
-    unsigned char iCrc = iLen;//26;
-    CRCcmp=0;
+    iTotalLen = iCrc = iLen;//26;
+#ifdef WIN32
+    iCrc = iTotalLen-2; 
+#endif
     CRC=0xffff;
     FSR_REGISTER = MyData;
+    FSR1 = OutputMsg;
+    BTFlags.CRCM8F = 0;
+    CRCM8TX = 0xff;
     //                               0  1  2  3  4  5 6--
     // new ctrl packet format is  : AA AA AA F0 CH LN CTRL CRC16 CRCM8
     // new data packet format is  : AA AA AA F1 CH LN DATA CRC16 CRCM8
     //   RF Ch1 from len everything is ^ 0xAA
     //   RF Ch2 from len everything is ^ 0x55
     // restoration of the packet done by 
-    for (i = 0; i < iCrc; i++)
+    for (i = 0; i < iTotalLen; i++)
     {
+#ifndef WIN32
         if (i != 4) // packet 0;1;2 added last
         {
             if (i>=5)
+#endif
             {
                 if (IntRXCount == 0)
-                    PTR_FSR ^= 0xaa;
-                else if (IntRXCount == 1)
-                    PTR_FSR ^= 0x55;
-                else if (IntRXCount == 2)
-                    PTR_FSR ^= 0x55;
+                {
+#ifdef      _18F2321_18F25K20
+                    if (!BTFlags.CRCM8F)
+                        CRCM8TX *= 251;    
+                    else
+                        CRCM8TX *= 223;
+#else
+                    if (!BTFlags.CRCM8F)
+                    {
+                        CRCM8TX = (CRCM8TX * 251)%256;
+                        BTFlags.CRCM8F = 1;
+                    }
+                    else
+                    {
+                        CRCM8TX = (CRCM8TX * 223)%256;
+                        BTFlags.CRCM8F = 0;
+                    }
+#endif
+                }
+                else if (IntRXCount == 1) // 239 139
+                {
+ #ifdef      _18F2321_18F25K20
+                    if (!BTFlags.CRCM8F)
+                        CRCM8TX *= 239;    
+                    else
+                        CRCM8TX *= 139;
+#else
+                    if (!BTFlags.CRCM8F)
+                    {
+                        CRCM8TX = (CRCM8TX * 239)%256;
+                        BTFlags.CRCM8F = 1;
+                    }
+                    else
+                    {
+                        CRCM8TX = (CRCM8TX * 139)%256;
+                        BTFlags.CRCM8F = 0;
+                    }
+#endif
+                }
+                else// if (IntRXCount == 2) // 227 151
+                {
+ #ifdef      _18F2321_18F25K20
+                    if (!BTFlags.CRCM8F)
+                        CRCM8TX *= 227;    
+                    else
+                        CRCM8TX *= 151;
+#else
+                    if (!BTFlags.CRCM8F)
+                    {
+                        CRCM8TX = (CRCM8TX * 227)%256;
+                        BTFlags.CRCM8F = 1;
+                    }
+                    else
+                    {
+                        CRCM8TX = (CRCM8TX * 151)%256;
+                        BTFlags.CRCM8F = 0;
+                    }
+#endif
+                }
+ #ifdef      _18F2321_18F25K20
+                #asm
+                BTG BTFlags,3,1
+                #endasm
+#endif
+                INDF1 = PTR_FSR ^CRCM8TX;
+                CRCM8TX = PTR_FSR|1;
             }   
-            wCRCupdt(PTR_FSR);
+            if (i<iCrc)
+                wCRCupdt(INDF1);
+#ifndef WIN32
             if (i == PACKET_LEN_OFFSET)
             {
-                if (PTR_FSR<= BT_TX_MAX_LEN)
-                    iCrc = PTR_FSR + PACKET_LEN_OFFSET+1;// + sizeof(PacketStart);
+                if (INDF1<= BT_TX_MAX_LEN)
+                {
+                    iTotalLen = INDF1 + PACKET_LEN_OFFSET+1+2;// + sizeof(PacketStart);
+                    iCrc = INDF1 + PACKET_LEN_OFFSET+1;
+                }    
                 else
                     goto RETURN_ERROR;
             }
         }
-        else
-            PktNumb = PTR_FSR;
-
+#endif
         FSR_REGISTER++;
+        FSR1++;
     }
-    // from now no CRC packages on that field (ch count)
-    //wCRCupdt(PktNumb);
-    if (IntRXCount == 0)
-        PTR_FSR ^= 0xaa;
-    else if (IntRXCount == 1)
-        PTR_FSR ^= 0x55;
-    else if (IntRXCount == 2)
-        PTR_FSR ^= 0x55;
 
-    CRCcmp = ((((UWORD)PTR_FSR))<<8); FSR_REGISTER++;
-    if (IntRXCount == 0)
-        PTR_FSR ^= 0xaa;
-    else if (IntRXCount == 1)
-        PTR_FSR ^= 0x55;
-    else if (IntRXCount == 2)
-        PTR_FSR ^= 0x55;
-
-    CRCcmp += ((UWORD)PTR_FSR);
+    FSR1--;
+    FSR1--;
+    CRCcmp = ((((UWORD)INDF1))<<8); FSR1++;
+    CRCcmp += ((UWORD)INDF1);
     
-    FSR_REGISTER++;
-    if (IntRXCount == 0)
-        PTR_FSR ^= 0xaa;
-    else if (IntRXCount == 1)
-        PTR_FSR ^= 0x55;
-    else if (IntRXCount == 2)
-        PTR_FSR ^= 0x55;
     if (CRC == CRCcmp)
+    {
+        OutputMsgLen = iTotalLen;
         return 0;
-
+    }
 RETURN_ERROR:
+    OutputMsgLen = 0;
     return 0xff;
 }
 
@@ -3447,38 +3607,29 @@ FIND_NONPRT:
 
 unsigned char BTFix3(void)
 {
-    unsigned char *ptr1 = BTqueueIn;
-    unsigned char *ptr2 = BTqueueIn2;
-    unsigned char *ptr3 = BTqueueIn3;
-    unsigned char *ptrOut;
-    UWORD ptrTemp;
+    
     unsigned char bByte1;
     unsigned char bByte2;
     unsigned char bByte3;
-    unsigned char mask;
-    unsigned char i;
-    unsigned char iCrc = BTqueueInLen;
-    unsigned char iLenTotal = BTqueueInLen;
+    unsigned char bByteOut;
+    iCrc = BTqueueInLen;
+    iTotalLen = BTqueueInLen;
+#ifdef WIN32
+    iCrc = iTotalLen-2; 
+#endif
+    FSR_REGISTER = BTqueueIn;
+    FSR1 = BTqueueIn2;
+    FSR2 = BTqueueIn3;
+    ptrOut = OutputMsg;
     CRCcmp=0;
-    CRC=0xffff;   
-    if (iLenTotal < BTqueueInLen2)
-        iLenTotal = BTqueueInLen2;
-    if (iLenTotal < BTqueueInLen3)
-        iLenTotal = BTqueueInLen3;
-    ///////////////////////////////////////////////
-    //   testing assembler
-    //ptr1 = BTqueueIn;
-    //FSR_REGISTER = ptr1;
-    //FSR_REGISTER = BTqueueIn;
-    //ptr1 = FSR_REGISTER;
-    //ptr1++;
-    //FSR_REGISTER-=25;
-    //FSR_REGISTER+=25;
-    ptrTemp = FSR_REGISTER;
-    FSR_REGISTER = ptrOut;
-    PTR_FSR = bByte1;
-    FSR_REGISTER = ptrTemp;
-    ///////////////////////////////////////////////
+    CRC=0xffff; 
+    CRCM8TX3 = CRCM8TX2 = CRCM8TX = 0xff;
+    BTFlags.CRCM8F = 0;
+    if (iTotalLen < BTqueueInLen2)
+        iTotalLen = BTqueueInLen2;
+    if (iTotalLen < BTqueueInLen3)
+        iTotalLen = BTqueueInLen3;
+
     /*for (i = 0; i < 4; i++)
     {
         bByte1 = *ptr1;
@@ -3491,149 +3642,362 @@ unsigned char BTFix3(void)
     }
     wCRCupdt(*ptr1);
     ptr1++;ptr2++;ptr3++;*/
-    for (i = 0; i < iLenTotal; i++)
+    for (i = 0; i < iTotalLen; i++)
     {
-        bByte1 = *ptr1;
-        if (i != 4)
-        {
-            mask = (bByte1 ^ *ptr2);
-            bByte1 &= mask ^ 0xff; 
-            bByte1 |= mask & (*ptr3);
-            *ptr1 = bByte1;
-            if (i < iCrc) 
-                wCRCupdt(bByte1);
-        }
-        else
-        {
-            *ptr1 = 0;
-        }
-        if (i == PACKET_LEN_OFFSET)
-        {
-            if (bByte1<= BT_TX_MAX_LEN)
-            {
-                iLenTotal = PTR_FSR + PACKET_LEN_OFFSET+1+3;// + sizeof(PacketStart);
-                iCrc = PTR_FSR + PACKET_LEN_OFFSET+1;
-            }     
-            else
-                goto RETURN_ERROR;
-        }
-
-        ptr1++;ptr2++;ptr3++;
-    }
-
-    // now needs to restore additional 3 bytes CRC16 and CRCM8
-    //for (i = 0; i < 3; i++)
-    //{
-    //    bByte1 = *ptr1;
-    //    mask = (bByte1 ^ *ptr2);
-    //    bByte1 &= mask ^ 0xff; 
-    //    bByte1 |= mask & (*ptr3);
-    //    *ptr1 = bByte1;
-    //    ptr1++;ptr2++;ptr3++;
-    //}
-
-    ptr1-=3;
-   
-    //wCRCupdt(0);
-    CRCcmp = ((((UWORD)*ptr1))<<8); ptr1++;
-    CRCcmp += ((UWORD)*ptr1);
-    if (CRC == CRCcmp)
-    {
-        return 0;
-    }
-RETURN_ERROR:
-    return 0xff;
-}
-
-unsigned char BTFixAA55()
-{
-    unsigned char *ptr1 = &BTqueueIn[5];
-    unsigned char *ptr2 = &BTqueueIn2[5];
-    unsigned char bXORByte1;
-    unsigned char bXORByte2;
-    unsigned char bCorrection;
-    unsigned char Error;
-    unsigned char NotError;
-    unsigned char i;
-    unsigned char iCrcPosition = BTqueueInLen;
-    unsigned char iLenTotal = BTqueueInLen;
-
-    CRC=0xffff;   
-    CRCM8TX = 0xff;
-    
-
-    if ((BTqueueInLen2 > 0) && (BTqueueInLen3 > 0)) // all 2 matched size FQ2 & FQ3
-    {
-    }
-    else
-    {
-        if (iLenTotal < BTqueueInLen2)
-            iLenTotal = BTqueueInLen2;
-        if ((BTqueueInLen > 0) && (BTqueueInLen3 > 0)) // all 2 matched size FQ1 & FQ3
-        {
-            if (BTqueueInLen < BTqueueInLen3)
-                iLenTotal = BTqueueInLen3;
-            else
-                iLenTotal = BTqueueInLen;
-            ptr2 = BTqueueIn3[5];
-        }
-    }
-    BTFlags.CRCM8F = 0;
-    for (i = 5; i < iLenTotal; i++)
-    {
-        bXORByte1 = *ptr1;
-        bXORByte2 = *ptr2;
-        NotError = bXORByte1 ^ bXORByte2;
-        if (NotError)
-        {
-            Error = NotError ^ 0xff;
-            //bByte1 = (Error & bByte1) | (((NotError & bByte1) ^ 0xff) ^ NotError); 
-            bCorrection = (Error & bXORByte1);
-            WREG = (NotError & bXORByte1)^0xff;
-            *ptr1 = WREG | bCorrection;
-            bCorrection = (Error & bXORByte2);
-            WREG = (NotError & bXORByte2)^0xff;
-            *ptr2 = WREG | bCorrection;
-        }
-        bXORByte1 = *ptr1;
 #ifdef      _18F2321_18F25K20
         if (!BTFlags.CRCM8F)
-            CRCM8TX = (CRCM8TX ^ bXORByte1) * 251;
+        {
+            CRCM8TX *= 251;
+            CRCM8TX2 *= 239;
+            CRCM8TX3 *= 227;
+        }
         else
-            CRCM8TX = (CRCM8TX ^ bXORByte1) * 239;
+        {
+            CRCM8TX *= 223;
+            CRCM8TX2 *= 139;
+            CRCM8TX3 *= 151;
+        }
         #asm
         BTG BTFlags,3,1
         #endasm
 #else
-        pizdec
-#endif       
-        if (i == 5)
+        if (!BTFlags.CRCM8F)
         {
-            bXORByte2 = *ptr2;
-            if (bXORByte1<= BT_TX_MAX_LEN)
+            CRCM8TX = (CRCM8TX * 251)%256;
+            CRCM8TX2 = (CRCM8TX2 * 239)%256;
+            CRCM8TX3 = (CRCM8TX3 * 227)%256;
+            BTFlags.CRCM8F = 1;
+        }
+        else
+        {
+            CRCM8TX = (CRCM8TX * 223)%256;
+            CRCM8TX2 = (CRCM8TX2 * 139)%256;
+            CRCM8TX3 = (CRCM8TX3 * 151)%256;
+            BTFlags.CRCM8F = 0;
+        }
+#endif
+#ifndef WIN32
+        if (i != 4)
+        {
+#endif
+            bByteOut = bByte1 = PTR_FSR ^ CRCM8TX;
+            //CRCM8TX = PTR_FSR|1;
+            bByte2 = INDF1 ^ CRCM8TX2;
+            //CRCM8TX2 = INDF1|1;
+            mask = bByte1 ^ bByte2;
+            bByteOut &= mask ^ 0xff;
+            bByte3 = INDF2 ^ CRCM8TX3;
+            mask &= bByte3;
+            //CRCM8TX3 = INDF2|1;
+            bByteOut |= mask;
+            if (i < iCrc) 
+                wCRCupdt(bByteOut);
+            // crazy - only 3 FSR on the processor
+            ptrTemp = FSR_REGISTER;
+            FSR_REGISTER = ptrOut;
+            PTR_FSR = bByteOut;
+            FSR_REGISTER = ptrTemp;
+            CRCM8TX =  (CRCM8TX ^ bByteOut)|1;
+            CRCM8TX2 =  (CRCM8TX2 ^ bByteOut)|1;
+            CRCM8TX3 =  (CRCM8TX3 ^ bByteOut)|1;
+#ifndef WIN32
+        }
+        else
+        {
+            *ptrOut = 0;
+        }
+        if (i == PACKET_LEN_OFFSET)
+        {
+            if (bByteOut<= BT_TX_MAX_LEN)
             {
-                iLenTotal = bXORByte1 + PACKET_LEN_OFFSET+1+3;
-                iCrcPosition = bXORByte1 + PACKET_LEN_OFFSET+1+2;
-            }
-            else if (bXORByte2<= BT_TX_MAX_LEN)
-            {
-                iLenTotal = bXORByte2 + PACKET_LEN_OFFSET+1+3;
-                iCrcPosition = bXORByte2 + PACKET_LEN_OFFSET+1+2;
-            }
+                iTotalLen = bByteOut + PACKET_LEN_OFFSET+1+3;// + sizeof(PacketStart);
+                iCrc = bByteOut + PACKET_LEN_OFFSET+1;
+            }     
             else
                 goto RETURN_ERROR;
-        }      
-        ptr1++;ptr2++;
+        }
+#endif
+        FSR_REGISTER++;
+        FSR1++;
+        FSR2++;
+        ptrOut++;
     }
-    // check CRCM8 first - it is 9 cycles per byte
-    if (CRCM8TX == *--ptr1)
+    FSR_REGISTER = ptrOut;
+    FSR_REGISTER--;
+    FSR_REGISTER--;
+   
+    //wCRCupdt(0);
+    CRCcmp = ((((UWORD)PTR_FSR))<<8); FSR_REGISTER++;
+    CRCcmp += ((UWORD)PTR_FSR);
+    if (CRC == CRCcmp)
     {
-        // TBD need to check CRC for first message
-    }    
-    else
-    {
+        OutputMsgLen = iTotalLen;
+        return 0;
     }
 RETURN_ERROR:
+    OutputMsgLen = 0;
+    return 0xff;
+}
+
+unsigned char BTFix2(void)
+{
+    unsigned char Vote;
+    unsigned char CmpCount;
+    unsigned char bByte1;
+    unsigned char bByte2;
+    unsigned char bByteOut;
+
+    unsigned char FisrtR;
+    unsigned char SecondR;
+    unsigned char FisrtR2;
+    unsigned char SecondR2;
+
+    unsigned char NextByte1;
+    unsigned char NextByte2;
+
+    unsigned char CRCM8TXNext;
+    unsigned char CRCM8TX2Next;
+    Vote = 128;
+    iTotalLen = BTqueueInLen;
+    BTFlags.Check01 = 0;
+    if ((BTqueueInLen > 0) && (BTqueueInLen2 > 0))
+    {
+#ifdef WIN32
+        FSR_REGISTER = &BTqueueIn[0];
+        FSR1 = &BTqueueIn2[0];
+#else
+        FSR_REGISTER = &BTqueueIn[4];
+        FSR1 = &BTqueueIn2[5];
+#endif
+        if (BTqueueInLen > BTqueueInLen2)
+            iTotalLen = BTqueueInLen2;
+        FisrtR = 251;
+        SecondR = 223;
+        FisrtR2 = 239;
+        SecondR2 = 139;
+    }
+    else if ((BTqueueInLen2 > 0) && (BTqueueInLen3 > 0))
+    {
+#ifdef WIN32
+        FSR_REGISTER = &BTqueueIn2[0];
+        FSR1 = &BTqueueIn3[0];
+#else
+        FSR_REGISTER = &BTqueueIn2[4];
+        FSR1 = &BTqueueIn3[5];
+#endif
+        if (BTqueueInLen2 > BTqueueInLen3)
+            iTotalLen = BTqueueInLen3;
+        else
+            iTotalLen = BTqueueInLen2;
+        FisrtR = 239;
+        SecondR = 139;
+        FisrtR2 = 227;
+        SecondR2 = 151;
+    }
+    else if ((BTqueueInLen > 0) && (BTqueueInLen3 > 0))
+    {
+#ifdef WIN32
+        FSR_REGISTER = &BTqueueIn[0];
+        FSR1 = &BTqueueIn3[0];
+#else
+        FSR_REGISTER = &BTqueueIn[4];
+        FSR1 = &BTqueueIn3[5];
+#endif
+        if (BTqueueInLen > BTqueueInLen3)
+            iTotalLen = BTqueueInLen3;
+        else
+            iTotalLen = BTqueueInLen;
+        FisrtR = 251;
+        SecondR = 223;
+        FisrtR2 = 227;
+        SecondR2 = 151;
+    }
+    else
+        goto RETURN_ERROR;
+    iCrc = iTotalLen;
+#ifdef WIN32
+    iCrc = iTotalLen-2; 
+#endif
+
+#ifdef WIN32
+    FSR2 = &OutputMsg[0];
+#else
+    FSR2 = &OutputMsg[5];
+#endif
+    CRCcmp=0;
+#ifdef WIN32
+    CRC=0xffff;   
+#else
+    CRC=0x50d4;   
+    //wCRCupdt(0xaa);
+    //wCRCupdt(0xaa);
+    //wCRCupdt(0xaa);
+    wCRCupdt(PTR_FSR);
+    FSR_REGISTER++;
+#endif
+
+    CRCM8TX2 = CRCM8TX = 0xff;
+    BTFlags.CRCM8F = 0;
+    
+#ifdef WIN32
+    for (i = 0; i < iTotalLen; i++)
+#else
+    for (i = 5; i < iTotalLen; i++)
+#endif
+    {
+        if (!BTFlags.CRCM8F)
+        {
+            CRCM8TX *= FisrtR;
+            CRCM8TX2 *= FisrtR2;
+        }
+        else
+        {
+            CRCM8TX *= SecondR;
+            CRCM8TX2 *= SecondR2;
+        }
+
+#ifdef      _18F2321_18F25K20
+        #asm
+        BTG BTFlags,3,1
+        #endasm
+#else
+         BTFlags.CRCM8F = !BTFlags.CRCM8F;
+#endif    
+        bByteOut = bByte1 = PTR_FSR ^ CRCM8TX;
+        bByte2 = INDF1 ^ CRCM8TX2;
+        CmpCount=0;
+        if (bByte1 != bByte2)
+        {
+            if (i < (iTotalLen-1))
+            {
+                if (Vote>=128)
+                    goto CHECK_SECOND_MSG;
+CHECK_SECOND_MSG:
+                // check case first is wrong; second may be OK 
+                CmpCount++;
+                CRCM8TXNext = (CRCM8TX ^ bByte2)|1;
+                CRCM8TX2Next = INDF1|1;
+                if (!BTFlags.CRCM8F)
+                {
+                    CRCM8TXNext *= FisrtR;
+                    CRCM8TX2Next *= FisrtR2;
+                }
+                else
+                {
+                    CRCM8TXNext *= SecondR;
+                    CRCM8TX2Next *= SecondR2;
+                }
+                FSR_REGISTER++;
+                FSR1++;
+                NextByte1 = PTR_FSR ^ CRCM8TXNext;
+                NextByte2 = INDF1 ^ CRCM8TX2Next;
+                FSR_REGISTER--;
+                FSR1--;
+                if (NextByte1 == NextByte2)
+                {
+                    Vote++;
+                    bByteOut = bByte2;
+                    CRCM8TX =  (CRCM8TX ^ bByte2)|1;
+                    CRCM8TX2 = INDF1|1;
+                }
+                else
+                {
+                    if (CmpCount >=2)
+                        goto EXIT_WITH_CHECK;
+TEST_FIRST_MSG:
+                    CmpCount++;
+#if 0
+                    // covered cases (a) two consequetive error bytes in second message
+                    //               (b) first byte correct
+                    //               (c) first byte correct and second wrong in second message
+                    //               (d) first byte wrong and second wrong in second message
+                    //  probability for (d) is p = 1/(28*27)*p(1-byte-error-in paket) = 0.001322*p(error)
+                    // for ground station better to store packet and fixed it later from DB 
+                    CRCM8TX = PTR_FSR|1;
+                    CRCM8TX2 = (CRCM8TX2 ^ bByte1)|1;
+#else
+                    CRCM8TXNext = PTR_FSR|1;
+                    CRCM8TX2Next = (CRCM8TX2 ^ bByte1)|1;
+                    if (!BTFlags.CRCM8F)
+                    {
+                        CRCM8TXNext *= FisrtR;
+                        CRCM8TX2Next *= FisrtR2;
+                    }
+                    else
+                    {
+                        CRCM8TXNext *= SecondR;
+                        CRCM8TX2Next *= SecondR2;
+                    }
+                    FSR_REGISTER++;
+                    FSR1++;
+                    NextByte1 = PTR_FSR ^ CRCM8TXNext;
+                    NextByte2 = INDF1 ^ CRCM8TX2Next;
+                    FSR_REGISTER--;
+                    FSR1--;
+                    if (NextByte1 == NextByte2)
+                    {
+                        Vote--;
+                        CRCM8TX = PTR_FSR|1;
+                        CRCM8TX2 = (CRCM8TX2 ^ bByte1)|1;
+                        //bByte2= bByte1;
+                    }
+                    else // case that two sequensed bytes are broken in two messages
+                    {
+                        if (CmpCount >=2)
+                        {
+EXIT_WITH_CHECK:
+                            CRCM8TX = PTR_FSR|1;
+                            CRCM8TX2 = INDF1|1;
+                        }
+                        else
+                            goto CHECK_SECOND_MSG;
+                    }
+#endif
+                }
+            }
+            else
+            {
+                if (Vote>128)
+                    bByteOut = bByte2;
+            }
+        }
+        else // if (bByte1 == bByte2)
+        {
+            CRCM8TX =  (CRCM8TX ^ bByteOut)|1;
+            CRCM8TX2 =  (CRCM8TX2 ^ bByteOut)|1;
+        }
+        INDF2 = bByteOut;
+        if (i < iCrc) 
+            wCRCupdt(bByteOut);
+#ifndef WIN32
+        if (i == PACKET_LEN_OFFSET)
+        {
+            if (bByteOut<= BT_TX_MAX_LEN)
+            {
+                iTotalLen = bByteOut + PACKET_LEN_OFFSET+1+3;// + sizeof(PacketStart);
+                iCrc = bByteOut + PACKET_LEN_OFFSET+1;
+            }     
+            else
+                goto RETURN_ERROR;
+        }
+#endif
+        FSR_REGISTER++;
+        FSR1++;
+        FSR2++;
+    }
+    FSR2--;
+    FSR2--;
+   
+    //wCRCupdt(0);
+    CRCcmp = ((((UWORD)INDF2))<<8); FSR2++;
+    CRCcmp += ((UWORD)INDF2);
+    if (CRC == CRCcmp)
+    {
+        OutputMsgLen = iTotalLen ;
+        return 0;
+    }
+RETURN_ERROR:
+    OutputMsgLen = 0;
     return 0xff;
 }
 
@@ -3650,7 +4014,7 @@ void ProcessBTdata(void)
     //CRC = BTbyteCRC(CRC,BTpkt);  // sequence/packet offset 5
     //CRC = BTbyteCRC(CRC,BTqueueOutLen);  // length   offset 6
 
-    unsigned char *ptrMy =&BTqueueIn[0] ;
+    unsigned char *ptrMy =&OutputMsg[0] ;
     unsigned char ilen;
     struct PacketStart *MyPacket;
     unsigned int BeginAddr;
@@ -3659,11 +4023,6 @@ void ProcessBTdata(void)
         return;
 
     BTFlags.BT3fqProcessed = 1; // packet(s) is(are) fine == process done == flag to avoid process duplication packets
-
-    if (BTokMsg ==1) //msg2
-        ptrMy =&BTqueueIn2[0] ;
-    else if (BTokMsg ==2) //msg3
-        ptrMy =&BTqueueIn3[0] ;
     MyPacket = ptrMy;   
 
     ilen = MyPacket->BTpacketLen;//ptrMy[6];
@@ -4285,15 +4644,15 @@ ADJUST_TMR3:
             }
             else if ((BTqueueInLen >0 ) && (BTqueueInLen2 > 0)) // all 2 matched size FQ1 & FQ2
             {
-                BTokMsg = BTFixAA55();
+                BTokMsg = BTFix2();
             }
             else if ((BTqueueInLen > 0) && (BTqueueInLen3 > 0)) // all 2 matched size FQ1 & FQ3
             {
-                BTokMsg = BTFixAA55();
+                BTokMsg = BTFix2();
             }
             else if ((BTqueueInLen2 > 0) && (BTqueueInLen3 > 0)) // all 3 matched size FQ2 & FQ3
             {
-                BTokMsg = BTFixAA55();
+                BTokMsg = BTFix2();
             }
             if (BTokMsg != 0xff)
             {
@@ -4426,16 +4785,16 @@ void TransmitBTdata(void)
 // A1 or A2 match confirmed by CRCM8 and then finally by CRC16    
 
 // SYNC_DEBUG 9 - set errors in 3 send packets
-#define ERROR_IN_PK_1 1
-        
+//#define ERROR_IN_PK_1 1
+  
+/////////////////////////////////////////////////////////////////////
         if (FqTXCount ==0)
         {
-            BTbyteCRCAA(BTqueueOutCopyLen);  // length   offset 5
-
+            //BTbyteCRCM1(BTqueueOutCopyLen);  // length   offset 5
             for (i = 0; i <BTqueueOutCopyLen;i++)
             {
 #ifndef ERROR_IN_PK_1
-                BTbyteCRCAA(BTqueueOutCopy[i]);
+                BTbyteCRCM1(BTqueueOutCopy[i]);
 #else
                 if ((BTqueueOutCopy[0] != 'P') && (BTqueueOutCopy[0] != 'p'))
                     goto SEND_GOOD1;
@@ -4446,28 +4805,24 @@ void TransmitBTdata(void)
                 }
                 else
                 {
-SEND_GOOD1:          BTbyteCRCAA(BTqueueOutCopy[i]);
+SEND_GOOD1:          BTbyteCRCM1(BTqueueOutCopy[i]);
                 }
 #endif
             }
             CRC16TX = CRC;
-            //CRCM8TX = 0xff;
-
-            WREG=(CRC16TX>>8); WREG^=0xAA;
-            SendBTbyte(WREG);
-            //SendBTbyte((CRC>>8)^0xAA);
-            WREG = (CRC16TX&0x00ff);WREG^=0xAA;
-            SendBTbyte(WREG);
-            //SendBTbyte((CRC&0x00ff)^0xAA);  
-            SendBTbyte(CRCM8TX^0xAA);
+            WREG=(CRC16TX>>8);
+            BTbyteCRCm1(WREG);
+            WREG = (CRC16TX&0x00ff);
+            BTbyteCRCm1(WREG);  
+            //SendBTbyteM1(CRCM8TX^0xAA);
         }
         else if (FqTXCount ==1)
         {
-            BTbyteCRC55(BTqueueOutCopyLen);  // length   offset 5
+            //BTbyteCRCM2(BTqueueOutCopyLen);  // length   offset 5
             for (i = 0; i <BTqueueOutCopyLen;i++)
             {
 #ifndef ERROR_IN_PK_1
-                BTbyteCRC55(BTqueueOutCopy[i]);
+                BTbyteCRCM2(BTqueueOutCopy[i]);
 #else
                 if ((BTqueueOutCopy[0] != 'P') && (BTqueueOutCopy[0] != 'p'))
                     goto SEND_GOOD2;
@@ -4477,26 +4832,24 @@ SEND_GOOD1:          BTbyteCRCAA(BTqueueOutCopy[i]);
                 }
                 else
                 {
-SEND_GOOD2:          BTbyteCRC55(BTqueueOutCopy[i]);
+SEND_GOOD2:          BTbyteCRCM2(BTqueueOutCopy[i]);
                 }
 #endif
             } 
             // was already calculated on TX FQ1
-            WREG=(CRC16TX>>8);WREG^=0x55;
-            SendBTbyte(WREG);
-            //SendBTbyte((CRC>>8)^0x55);
-            WREG = (CRC16TX&0x00ff);WREG^=0x55;
-            SendBTbyte(WREG);
-            //SendBTbyte((CRC&0x00ff)^0x55);  
-            SendBTbyte(CRCM8TX^0x55);
+            WREG=(CRC16TX>>8);
+            BTbyteCRCM2(WREG);
+            WREG = (CRC16TX&0x00ff);
+            BTbyteCRCM2(WREG);
+            //SendBTbyteM2(CRCM8TX^0xAA);
         }
         else // if (FqTXCount ==2)
         {
-            BTbyteCRC55(BTqueueOutCopyLen);  // length   offset 5
+            //BTbyteCRCM3(BTqueueOutCopyLen);  // length   offset 5
             for (i = 0; i <BTqueueOutCopyLen;i++)
             {
 #ifndef ERROR_IN_PK_1
-                BTbyteCRC55(BTqueueOutCopy[i]);
+                BTbyteCRCM3(BTqueueOutCopy[i]);
 #else
                 if ((BTqueueOutCopy[0] != 'P') && (BTqueueOutCopy[0] != 'p'))
                     goto SEND_GOOD3;
@@ -4506,19 +4859,19 @@ SEND_GOOD2:          BTbyteCRC55(BTqueueOutCopy[i]);
                 }
                 else
                 {
-SEND_GOOD3:          BTbyteCRC55(BTqueueOutCopy[i]);
+SEND_GOOD3:          BTbyteCRCM3(BTqueueOutCopy[i]);
                 }
 #endif
             }
-            WREG=(CRC16TX>>8);WREG^=0x55;
-            SendBTbyte(WREG);
-            //SendBTbyte((CRC>>8)^0x55);
-            WREG = (CRC16TX&0x00ff);WREG^=0x55;
-            SendBTbyte(WREG);
-            //SendBTbyte((CRC&0x00ff)^0x55);  
-            SendBTbyte(CRCM8TX^0x55);
+            WREG=(CRC16TX>>8);
+            BTbyteCRCM3(WREG);
+            WREG = (CRC16TX&0x00ff);
+            BTbyteCRCM3(WREG);  
+            //SendBTbyteM3(CRCM8TX^0xAA);
         }
         // NO CRC - from now CRC is exect for all 3 packages
+        /////////////////////////////////////////////////////////////////////
+
         //wCRCupdt(FqTXCount);
           
         //   max len  header              CRC  end  Len
