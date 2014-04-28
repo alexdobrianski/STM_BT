@@ -275,7 +275,7 @@ see www.adobri.com for communication protocol spec
 //   for a blinking LED behive like CUBESAT/CRAFT
 //   it is waiting for connection, wait for p/kt, and when pkt is Ok it send back to earth reply packet, and blinks
 ///////////////////////////////////////////////////////////////
-//#define DEBUG_LED_CALL_EARTH
+#define DEBUG_LED_CALL_EARTH
 // for test sequence 
 //// "5atsx=...CBabbcgg
 // atdtl
@@ -284,7 +284,7 @@ see www.adobri.com for communication protocol spec
 ///////////////////////////////////////////////////////////////
 //   for a blinking LED behive like Ground Station, it is constantly sends pktm if received pkt, then it blinks
 ///////////////////////////////////////////////////////////////
-#define DEBUG_LED_CALL_LUNA
+//#define DEBUG_LED_CALL_LUNA
 // for test sequence 
 // "5atsx=...CBabbcgg
 // atdtl
@@ -4790,7 +4790,7 @@ void TransmitBTdata(void)
 /////////////////////////////////////////////////////////////////////
         if (FqTXCount ==0)
         {
-            //BTbyteCRCM1(BTqueueOutCopyLen);  // length   offset 5
+            BTbyteCRCM1(BTqueueOutCopyLen);  // length   offset 5
             for (i = 0; i <BTqueueOutCopyLen;i++)
             {
 #ifndef ERROR_IN_PK_1
@@ -4818,7 +4818,7 @@ SEND_GOOD1:          BTbyteCRCM1(BTqueueOutCopy[i]);
         }
         else if (FqTXCount ==1)
         {
-            //BTbyteCRCM2(BTqueueOutCopyLen);  // length   offset 5
+            BTbyteCRCM2(BTqueueOutCopyLen);  // length   offset 5
             for (i = 0; i <BTqueueOutCopyLen;i++)
             {
 #ifndef ERROR_IN_PK_1
@@ -4845,7 +4845,7 @@ SEND_GOOD2:          BTbyteCRCM2(BTqueueOutCopy[i]);
         }
         else // if (FqTXCount ==2)
         {
-            //BTbyteCRCM3(BTqueueOutCopyLen);  // length   offset 5
+            BTbyteCRCM3(BTqueueOutCopyLen);  // length   offset 5
             for (i = 0; i <BTqueueOutCopyLen;i++)
             {
 #ifndef ERROR_IN_PK_1
