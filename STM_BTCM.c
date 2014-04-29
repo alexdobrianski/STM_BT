@@ -275,7 +275,7 @@ see www.adobri.com for communication protocol spec
 //   for a blinking LED behive like CUBESAT/CRAFT
 //   it is waiting for connection, wait for p/kt, and when pkt is Ok it send back to earth reply packet, and blinks
 ///////////////////////////////////////////////////////////////
-#define DEBUG_LED_CALL_EARTH
+//#define DEBUG_LED_CALL_EARTH
 // for test sequence 
 //// "5atsx=...CBabbcgg
 // atdtl
@@ -284,7 +284,7 @@ see www.adobri.com for communication protocol spec
 ///////////////////////////////////////////////////////////////
 //   for a blinking LED behive like Ground Station, it is constantly sends pktm if received pkt, then it blinks
 ///////////////////////////////////////////////////////////////
-//#define DEBUG_LED_CALL_LUNA
+#define DEBUG_LED_CALL_LUNA
 // for test sequence 
 // "5atsx=...CBabbcgg
 // atdtl
@@ -3282,6 +3282,7 @@ unsigned char CheckPacket(unsigned char*MyData, unsigned int iLen)  // used IntR
     // restoration of the packet done by 
     for (i = 0; i < iTotalLen; i++)
     {
+		INDF1 = PTR_FSR;
 #ifndef WIN32
         if (i != 4) // packet 0;1;2 added last
         {
@@ -3819,16 +3820,16 @@ unsigned char BTFix2(void)
     iCrc = iTotalLen-2; 
 #endif
 
-#ifdef WIN32
     FSR2 = &OutputMsg[0];
-#else
-    FSR2 = &OutputMsg[5];
-#endif
     CRCcmp=0;
 #ifdef WIN32
     CRC=0xffff;   
 #else
-    CRC=0x50d4;   
+    CRC=0x50d4;  
+    INDF2=0xAA;FSR2++;
+    INDF2=0xAA;FSR2++;
+    INDF2=0xAA;FSR2++;
+    INDF2=PTR_FSR;FSR2++;
     //wCRCupdt(0xaa);
     //wCRCupdt(0xaa);
     //wCRCupdt(0xaa);
@@ -4752,12 +4753,12 @@ void TransmitBTdata(void)
 
             BTpktCopy = BTpkt;
             CRC = 0xffff;
-            CRCM8TX = 0xFF;
-            BTFlags.CRCM8F = 0;
         }
     }
     if (BTqueueOutCopyLen)
     {
+        CRCM8TX = 0xFF;
+        BTFlags.CRCM8F = 0;
         
         BTCE_low();	// Chip Enable Activates RX or TX mode (now disable)
         BTType = 2; // type TX
@@ -4775,14 +4776,6 @@ void TransmitBTdata(void)
 
 // RF ctrl pkt AA AA AA F0 CH LN CTRL CRC16 CRCM8
 // RF data pkt AA AA AA F1 CH LN DATA CRC16 CRCM8
-// from now pkt over FQ1 is ^ B where B=0xAA
-//                   FQ2 is ^ D where D=0x55
-//                   FQ3 is ^ D where D=0x55  
-//  that allow to restore from two packets with B and B (FQ1+FQ2 or FQ1+FQ3) based on formula
-//  A ^ B = C; A ^ D = E; where B ^ D = 1; that allow to detect error by checking C ^ E == 1, restoration by itself done by 
-//  formula  A1 = ((C ^ B) & (B ^ D)) | ((((C ^ B) & (~(B ^ D))) ^ (~(B ^ D)))
-//           A2 = ((E ^ D) & (B ^ D)) | ((((C ^ B) & (~(B ^ D))) ^ (~(B ^ D)))
-// A1 or A2 match confirmed by CRCM8 and then finally by CRC16    
 
 // SYNC_DEBUG 9 - set errors in 3 send packets
 //#define ERROR_IN_PK_1 1
@@ -4874,20 +4867,13 @@ SEND_GOOD3:          BTbyteCRCM3(BTqueueOutCopy[i]);
 
         //wCRCupdt(FqTXCount);
           
-        //   max len  header              CRC  end  Len
-        i =    32    -6 -2    -1  -BTqueueOutCopyLen;
-#ifdef SAVE_SPACE
-        while (i > 0) 
-        {
-            SendBTbyte(0);  // padding zero till the end
-            i--;
-        }
-#else
+        //   max len  header              CRC   Len
+        i =    32    -6 -2     -BTqueueOutCopyLen;
         do 
         { 
             SendBTbyte(0);  // padding zero till the end
         } while(--i);
-#endif
+
         bitset(PORT_BT,Tx_CSN);
 
         SwitchFQ(FqTX); // set current FQX to be transmitted (advance for FqTXCount will be in TMR1)
