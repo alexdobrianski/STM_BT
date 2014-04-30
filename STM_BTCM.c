@@ -548,17 +548,7 @@ UWORD INTTimer3HCount;
 UWORD Timer1HCount;
 UWORD Timer3HCount;
 
-struct _DistMeasure{
-UWORD RXaTmr1;
-UWORD RXaTmr1H;
-UWORD RXbTmr1;
-UWORD RXbTmr1H;
-UWORD TXaTmr1;
-UWORD TXaTmr1H;
-UWORD TXbTmr1;
-UWORD TXbTmr1H;
-UWORD TXPeriod;
-} DistMeasure;
+
 
 UWORD AdjRX;
 int iAdjRX;
@@ -639,6 +629,93 @@ unsigned char TypePkt;
 ///////////////////////////////////////BANK 1//////////////////////////
 
 
+
+//#define LEN_OFFSET_INPUT_BUF 28
+#define LEN_OFFSET_INPUT_BUF 32
+
+#define BT_TX_MAX_LEN (LEN_OFFSET_INPUT_BUF-7-2)
+
+unsigned char BTqueueOut[BT_TX_MAX_LEN];
+unsigned char BTqueueOutLen;
+
+unsigned char BTpktCopy;
+unsigned char BTqueueOutCopy[BT_TX_MAX_LEN];
+unsigned char BTqueueOutCopyLen;
+
+unsigned char BTqueueIn[LEN_OFFSET_INPUT_BUF];
+unsigned char BTqueueInLen;
+
+unsigned char BTqueueIn2[LEN_OFFSET_INPUT_BUF];
+unsigned char BTqueueInLen2;
+
+unsigned char BTqueueIn3[LEN_OFFSET_INPUT_BUF];
+unsigned char BTqueueInLen3;
+
+unsigned char OutputMsg[LEN_OFFSET_INPUT_BUF];
+unsigned char OutputMsgLen;
+unsigned char iTotalLen; // int -> char
+unsigned char iCrc;
+unsigned char *ptrOut;
+unsigned char *ptrTemp;
+unsigned char mask;
+unsigned char CRCM8TX;
+unsigned char CRCM8TX2;
+unsigned char CRCM8TX3;
+
+
+UWORD CRC;
+UWORD CRC16TX;
+struct _BTFLAGS
+{
+    unsigned BT3fqProcessed:1;
+    unsigned BTFirstInit:1;
+    unsigned RxInProc:1;
+    unsigned CRCM8F:1;
+    unsigned Check01:1;
+} BTFlags;
+
+
+UWORD CRCcmp;
+
+unsigned char i;
+unsigned char j;
+unsigned char res;
+   
+unsigned char iShift;
+//unsigned char bByte;
+
+unsigned char bByte1;
+unsigned char bByte2;
+unsigned char bByte3;
+unsigned char bByteOut;
+unsigned char Vote;
+unsigned char CmpCount;
+
+unsigned char FisrtR;
+unsigned char SecondR;
+unsigned char FisrtR2;
+unsigned char SecondR2;
+
+unsigned char NextByte1;
+unsigned char NextByte2;
+
+unsigned char CRCM8TXNext;
+unsigned char CRCM8TX2Next;
+struct _DistMeasure{
+UWORD RXaTmr1;
+UWORD RXaTmr1H;
+UWORD RXbTmr1;
+UWORD RXbTmr1H;
+UWORD TXaTmr1;
+UWORD TXaTmr1H;
+UWORD TXbTmr1;
+UWORD TXbTmr1H;
+UWORD TXPeriod;
+} DistMeasure;
+
+
+#pragma rambank RAM_BANK_0
+
 // hex decimal assignment:
 // A == J
 // B == K
@@ -693,6 +770,7 @@ unsigned char Config01;
 //   this will allow selected TCP/IP messages to be skipped from unnnessery tranfer
 //   for support of a "frozen" session
 /////////////////////////////////////////////////////////////////////////// 
+
 #define MODE_CALL_EARTH 1
 #ifndef NO_I2C_PROC
 #define MODE_CALL_LUNA_I2C 2
@@ -714,81 +792,8 @@ unsigned char BTpkt;
 //unsigned char BTFQcurr;
 unsigned char BTType;
 unsigned char BTokMsg;
-//#define LEN_OFFSET_INPUT_BUF 28
-#define LEN_OFFSET_INPUT_BUF 32
-
-#define BT_TX_MAX_LEN (LEN_OFFSET_INPUT_BUF-7-2)
-
-unsigned char BTqueueOut[BT_TX_MAX_LEN];
-unsigned char BTqueueOutLen;
-
-unsigned char BTpktCopy;
-unsigned char BTqueueOutCopy[BT_TX_MAX_LEN];
-unsigned char BTqueueOutCopyLen;
-
-unsigned char BTqueueIn[LEN_OFFSET_INPUT_BUF];
-unsigned char BTqueueInLen;
-
-unsigned char BTqueueIn2[LEN_OFFSET_INPUT_BUF];
-unsigned char BTqueueInLen2;
-
-unsigned char BTqueueIn3[LEN_OFFSET_INPUT_BUF];
-unsigned char BTqueueInLen3;
-
-unsigned char OutputMsg[LEN_OFFSET_INPUT_BUF];
-unsigned char OutputMsgLen;
-unsigned char iTotalLen; // int -> char
-unsigned char iCrc;
-unsigned char *ptrOut;
-unsigned char *ptrTemp;
-unsigned char mask;
-unsigned char CRCM8TX;
-unsigned char CRCM8TX2;
-unsigned char CRCM8TX3;
 
 
-UWORD CRC;
-UWORD CRC16TX;
-struct _BTFLAGS
-{
-    unsigned BT3fqProcessed:1;
-    unsigned BTFirstInit:1;
-    unsigned RxInProc:1;
-    unsigned CRCM8F:1;
-    unsigned Check01:1;
-} BTFlags;
-
-
-UWORD CRCcmp;
-
-unsigned char i;
-unsigned char j;
-unsigned char res;
-   
-unsigned char iShift;
-unsigned char bByte;
-
-unsigned char bByte1;
-unsigned char bByte2;
-unsigned char bByte3;
-unsigned char bByteOut;
-unsigned char Vote;
-unsigned char CmpCount;
-
-unsigned char FisrtR;
-unsigned char SecondR;
-unsigned char FisrtR2;
-unsigned char SecondR2;
-
-unsigned char NextByte1;
-unsigned char NextByte2;
-
-unsigned char CRCM8TXNext;
-unsigned char CRCM8TX2Next;
-
-
-
-#pragma rambank RAM_BANK_0
 unsigned char Freq1;
 unsigned char Freq2;
 unsigned char Freq3;
@@ -3540,54 +3545,54 @@ FIND_NONPRT:
        {
            //j++;
            FSR_REGISTER=&MyData[1];
-           bByte = 0xaa;
+           bByte1 = 0xaa;
            i = iLen-res - 1;
            do
            {
-               bByte1 = PTR_FSR;
+               bByte2 = PTR_FSR;
                if (iShift == 2)
                {
 #ifdef      _18F2321_18F25K20
                    #asm
-                   RLNCF bByte1,1,1
-                   RLNCF bByte1,1,1
+                   RLNCF bByte2,1,1
+                   RLNCF bByte2,1,1
                    #endasm
 #else
                    pizdec
 #endif             
-                   bByte = bByte1 & 0x03;
-                   bByte1 &= 0xfc;
+                   bByte1 = bByte2 & 0x03;
+                   bByte2 &= 0xfc;
                }
                else if (iShift == 4)
                {
 #ifdef      _18F2321_18F25K20
                    #asm
-                   SWAPF bByte1,1,1
+                   SWAPF bByte2,1,1
                    #endasm
 #else
                    pizdec
 #endif             
-                   bByte = bByte1 & 0xF;
-                   bByte1 &= 0xf0;
+                   bByte1 = bByte2 & 0xF;
+                   bByte2 &= 0xf0;
 
                }
                else if (iShift == 6)
                {
 #ifdef      _18F2321_18F25K20
                    #asm
-                   SWAPF bByte1,1,1
-                   RLNCF bByte1,1,1
-                   RLNCF bByte1,1,1
+                   SWAPF bByte2,1,1
+                   RLNCF bByte2,1,1
+                   RLNCF bByte2,1,1
                    #endasm
 #else
                    pizdec
 #endif             
-                   bByte = bByte1 & 0x3F;
-                   bByte1 &= 0xc0;
+                   bByte1 = bByte2 & 0x3F;
+                   bByte2 &= 0xc0;
                }
-               PTR_FSR  = bByte1;
+               PTR_FSR  = bByte2;
                FSR_REGISTER--;
-               PTR_FSR  |= bByte;
+               PTR_FSR  |= bByte1;
                FSR_REGISTER++;
                FSR_REGISTER++;
            }
@@ -3732,7 +3737,9 @@ unsigned char BTFix3(void)
         }
         else
         {
+            ptrTemp = FSR_REGISTER;
             *ptrOut = 0;
+            FSR_REGISTER = ptrTemp;
         }
         if (i == PACKET_LEN_OFFSET)
         {
@@ -3778,7 +3785,7 @@ unsigned char BTFix2(void)
         FSR_REGISTER = &BTqueueIn[0];
         FSR1 = &BTqueueIn2[0];
 #else
-        FSR_REGISTER = &BTqueueIn[4];
+        FSR_REGISTER = &BTqueueIn[3];
         FSR1 = &BTqueueIn2[5];
 #endif
         if (BTqueueInLen > BTqueueInLen2)
@@ -3794,7 +3801,7 @@ unsigned char BTFix2(void)
         FSR_REGISTER = &BTqueueIn2[0];
         FSR1 = &BTqueueIn3[0];
 #else
-        FSR_REGISTER = &BTqueueIn2[4];
+        FSR_REGISTER = &BTqueueIn2[3];
         FSR1 = &BTqueueIn3[5];
 #endif
         if (BTqueueInLen2 > BTqueueInLen3)
@@ -3812,7 +3819,7 @@ unsigned char BTFix2(void)
         FSR_REGISTER = &BTqueueIn[0];
         FSR1 = &BTqueueIn3[0];
 #else
-        FSR_REGISTER = &BTqueueIn[4];
+        FSR_REGISTER = &BTqueueIn[3];
         FSR1 = &BTqueueIn3[5];
 #endif
         if (BTqueueInLen > BTqueueInLen3)
@@ -3845,6 +3852,8 @@ unsigned char BTFix2(void)
     //wCRCupdt(0xaa);
     //wCRCupdt(0xaa);
     wCRCupdt(PTR_FSR);
+    FSR_REGISTER++;
+    INDF2=0;FSR2++;
     FSR_REGISTER++;
 #endif
 
@@ -3884,6 +3893,7 @@ unsigned char BTFix2(void)
             {
                 if (Vote>=128)
                     goto CHECK_SECOND_MSG;
+                goto CHECK_FIRST_MSG;
 CHECK_SECOND_MSG:
                 // check case first is wrong; second may be OK 
                 CmpCount++;
@@ -3916,7 +3926,7 @@ CHECK_SECOND_MSG:
                 {
                     if (CmpCount >=2)
                         goto EXIT_WITH_CHECK;
-TEST_FIRST_MSG:
+CHECK_FIRST_MSG:
                     CmpCount++;
 #if 0
                     // covered cases (a) two consequetive error bytes in second message
@@ -4370,7 +4380,7 @@ unsigned char ReceiveBTdata(void)
 {
     unsigned char bret = 1;
    //unsigned char iCrc;
-    unsigned char i;
+    unsigned char iFix;
     unsigned char bByte;
     unsigned char *ptrMy ;
     //CRC=0;
@@ -4438,18 +4448,18 @@ INIT_FQ_RX:
     
     // TBD: output data as it is over com2 with speed at least 150000 bits/sec - ground station only
     // return len of the packet
-    i = BTFixlen(ptrMy, bret); // if it is posible to fix packet and packet was fixed i == 0
+    iFix = BTFixlen(ptrMy, bret); // if it is posible to fix packet and packet was fixed i == 0
 
 
 #if 0
-    if (i)
+    if (iFix)
     {
         DebugLock(4);
     }
 #endif
 
 #if 1
-    if (i)
+    if (iFix)
     {
                 if (IntRXCount == 0)
                 {
@@ -4477,7 +4487,7 @@ INIT_FQ_RX:
 
         if (IntRXCount == 0) 
         {
-            if (i)
+            if (iFix)
                 goto LOOKS_GOOD;
             // message looks bad on FQ1 == continue to listen on F1
             BTCE_high(); // Chip Enable Activates RX or TX mode (now RX mode) 
@@ -4485,7 +4495,7 @@ INIT_FQ_RX:
         }
         else if (IntRXCount == 1) 
         {
-            if (i)
+            if (iFix)
             {
                 DataB0.Tmr3DoneMeasureFq1Fq2 = 1; // that set TMR3 to properly switch RX 
                 goto LOOKS_GOOD;                  // from that moment RX switched by TMR3
@@ -4561,7 +4571,7 @@ SKIP_SWITCH_2:
 
     if (BTokMsg == 0xff) // if paket was not recevet yet correctly (i.e. FQ1 not evaluated, or FQ1 was bad, or FQ1 FQ2 was bad)
     {
-        if (i)  // if packet possible to fix (and/or it was fixed by shift)
+        if (iFix)  // if packet possible to fix (and/or it was fixed by shift)
         {
             if (CheckPacket(ptrMy, bret) == 0)  //used IntRXCount  // now possible to do CRC check ???
             {
@@ -4609,7 +4619,7 @@ ADJUST_TMR3:
             if (CheckPacket(ptrMy, bret) == 0) // used IntRXCount
             {
 #if 0
-    if (i)
+    if (iFix)
     {
                 if (IntRXCount == 0)
                    T2Count1++;
@@ -4631,7 +4641,7 @@ ADJUST_TMR3:
     // huck - but who cares? = len of a packet in offset of 28 
     //if (i)
     //    bret = 0;
-    ptrMy[LEN_OFFSET_INPUT_BUF] = i;//bret;
+    ptrMy[LEN_OFFSET_INPUT_BUF] = iFix;//bret;
 
 
 
@@ -4647,22 +4657,22 @@ ADJUST_TMR3:
             // result stored in 1 then CRC recalulation on 1 
             // 3. attempt to find matchiong size of any 1-2 or 2-3 or 3-1
             // reported len will be 2 bytes less (CRC) then original recieved len (28)
-            if ((BTqueueInLen > 0) && (BTqueueInLen2 > 0) && (BTqueueInLen3 >0)) // all 3 matched size
+            if ((BTqueueInLen > 8) && (BTqueueInLen2 > 8) && (BTqueueInLen3 >8)) // all 3 matched size
             {
                 BTokMsg = BTFix3();
                 //BTokMsg = 0x80  | BTFix3();
 
                 //BTokMsg = 0x80  | CheckPacket(BTqueueIn, BTqueueInLen);
             }
-            else if ((BTqueueInLen >0 ) && (BTqueueInLen2 > 0)) // all 2 matched size FQ1 & FQ2
+            else if ((BTqueueInLen >8 ) && (BTqueueInLen2 > 8)) // all 2 matched size FQ1 & FQ2
             {
                 BTokMsg = BTFix2();
             }
-            else if ((BTqueueInLen > 0) && (BTqueueInLen3 > 0)) // all 2 matched size FQ1 & FQ3
+            else if ((BTqueueInLen > 8) && (BTqueueInLen3 > 8)) // all 2 matched size FQ1 & FQ3
             {
                 BTokMsg = BTFix2();
             }
-            else if ((BTqueueInLen2 > 0) && (BTqueueInLen3 > 0)) // all 3 matched size FQ2 & FQ3
+            else if ((BTqueueInLen2 > 8) && (BTqueueInLen3 > 8)) // all 3 matched size FQ2 & FQ3
             {
                 BTokMsg = BTFix2();
             }
@@ -4708,7 +4718,7 @@ void TransmitBTdata(void)
     //
     // calculation of a time to upload 32 bytes:
     // 7682 cycles = 960 mks (or for PIC18F23K20 == twice faster) 480mks 
-    unsigned char i;
+    //unsigned char i;
     
     unsigned char bBy;
     PORT_AMPL.BT_RX = 0;              // off RX amplifier
@@ -5260,11 +5270,11 @@ void SetupBT(unsigned char SetupBtMode)
 void wCRCupdt(int bByte)
 {
     UWORD Temp ;
-    unsigned char i;
+    unsigned char iBits;
 
     Temp = ((UWORD)bByte << 8);
     CRC ^= Temp;
-    for (i = 8 ; i ; --i)
+    for (iBits = 8 ; iBits ; --iBits)
     {
         if (CRC & 0x8000)
         {
