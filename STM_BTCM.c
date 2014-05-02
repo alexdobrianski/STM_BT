@@ -275,7 +275,7 @@ see www.adobri.com for communication protocol spec
 //   for a blinking LED behive like CUBESAT/CRAFT
 //   it is waiting for connection, wait for p/kt, and when pkt is Ok it send back to earth reply packet, and blinks
 ///////////////////////////////////////////////////////////////
-//#define DEBUG_LED_CALL_EARTH
+#define DEBUG_LED_CALL_EARTH
 // for test sequence 
 //// "5atsx=...CBabbcgg
 // atdtl
@@ -284,7 +284,7 @@ see www.adobri.com for communication protocol spec
 ///////////////////////////////////////////////////////////////
 //   for a blinking LED behive like Ground Station, it is constantly sends pktm if received pkt, then it blinks
 ///////////////////////////////////////////////////////////////
-#define DEBUG_LED_CALL_LUNA
+//#define DEBUG_LED_CALL_LUNA
 // for test sequence 
 // "5atsx=...CBabbcgg
 // atdtl
@@ -511,6 +511,7 @@ unsigned RXMessageWasOK:1;
 unsigned RXPktIsBad:1;
 unsigned RXPkt2IsBad:1;
 unsigned IntitialTmr3OffsetDone:1;// set 1  -> set 0 on Tmr3 measure and set 1 again on next interrupr all done to skip AdjustTimer3 on first (FQ2) RX 
+unsigned BTExternalWasStarted:1;
 } DataB0;
 #ifdef DEBUG_LED
 int PingDelay;
@@ -624,6 +625,27 @@ unsigned int  FlashQueueSize;
 unsigned char PrevLen;
 unsigned char NextLen;
 unsigned char TypePkt;
+
+#pragma rambank RAM_BANK_5
+///////////////////////////////////////BANK 5//////////////////////////
+#define BT_BUF 120
+//unsigned char ByteInbank5;
+struct _BtInternal
+{
+    WORD iEntry;
+    WORD iQueueSize;
+    WORD iExit;
+    unsigned char Queue[BT_BUF];
+} BTInternal;
+
+struct _BtExternal
+{
+    WORD iEntry;
+    WORD iQueueSize;
+    WORD iExit;
+    unsigned char Queue[BT_BUF];
+} BTExternal;
+
 
 #pragma rambank RAM_BANK_1
 ///////////////////////////////////////BANK 1//////////////////////////
@@ -904,6 +926,10 @@ void putch(unsigned char simbol);
 void putchWithESC(unsigned char simbol);
 unsigned char getch(void);
 void putch_main(void);
+unsigned char getchExternal(void);
+unsigned char getchInternal(void);
+void putchInternal(unsigned char simbol);
+void putchExternal(unsigned char simbol);
 
 void InitModem(void)
 {
@@ -1283,6 +1309,43 @@ void Erace4K(unsigned char Adr2B)
     CS_HIGH;
 }
 #endif
+
+
+void putchExternal(unsigned char simbol)
+{
+    BTExternal.Queue[BTExternal.iEntry] = simbol; // add bytes to a queue
+    if (++BTExternal.iEntry >= BT_BUF)
+        BTExternal.iEntry = 0;
+    BTExternal.iQueueSize++; // this is unar operation == it does not interfere with interrupt service decrement
+}
+
+void putchInternal(unsigned char simbol)
+{
+    BTInternal.Queue[BTInternal.iEntry] = simbol; // add bytes to a queue
+    if (++BTInternal.iEntry >= BT_BUF)
+        BTInternal.iEntry = 0;
+    BTInternal.iQueueSize++; // this is unar operation == it does not interfere with interrupt service decrement
+}
+unsigned char getchExternal(void)
+{
+    unsigned char bRet = BTExternal.Queue[BTExternal.iExit];
+    if (++BTExternal.iExit >= BT_BUF)
+        BTExternal.iExit = 0;
+
+    BTExternal.iQueueSize --;
+    return bRet;
+}
+
+unsigned char getchInternal(void)
+{
+    unsigned char bRet = BTInternal.Queue[BTInternal.iExit];
+    if (++BTInternal.iExit >= BT_BUF)
+        BTInternal.iExit = 0;
+
+    BTInternal.iQueueSize --;
+    return bRet;
+}
+
 
 
 void Reset_device(void);
@@ -1767,6 +1830,8 @@ unsigned char CallBkComm(void)
 {
     unsigned char bReturn = 0;
     unsigned char bByte;
+    if (DataB0.BTExternalWasStarted)
+        return 0;
     if (TX_NOT_READY)
     {
         // commands:
@@ -4147,20 +4212,30 @@ SEND_CONNECT:
             }
             //Main.PingRQ = 1;
             ATCMD |= MODE_CONNECT;
+           // output to com - BT input message has to go via output queue
            if (UnitFrom)
            {
                 Main.SendWithEsc = 1;
-                putch(UnitFrom);
+                putchExternal(UnitFrom);
                 if (SendCMD)
-                    putch(SendCMD);
+                    putchExternal('D'); // commnand 'D'istance
                 ptrMy = &BTqueueIn[7] ;
                 while(ilen>0)
                 {
-                    putch(*ptrMy);
+                    putchExternal(*ptrMy);
                     ptrMy++;
                     ilen--;
                 }
-                putch(UnitFrom);
+                // now needs to send correspendend values from TX unit to be able calculate distance on DB server
+                ptrMy = &DistMeasure;
+                ilen = sizeof(DistMeasure);
+                while(ilen >0)
+                {
+                    putchExternal(*ptrMy);
+                    ptrMy++;
+                    ilen--;
+                }
+                putchExternal(UnitFrom);
            }
         }
         ATCMD |= MODE_CONNECT;

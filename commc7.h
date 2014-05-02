@@ -50,6 +50,32 @@ NO_PROCESS_IN_CMD:;
         else  // nothing in comm input queue ==  can sleep till interrupt
         {
 #ifdef NON_STANDART_MODEM
+            if (BTExternal.iQueueSize)
+            {
+                if (DataB0.BTExternalWasStarted)
+                {
+                    if (OutPacketUnit)
+                        goto NEXT_PORTION;
+                }
+                else
+                {
+                    DataB0.BTExternalWasStarted = 1;
+                    // that will do loop (RX/TX) but will block Comm process
+                    if (OutPacketUnit==0)
+                    {
+NEXT_PORTION:
+                        while(AOutQu.iQueueSize < (OUT_BUFFER_LEN-2))
+                        {
+                            putch(getchExternal());
+                            if (OutPacketUnit ==0)
+                                break;
+                        }
+                        if (BTExternal.iQueueSize ==0)
+                            DataB0.BTExternalWasStarted = 0;
+                    }
+                }
+            }
+            /*
             if (FlashEntry == FlashExit)
             {
                 if (FlashEntryBH == FlashExitBH)
@@ -75,7 +101,7 @@ NEEDS_FLASH_PROC:   Main.FlashRQ = 1;
             else
                 goto NEEDS_FLASH_PROC;
                
-                
+              */  
 #endif
 #ifndef NO_I2C_PROC
             if (AInI2CQu.iQueueSize == 0)
