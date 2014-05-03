@@ -275,11 +275,11 @@ see www.adobri.com for communication protocol spec
 //   for a blinking LED behive like CUBESAT/CRAFT
 //   it is waiting for connection, wait for p/kt, and when pkt is Ok it send back to earth reply packet, and blinks
 ///////////////////////////////////////////////////////////////
-#define DEBUG_LED_CALL_EARTH
+//#define DEBUG_LED_CALL_EARTH
 // for test sequence 
 //// "5atsx=...CBabbcgg
 // atdtl
-// 5"
+// 5/"
 
 ///////////////////////////////////////////////////////////////
 //   for a blinking LED behive like Ground Station, it is constantly sends pktm if received pkt, then it blinks
@@ -806,6 +806,8 @@ unsigned char Config01;
 
 unsigned char ATCMD;
 unsigned char ATCMDStatus;
+unsigned char ATCMDStatusAddon;
+
 
 #define PCKT_DIAL 0xf0
 #define PCKT_DATA 0xf1
@@ -934,6 +936,7 @@ void putchExternal(unsigned char simbol);
 void InitModem(void)
 {
     ATCMDStatus = 0;
+    ATCMDStatusAddon = 0;
     ATCMD = 0;
     FqTX = Freq1;
     FqTXCount = 0;
@@ -962,6 +965,11 @@ void InitModem(void)
     DataB0.RXLoopAllowed = 1;
     DataB0.RXLoopBlocked = 0;
     DataB0.RXMessageWasOK = 0;
+    DataB0.Timer1LoadLowOpponent = 0;
+    DataB0.BTExternalWasStarted = 0;
+    BTExternal.iEntry = 0;
+	BTExternal.iExit = 0;
+    BTExternal.iQueueSize = 0;
 
     Timer1Id = 0;
 }
@@ -1036,7 +1044,6 @@ void main()
     BTFlags.RxInProc = 0;
     SkipRXTmr3 = 0;
     ESCCount = 0;
-
 #ifdef SKIP_CALC_TX_TIME
     TMR1ON = 0;              // stop timer measure it time btw send Fq1 -> Fq2
     DataB0.Timer1Meausre = 0;
@@ -1049,7 +1056,7 @@ void main()
 #else
     DataB0.Timer1Count = 0;
 #endif
-    DataB0.Timer1LoadLowOpponent = 0;
+    
 
 #ifdef NON_STANDART_MODEM
     //Adr2BH = 0;
@@ -1185,13 +1192,12 @@ void main()
 
 #ifdef DEFAULT_CALL_EARTH
     ATCMD = MODE_CALL_EARTH;     
-    ATCMD |= INIT_BT_NOT_DONE;
 #endif
 
 #ifdef DEFAULT_CALL_LUNA
     ATCMD = MODE_CALL_LUNA_COM;
-    ATCMD |= INIT_BT_NOT_DONE;
 #endif
+    ATCMD |= INIT_BT_NOT_DONE;
 
 #ifdef DEBUG_LED_CALL_LUNA
     PingDelay = PING_DELAY;
@@ -1383,7 +1389,33 @@ void ProcessCMD(unsigned char bByte)
 /////////////////////////////////////////////////////////////////////
 // additional code proceessed as Cmd :
 /////////////////////////////////////////////////////////////////////
-
+    if (ATCMDStatusAddon)
+    {
+        ATCMDStatusAddon++; 
+        if (ATCMDStatusAddon == 2) // AT
+        {
+            if (bByte != 'T')
+            {
+DONE_ADDON_CMD:
+                ATCMDStatusAddon = 0;
+                Main.DoneWithCMD = 1; // long command done
+            }
+            return;
+        }
+        if (bByte == 0x0a)
+            goto DONE_ADDON_CMD;
+        if (ATCMDStatusAddon == 3) // ATD
+        {
+            if (bByte == 'D')      // ATD - repeat send DIAL from Earth to Luna
+            {
+                 if (ATCMD & MODE_CONNECT)
+                 {
+                     Main.PingRQ = 1;
+                 }
+                 goto DONE_ADDON_CMD;
+            }
+        }
+    }
     if (ATCMDStatus)
     {
          ATCMDStatus++;
@@ -1421,7 +1453,7 @@ void ProcessCMD(unsigned char bByte)
          }
          else if (ATCMDStatus == 4) // some AT command == skip till 0x0a
          {
-              if (bByte == 0x0d) // CR == AT command done
+              if (bByte == 0x0a) // CR == AT command done
               {
                   ATCMDStatus = 0;
                   Main.DoneWithCMD = 1; // long command done
@@ -1430,15 +1462,15 @@ void ProcessCMD(unsigned char bByte)
                   ATCMDStatus = 3; // on next entry will be 4
               return;
          }
-         if (bByte == 0x0d) // CR == AT command done
+         if (bByte == 0x0a) // CR == AT command done
          {
              ATCMDStatus = 0;
              Main.DoneWithCMD = 1; // long command done
-             if (ATCMD)
-             {
-                 ATCMD |= INIT_BT_NOT_DONE;  // execute mode
-                 BTFlags.BTFirstInit = 0;
-             }
+             //if (ATCMD)
+             //{
+             //    ATCMD |= INIT_BT_NOT_DONE;  // execute mode
+             //    BTFlags.BTFirstInit = 0;
+             //}
              return;
          }
          if (ATCMDStatus == 5) // atdt
@@ -1449,20 +1481,18 @@ void ProcessCMD(unsigned char bByte)
          }
          else if (ATCMDStatus == 6) // atdt
          {
-              // ATDTlunaU - connect to CubeSat and use I2C for tunneling data to unit
-              //         U = '0'-'7' data transfered to unit '0'-'7'
-              // ATDTLUNAU - connect to CubeSat and use Comm for tranfering data
-              //         U = 'X' to relay all data as it is, '0'-'7' to transfer to unit
-              //         basically "atdtLUNAX" set visible mode to transfer
+              // ATDTl - connect to CubeSat and use Comm for tranfering data
               // when connection established it relpy with "CONNECT" and com will be in relay state (no unit wrapping)
               ////////////////////////////////////////////////////////////////////////////
-              // ATDTEARTH - set module in listen mode on FQ1 and when connection esatblished it reply with "CONNECT" to a unit
+              // ATDTE - set module in listen mode on FQ1 and when connection esatblished it reply with "CONNECT" to a unit
               ////////////////////////////////////////////////////////////////////////////
              ATCMD = 0;
              if (bByte == 'e') // atdtEARTH
                  ATCMD = MODE_CALL_EARTH;//1;
              else if (bByte == 'l') // atdtluna
                  ATCMD = MODE_CALL_LUNA_COM;//4;
+             ATCMD |= INIT_BT_NOT_DONE;  // execute mode
+             BTFlags.BTFirstInit = 0;
 
              ATCMDStatus = 6; // on next entry will be 7
              //SetupBT();
@@ -1625,6 +1655,11 @@ CONTINUE_NOT_AT:
         else if (bByte == 'a')
         {
             ATCMDStatus = 1;
+            Main.DoneWithCMD = 0; // long command
+        }
+        else if (bByte == 'A')  // additional command
+        {
+            ATCMDStatusAddon = 1;
             Main.DoneWithCMD = 0; // long command
         }
 
@@ -2459,9 +2494,9 @@ INIT_TX:
             //                                        d) attempt to fix message based on 1 message
             if (ATCMD & MODE_CONNECT) // connection was established == earth get responce from luna
             {
-#ifdef DEBUG_LED_CALL_LUNA
+//#ifdef DEBUG_LED_CALL_LUNA
   
-               if (Main.PingRQ || Main.PingRSPRQ)
+                if (Main.PingRQ || Main.PingRSPRQ)
                 {
                      if (BTqueueOutLen == 0)   // only when nothing in BT output queue
                      {
@@ -2474,7 +2509,7 @@ INIT_TX:
                          }
                      }
                 }
-#endif
+//#endif
 
             }
             else // no connection yet earth == wait for responce from luna
@@ -4219,7 +4254,8 @@ SEND_CONNECT:
                 putchExternal(UnitFrom);
                 if (SendCMD)
                     putchExternal('D'); // commnand 'D'istance
-                ptrMy = &BTqueueIn[7] ;
+                ptrMy = &OutputMsg[7] ;
+                ilen--;
                 while(ilen>0)
                 {
                     putchExternal(*ptrMy);

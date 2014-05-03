@@ -1023,9 +1023,9 @@ INSERT_TO_COM_Q:
                    AInQu.Queue[AInQu.iEntry] = GETCH_BYTE;
                    if (++AInQu.iEntry >= BUFFER_LEN)
                        AInQu.iEntry = 0;
-#pragma updateBank 0
+//#pragma updateBank 0
                    AInQu.iQueueSize++;
-#pragma updateBank 1
+//#pragma updateBank 1
                }
                //else
                //    W = RCREG; // this byte is skipped to process
