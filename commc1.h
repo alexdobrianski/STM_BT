@@ -157,6 +157,14 @@ INTERRUPT int_server( void)
                     PORT_AMPL.BT_TX = 1;
                     bitset(PORT_BT,Tx_CE);
                     DataB0.Timer1DoTX = 0;
+                    if (FqTXCount == 0)
+                    {
+                        DistMeasure.TXbTmr1H = DistMeasure.TXaTmr1H;
+                        DistMeasure.TXbTmr1 = DistMeasure.TXaTmr1;
+                        DistMeasure.TXaTmr1H = INTTimer1HCount;
+                        DistMeasure.TXaTmr1 = INTTimer1;
+                    }
+
                 }
                 if (++FqTXCount>=3)
                 {
@@ -181,11 +189,6 @@ INTERRUPT int_server( void)
                     }
 #endif
 #endif
-                    DistMeasure.TXbTmr1H = DistMeasure.TXaTmr1H;
-                    DistMeasure.TXbTmr1 = DistMeasure.TXaTmr1;
-                    DistMeasure.TXaTmr1H = INTTimer1HCount;
-                    DistMeasure.TXaTmr1 = INTTimer1;
-
                 }
                 else
                 {
