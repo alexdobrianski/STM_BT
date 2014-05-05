@@ -163,6 +163,7 @@ INTERRUPT int_server( void)
                         DistMeasure.TXbTmr1 = DistMeasure.TXaTmr1;
                         DistMeasure.TXaTmr1H = INTTimer1HCount;
                         DistMeasure.TXaTmr1 = INTTimer1;
+                        
                     }
 
                 }
@@ -1604,6 +1605,11 @@ TMR0_DONE:
                             TMR3H = 0;
                             TMR3L = 0;
                         }
+                        if (FqRXCount == 0)
+                        {
+                            PossibleRXTmr1 = INTTimer1;
+                            PossibleRXTmr1H = INTTimer1HCount;     
+                        }
                         goto NOTHING_CAN_BE_DONE;
                     }
                     DataB0.Timer3Ready2Sync = 0;
@@ -1618,10 +1624,9 @@ TMR0_DONE:
                              SkipRXTmr3 = 1; // timeout in timer3 (RX) will be blocked
                              if (FqRXCount == 0)
                              {
-                                 DistMeasure.RXbTmr1H = DistMeasure.RXaTmr1H;
-                                 DistMeasure.RXbTmr1 = DistMeasure.RXaTmr1;
-                                 DistMeasure.RXaTmr1H = INTTimer1HCount;
-                                 DistMeasure.RXaTmr1 = INTTimer1;
+                                 PossibleRXTmr1 = INTTimer1;
+                                 PossibleRXTmr1H = INTTimer1HCount;
+                                 
                              }
                              // SYNC_DEBUG 8:  skip adjust the TMR3
                              if (DataB0.IntitialTmr3OffsetDone)  // set 1  -> set 0 on Tmr3 measure and set 1 again on next interrupr all done to skip AdjustTimer3 on first (FQ2) RX  

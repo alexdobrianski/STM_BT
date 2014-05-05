@@ -734,8 +734,8 @@ UWORD TXbTmr1;
 UWORD TXbTmr1H;
 UWORD TXPeriod;
 } DistMeasure;
-
-
+UWORD PossibleRXTmr1;
+UWORD PossibleRXTmr1H;
 #pragma rambank RAM_BANK_0
 
 // hex decimal assignment:
@@ -989,7 +989,7 @@ unsigned int Sendbtcmd;
 void main()
 {
     unsigned char bWork;
-
+    unsigned char *ptrMemset;
     Reset_device();
 #ifdef DEBUG_SIM
      Sendbtcmd = 0;
@@ -1184,6 +1184,11 @@ void main()
 //#endif
     
 #endif
+    ptrMemset = &DistMeasure;
+    for (bWork = 0; bWork <sizeof(DistMeasure);bWork++)
+    {
+        *ptrMemset++=0;
+    }
     iAdjRX = 0;
     SetTimer3(0);
     ShowMessage();
@@ -4569,7 +4574,7 @@ INIT_FQ_RX:
     }
 #endif
 
-#if 1
+#if 0
     if (iFix)
     {
                 if (IntRXCount == 0)
@@ -4688,6 +4693,18 @@ SKIP_SWITCH_2:
             {
                 if (IntRXCount == 0)      // set OK messaghe only on FQ1
                 {
+                    if (PossibleRXTmr1 != 0)
+                    {
+                        DistMeasure.RXbTmr1H = DistMeasure.RXaTmr1H;
+                        DistMeasure.RXbTmr1 = DistMeasure.RXaTmr1;
+                        DistMeasure.RXaTmr1H = PossibleRXTmr1H;
+                        DistMeasure.RXaTmr1 = PossibleRXTmr1;
+                        //if (DistMeasure.RXaTmr1H > DistMeasure.TXaTmr1H)
+                        {
+                           DataB0.RXMessageWasOK = 1;
+                           DebugLock(2);
+                         }
+                    }
                     DataB0.RXMessageWasOK = 1;
                     // case: was out of synch but now get packet on FQ1
                     if (DataB0.Timer3OutSyncRQ)
