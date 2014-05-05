@@ -1324,6 +1324,23 @@ void Erace4K(unsigned char Adr2B)
 
 void putchExternal(unsigned char simbol)
 {
+    if (Main.SendWithEsc)
+    {
+        if (simbol == ESC_SYMB)
+            goto PUT_ESC;
+
+        if (simbol >= MIN_ADR)
+        {
+            if (simbol <= MAX_ADR)
+            {
+PUT_ESC:
+                BTExternal.Queue[BTExternal.iEntry] = ESC_SYMB; // add bytes to a queue
+                if (++BTExternal.iEntry >= BT_BUF)
+                    BTExternal.iEntry = 0;
+                BTExternal.iQueueSize++;
+            }
+        }
+    }
     BTExternal.Queue[BTExternal.iEntry] = simbol; // add bytes to a queue
     if (++BTExternal.iEntry >= BT_BUF)
         BTExternal.iEntry = 0;
@@ -4255,8 +4272,9 @@ SEND_CONNECT:
            // output to com - BT input message has to go via output queue
            if (UnitFrom)
            {
-                Main.SendWithEsc = 1;
+                Main.SendWithEsc = 0;
                 putchExternal(UnitFrom);
+                Main.SendWithEsc = 1;
                 if (SendCMD)
                     putchExternal('D'); // commnand 'D'istance
                 ptrMy = &OutputMsg[7] ;
@@ -4276,6 +4294,7 @@ SEND_CONNECT:
                     ptrMy++;
                     ilen--;
                 }
+                Main.SendWithEsc = 0;
                 putchExternal(UnitFrom);
            }
         }
