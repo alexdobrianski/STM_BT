@@ -1815,6 +1815,8 @@ unsigned SendOverLinkAndProc:1;
 unsigned FlashRQ:1;
 unsigned PingRQ:1;
 unsigned PingRSPRQ:1;
+VOLATILE unsigned DoPing:1;
+VOLATILE unsigned ConstantPing:1;
 #endif
 unsigned SendComOneByte:1;
 VOLATILE unsigned OutPacket:1;
@@ -1858,6 +1860,7 @@ VOLATILE unsigned InDoneNoSleep:1;
 VOLATILE unsigned ExtFirst:1;
 #endif
 } Main;
+unsigned char PingAttempts;
 
 VOLATILE unsigned char OutPacketUnit;
 VOLATILE unsigned char RelayPkt;

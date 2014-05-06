@@ -1200,16 +1200,13 @@ void main()
 #endif
 
 #ifdef DEFAULT_CALL_LUNA
+    Main.DoPing = 1;
+    Main.ConstantPing = 1;
+    PingAttempts = 2;
     ATCMD = MODE_CALL_LUNA_COM;
 #endif
     ATCMD |= INIT_BT_NOT_DONE;
-
-#ifdef DEBUG_LED_CALL_LUNA
     PingDelay = PING_DELAY;
-#endif
-#ifdef DEBUG_LED_CALL_EARTH
-    PingDelay = PING_DELAY;
-#endif
 
     //bitset(PORTA,4);
     //bitset(PORTA,3);
@@ -1435,6 +1432,24 @@ DONE_ADDON_CMD:
                      Main.PingRQ = 1;
                  }
                  goto DONE_ADDON_CMD;
+            }
+            if (bByte == 'P')      // ATP - repeat 10 times send PING from Earth to Luna
+            {
+                Main.DoPing =1;
+                PingAttempts = 20;
+                Main.ConstantPing = 0;
+            }
+            if (bByte == 'C')      // ATC - constant PING from Earth to Luna
+            {
+                Main.DoPing =1;
+                PingAttempts = 2;
+                Main.ConstantPing = 1;
+            }
+            if (bByte == 'X')      // ATX - stop pinging
+            {
+                Main.DoPing =0;
+                PingAttempts = 2;
+                Main.ConstantPing = 0;
             }
         }
     }
@@ -4721,7 +4736,7 @@ SKIP_SWITCH_2:
                         //if (DistMeasure.RXaTmr1H > DistMeasure.TXaTmr1H)
                         {
                            DataB0.RXMessageWasOK = 1;
-                           DebugLock(2);
+                           //DebugLock(2);
                          }
                     }
                     DataB0.RXMessageWasOK = 1;

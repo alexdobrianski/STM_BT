@@ -55,10 +55,13 @@
         Main.FlashRQ = 0;
         Main.PingRQ = 0;
         Main.PingRSPRQ = 0;
+        Main.DoPing= 0;
+        Main.ConstantPing=0;
 #endif
         //Main.SendWithEsc = 0;
         //Main.CommLoopOK = 0;
         Main.LastWasUnitAddr = 0;
+        PingAttempts = 0;
 
         SSPADD = UnitADR<<1;
         I2C.LockToI2C = 0;

@@ -157,20 +157,31 @@ INTERRUPT int_server( void)
                     PORT_AMPL.BT_TX = 1;
                     bitset(PORT_BT,Tx_CE);
                     DataB0.Timer1DoTX = 0;
-                    if (FqTXCount == 0)
-                    {
-                        DistMeasure.TXbTmr1H = DistMeasure.TXaTmr1H;
-                        DistMeasure.TXbTmr1 = DistMeasure.TXaTmr1;
-                        DistMeasure.TXaTmr1H = INTTimer1HCount;
-                        DistMeasure.TXaTmr1 = INTTimer1;
-                        
-                    }
+                    
 
                 }
                 if (++FqTXCount>=3)
                 {
                     FqTXCount = 0;
                     FqTX = Freq1;
+
+                    if (Main.DoPing)
+                    {
+                        if (ATCMD & MODE_CONNECT)
+                        {
+                            if (--PingDelay == 0)
+                            {
+                                Main.PingRQ = 1;
+                                PingDelay = PING_DELAY;
+                                if (!Main.ConstantPing)
+                                {
+                                    if (--PingAttempts==0)
+                                        Main.DoPing = 0;
+                                }
+                            }
+                        }
+                    }
+
 #ifdef DEBUG_LED 
                     if (DebugLedCount)
                     { 
@@ -179,16 +190,6 @@ INTERRUPT int_server( void)
                     }
                     else
                         DEBUG_LED_OFF;
-#ifdef DEBUG_LED_CALL_LUNA
-                    if (ATCMD & MODE_CONNECT)
-                    {
-                        if (--PingDelay == 0)
-                        {
-                            Main.PingRQ = 1;
-                            PingDelay = PING_DELAY;
-                        }
-                    }
-#endif
 #endif
                 }
                 else
@@ -1722,6 +1723,13 @@ NOTHING_CAN_BE_DONE: ;
 #ifdef DEBUG_SIM
                 PORT_AMPL.BT_TX = 0;
 #endif
+                if (FqTXCount == 1) // TX just finished on FQ1
+                {
+                    DistMeasure.TXbTmr1H = DistMeasure.TXaTmr1H;
+                    DistMeasure.TXbTmr1 = DistMeasure.TXaTmr1;
+                    DistMeasure.TXaTmr1H = INTTimer1HCount;
+                    DistMeasure.TXaTmr1 = INTTimer1;
+                }
             }
 #endif
         }
