@@ -275,16 +275,16 @@ see www.adobri.com for communication protocol spec
 //   for a blinking LED behive like CUBESAT/CRAFT
 //   it is waiting for connection, wait for p/kt, and when pkt is Ok it send back to earth reply packet, and blinks
 ///////////////////////////////////////////////////////////////
-//#define DEBUG_LED_CALL_EARTH
+#define DEBUG_LED_CALL_EARTH
 // for test sequence 
 //// "5atsx=...CBabbcgg
-// atdtl
+/// atdtl
 // 5/"
 
 ///////////////////////////////////////////////////////////////
 //   for a blinking LED behive like Ground Station, it is constantly sends pktm if received pkt, then it blinks
 ///////////////////////////////////////////////////////////////
-#define DEBUG_LED_CALL_LUNA
+//#define DEBUG_LED_CALL_LUNA
 // for test sequence 
 // "5atsx=...CBabbcgg
 // atdtl
@@ -4459,6 +4459,44 @@ void DebugLock(UWORD StopCount)
                             }
 }
 #endif
+
+// global value IntRXCount
+void AdjDistance(void)
+{
+    DistMeasure.RXbTmr1H = DistMeasure.RXaTmr1H;
+    DistMeasure.RXbTmr1 = DistMeasure.RXaTmr1;
+    DistMeasure.RXaTmr1H = PossibleRXTmr1H;
+    if (IntRXCount==1)
+       DistMeasure.RXaTmr1H^= 0xff00;
+    else if (IntRXCount==2)
+       DistMeasure.RXaTmr1H^= 0xffff;
+    if (res &0x80) // negative
+        DistMeasure.RXaTmr1 = 0xff-res;
+    else
+        DistMeasure.RXaTmr1 = res;
+    DistMeasure.RXaTmr1 *=8;
+    if (res &0x80) // negative
+    {
+        if (iShift == 2)
+            DistMeasure.RXaTmr1 -= 32;
+        else if (iShift == 4)
+            DistMeasure.RXaTmr1 -= 64;
+        else if (iShift == 6)
+            DistMeasure.RXaTmr1 -= 96;
+
+        DistMeasure.RXaTmr1 = PossibleRXTmr1+DistMeasure.RXaTmr1;
+    }
+    else
+    {
+        if (iShift == 2)
+            DistMeasure.RXaTmr1 += 32;
+        else if (iShift == 4)
+            DistMeasure.RXaTmr1 += 64;
+        else if (iShift == 6)
+            DistMeasure.RXaTmr1 += 96;
+        DistMeasure.RXaTmr1 = PossibleRXTmr1-DistMeasure.RXaTmr1;
+    }
+}
 void AdjTimer3(void)
 {
     if (DataB0.Timer3Ready2Sync)
@@ -4725,20 +4763,11 @@ SKIP_SWITCH_2:
         {
             if (CheckPacket(ptrMy, bret) == 0)  //used IntRXCount  // now possible to do CRC check ???
             {
+                if (PossibleRXTmr1 != 0)
+                    AdjDistance();
                 if (IntRXCount == 0)      // set OK messaghe only on FQ1
                 {
-                    if (PossibleRXTmr1 != 0)
-                    {
-                        DistMeasure.RXbTmr1H = DistMeasure.RXaTmr1H;
-                        DistMeasure.RXbTmr1 = DistMeasure.RXaTmr1;
-                        DistMeasure.RXaTmr1H = PossibleRXTmr1H;
-                        DistMeasure.RXaTmr1 = PossibleRXTmr1;
-                        //if (DistMeasure.RXaTmr1H > DistMeasure.TXaTmr1H)
-                        {
-                           DataB0.RXMessageWasOK = 1;
-                           //DebugLock(2);
-                         }
-                    }
+                    
                     DataB0.RXMessageWasOK = 1;
                     // case: was out of synch but now get packet on FQ1
                     if (DataB0.Timer3OutSyncRQ)
@@ -4754,7 +4783,6 @@ SKIP_SWITCH_2:
                         FqRXRealCount = 1; 
                         DataB0.Timer3OutSyncRQ =0;
                         DataB0.Timer3Ready2Sync = 0;
-
                     }    
                 }
 
