@@ -275,7 +275,7 @@ see www.adobri.com for communication protocol spec
 //   for a blinking LED behive like CUBESAT/CRAFT
 //   it is waiting for connection, wait for p/kt, and when pkt is Ok it send back to earth reply packet, and blinks
 ///////////////////////////////////////////////////////////////
-#define DEBUG_LED_CALL_EARTH
+//#define DEBUG_LED_CALL_EARTH
 // for test sequence 
 //// "5atsx=...CBabbcgg
 /// atdtl
@@ -284,7 +284,7 @@ see www.adobri.com for communication protocol spec
 ///////////////////////////////////////////////////////////////
 //   for a blinking LED behive like Ground Station, it is constantly sends pktm if received pkt, then it blinks
 ///////////////////////////////////////////////////////////////
-//#define DEBUG_LED_CALL_LUNA
+#define DEBUG_LED_CALL_LUNA
 // for test sequence 
 // "5atsx=...CBabbcgg
 // atdtl
@@ -4467,14 +4467,15 @@ void AdjDistance(void)
     DistMeasure.RXbTmr1 = DistMeasure.RXaTmr1;
     DistMeasure.RXaTmr1H = PossibleRXTmr1H;
     if (IntRXCount==1)
-       DistMeasure.RXaTmr1H^= 0xff00;
+       DistMeasure.RXaTmr1H^= 0xf000;
     else if (IntRXCount==2)
-       DistMeasure.RXaTmr1H^= 0xffff;
+       DistMeasure.RXaTmr1H^= 0xff00;
     if (res &0x80) // negative
-        DistMeasure.RXaTmr1 = 0xff-res;
+        DistMeasure.RXaTmr1 = -res;
     else
         DistMeasure.RXaTmr1 = res;
-    DistMeasure.RXaTmr1 *=8;
+    if (res)
+        DistMeasure.RXaTmr1 *=128;
     if (res &0x80) // negative
     {
         if (iShift == 2)
@@ -4484,7 +4485,7 @@ void AdjDistance(void)
         else if (iShift == 6)
             DistMeasure.RXaTmr1 -= 96;
 
-        DistMeasure.RXaTmr1 = PossibleRXTmr1+DistMeasure.RXaTmr1;
+        DistMeasure.RXaTmr1 = PossibleRXTmr1-DistMeasure.RXaTmr1;
     }
     else
     {
@@ -4494,7 +4495,7 @@ void AdjDistance(void)
             DistMeasure.RXaTmr1 += 64;
         else if (iShift == 6)
             DistMeasure.RXaTmr1 += 96;
-        DistMeasure.RXaTmr1 = PossibleRXTmr1-DistMeasure.RXaTmr1;
+        DistMeasure.RXaTmr1 += PossibleRXTmr1;
     }
 }
 void AdjTimer3(void)
