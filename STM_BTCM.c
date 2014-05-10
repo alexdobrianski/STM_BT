@@ -4486,6 +4486,7 @@ void AdjDistance(void)
             DistMeasure.RXaTmr1 -= 96;
 
         DistMeasure.RXaTmr1 = PossibleRXTmr1-DistMeasure.RXaTmr1;
+        //DistMeasure.RXaTmr1 +=128;
     }
     else
     {
@@ -4495,7 +4496,9 @@ void AdjDistance(void)
             DistMeasure.RXaTmr1 += 64;
         else if (iShift == 6)
             DistMeasure.RXaTmr1 += 96;
+        
         DistMeasure.RXaTmr1 += PossibleRXTmr1;
+        DistMeasure.RXaTmr1 -=96;    
     }
 }
 void AdjTimer3(void)

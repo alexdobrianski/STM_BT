@@ -146,6 +146,7 @@ INTERRUPT int_server( void)
                 Tmr1LoadLow+=TIMER1;
                 TMR1H = (unsigned char)(Tmr1LoadLow>>8);
                 TMR1L = (unsigned char)(Tmr1LoadLow&0xff);
+
                 Tmr1TOHigh = Tmr1LoadHigh;
                 Tmr1LoadLow = Tmr1LoadLowCopy;
                 //TIMER1 = Tmr1LoadLow;  
@@ -156,6 +157,7 @@ INTERRUPT int_server( void)
                 {
                     PORT_AMPL.BT_TX = 1;
                     bitset(PORT_BT,Tx_CE);
+
                     DataB0.Timer1DoTX = 0;
                     
 
