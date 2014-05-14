@@ -13,7 +13,7 @@ void OutputOffset(FILE *OutputF, DWORD dwOff)
     if (FirstEntry ==0)
     {
         FirstEntry = 1;
-        fprintf(OutputF, "%08x: ", dwOff);
+        fprintf(OutputF, "%08x:  ", dwOff);
         LastEntry = dwOff;
     }
     else
@@ -33,7 +33,7 @@ void OutputOffset(FILE *OutputF, DWORD dwOff)
         }
         if (dwOff >= (LastEntry +16))
         {
-            fprintf(OutputF, "\n%08x: ", dwOff);
+            fprintf(OutputF, "\n%08x:  ", dwOff);
             LastEntry = dwOff;
         }
         else if (dwOff == (LastEntry +8))
@@ -151,6 +151,11 @@ int _tmain(int argc, _TCHAR* argv[])
                             break;
                         }
                     }
+                }
+                int iRest = SkipCheck&0x0000000f;
+                for (;iRest < 16; iRest++)
+                {
+                    fprintf(OutputF, "00 ");
                 }
             }
             fclose(OutputF);
