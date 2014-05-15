@@ -261,8 +261,14 @@ CONTINUE_READ:
                 {
                    if (CountWrite== 1)
                    {
-                       OldFlashCmd = bByte;
-                       DataB3.FlashWas1byteWrite = 1;
+                       if (OldFlashCmd != 0) // double 1 byte FLASH command like 06 c7
+                       {
+                       }
+                       else
+                       {
+                           OldFlashCmd = bByte;
+                           DataB3.FlashWas1byteWrite = 1;
+                       }
                    }
                    else
                    {

@@ -1018,6 +1018,7 @@ void main()
         DataB3.FlashCmd = 0;
         DataB3.FlashCmdLen = 0;
         DataB3.FlashRead = 0;
+        OldFlashCmd = 0;
 
         
 #ifdef SSPORT
