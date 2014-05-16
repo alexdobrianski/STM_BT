@@ -261,14 +261,26 @@ CONTINUE_READ:
                 {
                    if (CountWrite== 1)
                    {
-                       if (OldFlashCmd != 0) // double 1 byte FLASH command like 06 c7
+                       if (OldFlashCmd!=0) // two 1 byte commands in a row
                        {
+                            CS_LOW;
+                            SendSSByte(OldFlashCmd);
+                            CS_HIGH;
+                            nop();nop();
+WRITE_FLASH_CMD:
+                            CS_LOW;
+                            SendSSByte(bByte);
+                            CS_HIGH;
+                            OldFlashCmd = 0;
+                            DataB3.FlashCmd = 0;
+                            Main.DoneWithCMD = 1; // long command flash manipulation done
+                            CountWrite = 0;
+                            return;
                        }
-                       else
-                       {
-                           OldFlashCmd = bByte;
-                           DataB3.FlashWas1byteWrite = 1;
-                       }
+                       if (bByte != 0x06) // only command 06 allow to be in stack
+                           goto WRITE_FLASH_CMD;
+                       OldFlashCmd = bByte;
+                       DataB3.FlashWas1byteWrite = 1;
                    }
                    else
                    {
