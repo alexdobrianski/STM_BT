@@ -1197,16 +1197,16 @@ void main()
     SetTimer3(0);
     ShowMessage();
     INT0_ENBL = 1;
-    ptrMemset = &BTqueueOut[0];
+    /*ptrMemset = &BTqueueOut[0];
     for (bWork = 0; bWork <32;bWork++)
     {
         *ptrMemset++=bWork;
-    }
+    }*/
     DataB0.EnableFlashWrite = 1;
     DataB0.EnableFlashWrite = 0;
     AdrBH= 0;
     wAddr = 0x8000;
-    //PrgUnit(0x2CA0);
+    PrgUnit(0x2CA0);
 
 #ifdef DEFAULT_CALL_EARTH
     ATCMD = MODE_CALL_EARTH;     
@@ -5677,6 +5677,7 @@ READ_WORD:
 }
 #pragma origin 0x7b00
 #endif
+
 #define PROC_WRITE_LEN 32
 #define PROC_ERACE_LEN 64
 #define PROC_ERASE_MASK 0x20
