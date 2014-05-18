@@ -513,7 +513,9 @@ unsigned RXPkt2IsBad:1;
 unsigned IntitialTmr3OffsetDone:1;// set 1  -> set 0 on Tmr3 measure and set 1 again on next interrupr all done to skip AdjustTimer3 on first (FQ2) RX 
 unsigned BTExternalWasStarted:1;
 unsigned EnableFlashWrite:1;
+unsigned GIE:1;
 } DataB0;
+
 #ifdef DEBUG_LED
 int PingDelay;
 unsigned char DebugLedCount;
@@ -605,7 +607,7 @@ UWORD T2Byte2;
 UWORD T2Count3;
 UWORD T2Byte3;
 unsigned char AdrBH;
-unsigned int  wAddr;
+UWORD wAddr;
 
 unsigned char FlashEntryBH;
 unsigned int  FlashEntry;
@@ -933,7 +935,7 @@ unsigned char getchExternal(void);
 unsigned char getchInternal(void);
 void putchInternal(unsigned char simbol);
 void putchExternal(unsigned char simbol);
-void PrgUnit(void);
+void PrgUnit(UWORD);
 void InitModem(void)
 {
     ATCMDStatus = 0;
@@ -1195,8 +1197,16 @@ void main()
     SetTimer3(0);
     ShowMessage();
     INT0_ENBL = 1;
-
-   PrgUnit();
+    ptrMemset = &BTqueueOut[0];
+    for (bWork = 0; bWork <32;bWork++)
+    {
+        *ptrMemset++=bWork;
+    }
+    DataB0.EnableFlashWrite = 1;
+    DataB0.EnableFlashWrite = 0;
+    AdrBH= 0;
+    wAddr = 0x8000;
+    //PrgUnit(0x2CA0);
 
 #ifdef DEFAULT_CALL_EARTH
     ATCMD = MODE_CALL_EARTH;     
@@ -5665,8 +5675,11 @@ READ_WORD:
      RdFlash += TABLAT;
      return RdFlash;
 }
-#pragma origin 0x7c00
+#pragma origin 0x7b00
 #endif
+#define PROC_WRITE_LEN 32
+#define PROC_ERACE_LEN 64
+#define PROC_ERASE_MASK 0x20
 void setAddr(UWORD Adress)
 {
     TBLPTRU = 0;
@@ -5706,7 +5719,8 @@ ERASE_BLOCK:
          //BSF EECON1, FREE ; enable block Erase operation
          FREE = 1;
          //BCF INTCON, GIE ; disable interrupts
-         GIE = 0;
+         if (DataB0.GIE)
+             GIE = 0;
          //Required MOVLW 55h
          EECON2 = 0x55;
          //Sequence MOVWF EECON2 ; write 55h
@@ -5716,7 +5730,8 @@ ERASE_BLOCK:
          //BSF EECON1, WR ; start erase (CPU stall)
          WR = 1;
          //BSF INTCON, GIE ; re-enable interrupts
-         GIE = 1;
+         if (DataB0.GIE)
+             GIE = 1;
      }
 }
 
@@ -5725,35 +5740,156 @@ void WriteFlash(UWORD Adress, unsigned char *MemPtr)
      if (DataB0.EnableFlashWrite)
      {
          setAddr(Adress);
-         for (i=0; i<32;i++)
+         for (i=0; i<PROC_WRITE_LEN;i++)
          {
-             TABLAT = *MemPtr;
+             WREG = *MemPtr;
+             TABLAT = WREG; 
              #asm
-             TBLWT+*
+             TBLWT*+
              #endasm
              MemPtr++;
          }
-         setAddr(Adress);
+         #asm
+         TBLRD*-
+         #endasm
+
+         //setAddr(Adress);
          EEPGD = 1;
          CFGS = 0;
          WREN = 1;
-         GIE = 0;
+         if (DataB0.GIE)
+             GIE = 0;
          EECON2 = 0x55;
          EECON2 = 0xaa;
          WR = 1;
-         GIE = 1;
+         if (DataB0.GIE)
+             GIE = 1;
          WREN = 0;
     }
 }
-void PrgUnit(void)
+void DSendSSByte(unsigned char bByte)
 {
     if (DataB0.EnableFlashWrite)
     {
-        setAddr(0x2cb8);
-        i = ReadFlash();
-        j = ReadFlash();
-        EraceFlash(0x3000);
-   
-        WriteFlash(0x3000, BTqueueOut);
+        i = 8;
+        do
+        {
+            bclr(SSPORT,SSCLOCK);
+            bclr(SSPORT,SSDATA_IN);
+		    if (bittest(bByte,7))
+                bset(SSPORT,SSDATA_IN);
+            bByte<<=1;
+            bset(SSPORT,SSCLOCK);
+        }
+        while (--i); // 7*8 = 56 or 8*8 = 64 commands
+        bclr(SSPORT,SSCLOCK);
+    }
+}
+
+unsigned char DGetSSByte(void)
+{
+    unsigned int j;
+    //bitclr(SSPORT,SSCS); // set low Chip Select
+    i = 8;
+    j = 0;
+    if (DataB0.EnableFlashWrite)
+    {
+        do
+        {
+            j <<=1;
+            bset(SSPORT,SSCLOCK);
+        
+            //bitclr(bWork2,0); // bWork2 is unsigned == zero in low bit garanteed check assembler code to confirm
+#ifdef SSDATA_OUT2
+
+            if (btest(SSPORT_READ,SSDATA_OUT))
+            {
+                if (btest(SSPORT2_READ,SSDATA_OUT2))
+                    goto FLASH_MAJORITY;
+                else if (btest(SSPORT2_READ,SSDATA_OUT3))
+                    goto FLASH_MAJORITY;
+            }
+            else if (btest(SSPORT2_READ,SSDATA_OUT2))
+                     if (btest(SSPORT2_READ,SSDATA_OUT3))
+                     {
+FLASH_MAJORITY:
+                         bitset(j,0);
+                     }
+#else
+            if (btest(SSPORT_READ,SSDATA_OUT_READ))
+                bitset(j,0);
+#endif
+            bclr(SSPORT,SSCLOCK);
+        }
+        while (--i);
+    }
+    return j;
+}
+
+void DCheckStatus(void)
+{
+    unsigned char StatusByte;
+    if (DataB0.EnableFlashWrite)
+    {
+        StatusByte = 0x80;
+        CS_LOW;
+        DSendSSByte(0x05);
+        while( StatusByte & 0x80)
+        {
+            StatusByte = DGetSSByte();
+        }
+        CS_HIGH;
+    }
+}
+
+unsigned char DGetFromFlash( void)
+{
+    if (DataB0.EnableFlashWrite)
+    {
+        if (btest(SSPORT,SSCS)) // is it HIGH ???
+        {
+            DCheckStatus(); 
+            CS_LOW;
+            DSendSSByte(0x03);
+            DSendSSByte(AdrBH);
+            DSendSSByte(wAddr>>8);
+            DSendSSByte(wAddr&0xff);
+        }
+        i = DGetSSByte();
+        wAddr++;
+        if ((wAddr &0xff) == 0) // page read done set next page
+        {
+            CS_HIGH;
+            if (wAddr  == 0) // over 64K
+                AdrBH++;
+        }
+    }
+    return i;    
+}
+
+void PrgUnit(UWORD uwLen)
+{
+    unsigned char bFlash;
+    UWORD iCount;
+    unsigned char iFlashRead;
+    if (DataB0.EnableFlashWrite)
+    {
+        GIE = 0;
+        DataB0.GIE = GIE;
+        CS_HIGH; // set high == next DGetFromFlash will set read address
+        for (iCount = 0; iCount < uwLen; iCount+=PROC_WRITE_LEN)
+        {
+            if ((iCount&PROC_ERASE_MASK) == 0)
+                EraceFlash(iCount);
+            for (iFlashRead = 0; iFlashRead < PROC_WRITE_LEN; iFlashRead++)
+            {
+                DGetFromFlash(); // each read advance pointer in flash memory
+                BTqueueIn[iFlashRead] = i; // it is in i var!!!
+            } 
+            WriteFlash(iCount, BTqueueIn);
+        }
+        #asm
+        RESET
+        #endasm
     }
 }
