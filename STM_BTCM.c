@@ -512,6 +512,7 @@ unsigned RXPktIsBad:1;
 unsigned RXPkt2IsBad:1;
 unsigned IntitialTmr3OffsetDone:1;// set 1  -> set 0 on Tmr3 measure and set 1 again on next interrupr all done to skip AdjustTimer3 on first (FQ2) RX 
 unsigned BTExternalWasStarted:1;
+unsigned EnableFlashWrite:1;
 } DataB0;
 #ifdef DEBUG_LED
 int PingDelay;
@@ -1091,7 +1092,7 @@ void main()
     TMR2Count = 0;
     Timer1HCount = 0;
     Timer3HCount = 0;
-
+    DataB0.EnableFlashWrite = 0;
 #ifdef DEBUG_LED
     DEBUG_LED_OFF;
     DebugLedCount = 0;
@@ -5647,9 +5648,7 @@ READ_WORD:
      RdFlash += TABLAT;
      return RdFlash;
 }
-#pragma origin 0x7c00
-#endif
-UWORD ReadFlash(UWORD Adress)
+UWORD dummy2(UWORD Adress)
 {
      UWORD RdFlash;
     TBLPTRU = 0;
@@ -5666,64 +5665,95 @@ READ_WORD:
      RdFlash += TABLAT;
      return RdFlash;
 }
+#pragma origin 0x7c00
+#endif
+void setAddr(UWORD Adress)
+{
+    TBLPTRU = 0;
+    TBLPTRH = Adress>>8;
+    TBLPTRL = Adress&0xff;
+}
+unsigned char ReadFlash(void)
+{
+    //UWORD RdFlash;
+    //if (DataB0.EnableFlashWrite)
+    {
+READ_WORD:
+        #asm
+        TBLRD*+
+        #endasm// ; read into TABLAT and increment
+        return (TABLAT);
+        //#asm
+        //TBLRD*+ 
+        //#endasm//; read into TABLAT and increment
+        //RdFlash += TABLAT;
+     //return RdFlash;
+    }
+    //return 0;
+}
 void EraceFlash(UWORD Adress)
 {
-     TBLPTRU = 0;// ; address of the memory block
-     TBLPTRH = Adress>>8;
-     TBLPTRL = Adress&0xff;
+     if (DataB0.EnableFlashWrite)
+     {
+         setAddr(Adress);
 ERASE_BLOCK:
-      //BSF EECON1, EEPGD ; point to Flash program memory
-     EEPGD = 1;
-     //BCF EECON1, CFGS ; access Flash program memory
-     CFGS = 0;
-     //BSF EECON1, WREN ; enable write to memory
-     WREN = 1;
-     //BSF EECON1, FREE ; enable block Erase operation
-     FREE = 1;
-     //BCF INTCON, GIE ; disable interrupts
-     GIE = 0;
-     //Required MOVLW 55h
-     EECON2 = 0x55;
-     //Sequence MOVWF EECON2 ; write 55h
-     //MOVLW 0AAh
-     //MOVWF EECON2 ; write 0AAh
-     EECON2 = 0xaa;
-     //BSF EECON1, WR ; start erase (CPU stall)
-     WR = 1;
-     //BSF INTCON, GIE ; re-enable interrupts
-     GIE = 1;
+         //BSF EECON1, EEPGD ; point to Flash program memory
+         EEPGD = 1;
+         //BCF EECON1, CFGS ; access Flash program memory
+         CFGS = 0;
+         //BSF EECON1, WREN ; enable write to memory
+         WREN = 1;
+         //BSF EECON1, FREE ; enable block Erase operation
+         FREE = 1;
+         //BCF INTCON, GIE ; disable interrupts
+         GIE = 0;
+         //Required MOVLW 55h
+         EECON2 = 0x55;
+         //Sequence MOVWF EECON2 ; write 55h
+         //MOVLW 0AAh
+         //MOVWF EECON2 ; write 0AAh
+         EECON2 = 0xaa;
+         //BSF EECON1, WR ; start erase (CPU stall)
+         WR = 1;
+         //BSF INTCON, GIE ; re-enable interrupts
+         GIE = 1;
+     }
 }
 
 void WriteFlash(UWORD Adress, unsigned char *MemPtr)
 {
-     TBLPTRU = 0;// ; address of the memory block
-     TBLPTRH = Adress>>8;
-     TBLPTRL = Adress&0xff;
-     for (i=0; i<32;i++)
+     if (DataB0.EnableFlashWrite)
      {
-         TABLAT = *MemPtr;
-         #asm
-         TBLWT+*
-         #endasm
-         MemPtr++;
-     }
-     EEPGD = 1;
-     CFGS = 0;
-     WREN = 1;
-     GIE = 0;
-     EECON2 = 0x55;
-     EECON2 = 0xaa;
-     WR = 1;
-     GIE = 1;
-     WREN = 0;
-
+         setAddr(Adress);
+         for (i=0; i<32;i++)
+         {
+             TABLAT = *MemPtr;
+             #asm
+             TBLWT+*
+             #endasm
+             MemPtr++;
+         }
+         setAddr(Adress);
+         EEPGD = 1;
+         CFGS = 0;
+         WREN = 1;
+         GIE = 0;
+         EECON2 = 0x55;
+         EECON2 = 0xaa;
+         WR = 1;
+         GIE = 1;
+         WREN = 0;
+    }
 }
 void PrgUnit(void)
 {
-    T2Byte0 = ReadFlash(0x2cb8);
-    //goto AROUND;
-    EraceFlash(0x3000);
+    if (DataB0.EnableFlashWrite)
+    {
+        setAddr(0x2cb8);
+        i = ReadFlash();
+        j = ReadFlash();
+        EraceFlash(0x3000);
    
-    //WriteFlash(0x3000, BTqueueOut);
-AROUND:;
+        WriteFlash(0x3000, BTqueueOut);
+    }
 }
