@@ -4303,8 +4303,8 @@ SEND_CONNECT:
                 Main.SendWithEsc = 0;
                 putchExternal(UnitFrom);
                 Main.SendWithEsc = 1;
-                if (SendCMD)
-                    putchExternal('D'); // commnand 'D'istance
+                //if (SendCMD)
+                putchExternal('D'); // commnand 'D'istance
                 ptrMy = &OutputMsg[7] ;
                 ilen--;
                 while(ilen>0)
