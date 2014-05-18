@@ -8,6 +8,7 @@
 int FirstEntry;
 DWORD LastEntry;
 DWORD SkipCheck;
+int iBytesInLine;
 void OutputOffset(FILE *OutputF, DWORD dwOff)
 {
     if (FirstEntry ==0)
@@ -15,6 +16,7 @@ void OutputOffset(FILE *OutputF, DWORD dwOff)
         FirstEntry = 1;
         fprintf(OutputF, "%08x:  ", dwOff);
         LastEntry = dwOff;
+        iBytesInLine = 0;
     }
     else
     {
@@ -23,11 +25,21 @@ void OutputOffset(FILE *OutputF, DWORD dwOff)
             int iCount = dwOff - SkipCheck;
             if (iCount)
             {
-                if (iCount > 16)
-                    iCount =((dwOff - SkipCheck + 16)&0x0000000f);
+                //if (iCount > 16)
+                //    iCount =((dwOff - SkipCheck + 16)&0x0000000f);
                 for (int i = 0 ; i < iCount; i++)
                 {
-                    fprintf(OutputF, "00 ");
+                    //if (iCount >=8)
+                    if (iBytesInLine == 8)
+                        fprintf(OutputF, "! ");
+                    fprintf(OutputF, "FF ");
+                    iBytesInLine++;
+                    if (iBytesInLine >= 16) // no more than 16 bytes in one line
+                    {
+                        //fprintf(OutputF, "\nNewLine");
+                        iBytesInLine=0;
+                        break;
+                    }
                 }
             }
         }
@@ -35,8 +47,9 @@ void OutputOffset(FILE *OutputF, DWORD dwOff)
         {
             fprintf(OutputF, "\n%08x:  ", dwOff);
             LastEntry = dwOff;
+            iBytesInLine = 0;
         }
-        else if (dwOff == (LastEntry +8))
+        else if (iBytesInLine == 8) //if (dwOff == (LastEntry +8))
         {
             fprintf(OutputF, "| ");
         }
@@ -125,12 +138,14 @@ int _tmain(int argc, _TCHAR* argv[])
                         iType = HexVal(szType);
                         if (iType == 0)
                         {
+                            //iBytesInLine = 0;
                             for (int i =0; i < ilen; i++)
                             {
                                 OutputOffset(OutputF, Offset + OffsetAddon + dwOffset + i);
                                 memset(szEachByte, 0, sizeof(szEachByte));
                                 memcpy(szEachByte,&szString[9+2*i],2);
                                 fprintf(OutputF, "%s ", szEachByte);
+                                iBytesInLine++;
                             }
                         }
                         else if (iType == 4)
@@ -155,7 +170,7 @@ int _tmain(int argc, _TCHAR* argv[])
                 int iRest = SkipCheck&0x0000000f;
                 for (;iRest < 16; iRest++)
                 {
-                    fprintf(OutputF, "00 ");
+                    fprintf(OutputF, "FF ");
                 }
             }
             fclose(OutputF);
