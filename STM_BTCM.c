@@ -514,6 +514,7 @@ unsigned IntitialTmr3OffsetDone:1;// set 1  -> set 0 on Tmr3 measure and set 1 a
 unsigned BTExternalWasStarted:1;
 unsigned EnableFlashWrite:1;
 unsigned GIE:1;
+unsigned UpgradeProgFlags:1;
 } DataB0;
 
 #ifdef DEBUG_LED
@@ -811,6 +812,7 @@ unsigned char ATCMD;
 unsigned char ATCMDStatus;
 unsigned char ATCMDStatusAddon;
 
+unsigned char UpgradeProgStatus;
 
 #define PCKT_DIAL 0xf0
 #define PCKT_DATA 0xf1
@@ -1095,6 +1097,7 @@ void main()
     Timer1HCount = 0;
     Timer3HCount = 0;
     DataB0.EnableFlashWrite = 0;
+    DataB0.UpgradeProgFlags = 0;
 #ifdef DEBUG_LED
     DEBUG_LED_OFF;
     DebugLedCount = 0;
@@ -1677,7 +1680,11 @@ DONE_ADDON_CMD:
           return;
     }
 CONTINUE_NOT_AT:
-
+    if (DataB0.UpgradeProgFlags)
+    {
+        // CMD upgrade PIC from storage
+        //<
+    }
 #include "commc4.h"
 
 

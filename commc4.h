@@ -4,6 +4,11 @@
 // begin COPY 4
 ///////////////////////////////////////////////////////////////////////   
 
+// standart commands:
+//<unit>=Xci<unit> - set responce unit(X) and command (c)
+//<unit>=X*<unit> and all data transfers to X till end of the packet
+//<unit>=X?<unit>   - timer sync message
+//<unit>~<unit>   - message from itself from other side of the loop    
         if (Main.SetFromAddr) //<unit>=Xc            //<unit>=Xci<unit> 
         {                     //       |         if ' ' than responce unit is not set
             if (bByte == ' ')
