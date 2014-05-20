@@ -4303,7 +4303,33 @@ SEND_CONNECT:
         ptrMy+=sizeof(PacketStart);
 #ifdef NON_STANDART_MODEM
         // write good packet into FLASH memory for processing
-//
+        if (*ptrMy == '*') // pkt needs to be processed inside UNIT
+        {
+            ptrMy++;
+            ilen--;
+            while(ilen>0)
+            {
+                putchInternal(*ptrMy);
+                ptrMy++;
+                ilen--;
+            }
+        }
+        else // pkt needs to be processed outside == in remode loop for user *ptrMy
+        {
+            Main.SendWithEsc = 0;
+            putchExternal(*ptrMy);
+            Main.SendWithEsc = 1;
+            ptrMy++;
+            ilen--;
+            while(ilen>0)
+            {
+                putchExternal(*ptrMy);
+                ptrMy++;
+                ilen--;
+            }
+            Main.SendWithEsc = 0;
+            putchExternal(OutputMsg[6]);
+        }    
 
 #else // NOT NON_STANDART_MODEM
         if (ATCMD & MODE_CALL_LUNA_COM)

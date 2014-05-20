@@ -75,6 +75,22 @@ NEXT_PORTION:
                     }
                 }
             }
+            if (BTInternal.iQueueSize)
+            {
+                if (Main.getCMD == 0) // now not CMD mode
+                {
+                    if (Main.DoneWithCMD)// no long command in process
+                    {
+                        Main.getCMD = 1;
+                        // ready to process all bytes from remote unit inside unit (i.e. FLASH and etc)
+                        while(BTInternal.iQueueSize)
+                        {
+                            ProcessCMD(getchInternal());
+                        }
+                        Main.getCMD = 0;
+                    }
+                }
+            }
 #endif
 #ifndef NO_I2C_PROC
             if (AInI2CQu.iQueueSize == 0)
