@@ -610,23 +610,11 @@ UWORD T2Byte3;
 unsigned char AdrBH;
 UWORD wAddr;
 
-unsigned char FlashEntryBH;
-unsigned int  FlashEntry;
-
-unsigned char FlashExitBH;
-unsigned int  FlashExit;
-
-unsigned char FlashQueueSizeBH;
-unsigned int  FlashQueueSize;
-
-#define FLASH_BUFFER_LEN_BH      0x01
-#define FLASH_BUFFER_LEN         0x2000
-
-#define FLASH_BUFFER_HALF_LEN_BH 0x00
-#define FLASH_BUFFER_HALF_LEN    0x8100
+unsigned char ProgAdrBH;
+UWORD wProgAddr;
+UWORD wProgMaxAddr;
 
 // structure of a packet acsepted from BT
-unsigned char PrevLen;
 unsigned char NextLen;
 unsigned char TypePkt;
 
@@ -937,7 +925,7 @@ unsigned char getchExternal(void);
 unsigned char getchInternal(void);
 void putchInternal(unsigned char simbol);
 void putchExternal(unsigned char simbol);
-void PrgUnit(UWORD);
+void PrgUnit(unsigned char bTop, UWORD Addr, UWORD uwTillAddr);
 void InitModem(void)
 {
     ATCMDStatus = 0;
@@ -1068,17 +1056,6 @@ void main()
     //Adr2BH = 0;
     //Erace4K(0);
     // TBD: search for the begining of a queue
-    FlashEntryBH = 0;
-    FlashEntry = 0;
-
-    FlashExitBH = 0;
-    FlashExit = 0;
-
-    FlashQueueSizeBH = 0;
-    FlashQueueSize = 0;
-
-    PrevLen = 0;
-    NextLen = 0;
 
     // needs to search for packets and process it if they was stored
 #endif
@@ -1098,6 +1075,7 @@ void main()
     Timer3HCount = 0;
     DataB0.EnableFlashWrite = 0;
     DataB0.UpgradeProgFlags = 0;
+    UpgradeProgStatus = 0;
 #ifdef DEBUG_LED
     DEBUG_LED_OFF;
     DebugLedCount = 0;
@@ -1207,9 +1185,13 @@ void main()
     }*/
     DataB0.EnableFlashWrite = 1;
     DataB0.EnableFlashWrite = 0;
+    ProgAdrBH = 0;
+    wProgAddr = 0;
+
     AdrBH= 0;
     wAddr = 0x8000;
-    PrgUnit(0x2CA0);
+    wProgMaxAddr = 0x2CA0;
+    PrgUnit(ProgAdrBH, wProgAddr, wProgMaxAddr);
 
 #ifdef DEFAULT_CALL_EARTH
     ATCMD = MODE_CALL_EARTH;     
@@ -1683,7 +1665,37 @@ CONTINUE_NOT_AT:
     if (DataB0.UpgradeProgFlags)
     {
         // CMD upgrade PIC from storage
-        //<
+        //<U><XXXXXX>=<xxxxxx>=<llll>
+        // load from XXXXXX (FLASH) to xxxxxx (prog memory) llll bytes and restart processor
+        UpgradeProgStatus++;
+        if (UpgradeProgStatus == 1) //<U><XXxxxx>=<xxxxxx>=<llll>
+            AdrBH= bByte;
+        else if (UpgradeProgStatus == 2)//<U><xxXXxx>=<xxxxxx>=<llll>
+            wAddr = ((UWORD)bByte)<<8;
+        else if (UpgradeProgStatus == 3) //<U><xxxxXX>=<xxxxxx>=<llll>
+            wAddr += bByte;
+        else if (UpgradeProgStatus == 4) //<U><......>=<......>.<....> 
+            ;        
+        else if (UpgradeProgStatus == 5) //<U><xxxxxx>=<XXxxxx>=<llll> 
+            ProgAdrBH = bByte;
+        else if (UpgradeProgStatus == 6) //<U><xxxxxx>=<xxXXxx>=<llll> 
+            wProgAddr =  ((UWORD)bByte)<<8;
+        else if (UpgradeProgStatus == 7) //<U><xxxxxx>=<xxxxXX>=<llll> 
+            wProgAddr += bByte;
+
+        else if (UpgradeProgStatus == 8) //<U><......>.<......>=<....> 
+            ;
+        else if (UpgradeProgStatus == 9) //<U><xxxxxx>=<xxxxxx>=<LLll> 
+            wProgMaxAddr = ((UWORD)bByte)<<8;        
+        else if (UpgradeProgStatus == 10) //<U><xxxxxx>=<xxxxxx>=<llLL> 
+        {
+            wProgMaxAddr += bByte;
+            Main.DoneWithCMD = 1; // long command done
+            DataB0.UpgradeProgFlags = 0;
+            // reset after upgrade
+            PrgUnit(ProgAdrBH, wProgAddr, wProgMaxAddr);
+ 
+        }
     }
 #include "commc4.h"
 
@@ -4341,53 +4353,8 @@ SEND_CONNECT:
         ptrMy+=sizeof(PacketStart);
 #ifdef NON_STANDART_MODEM
         // write good packet into FLASH memory for processing
-        CS_HIGH;  // that will interrupt FLASH operations read and write initiated from com
+//
 
-        PrevLen = NextLen;
-        NextLen = ilen;
-        TypePkt = 0;
-
-        AdrBH = FlashEntryBH;
-        wAddr = FlashEntry;
-        if (FlashQueueSizeBH < FLASH_BUFFER_LEN_BH)
-        {
-            if (FlashQueueSize < FLASH_BUFFER_LEN)
-            {
-                Push2Flash(PrevLen);
-                FlashQueueSize++;
-                Push2Flash(NextLen);
-                FlashQueueSize++;
-                Push2Flash(TypePkt);
-                FlashQueueSize++;
-                do
-                {
-                    if (FlashQueueSizeBH < FLASH_BUFFER_LEN_BH)
-                    {
-                        if (FlashQueueSize < FLASH_BUFFER_LEN)
-                        {
-                            Push2Flash(*ptrMy); // inside: wAddr++
-                            if (wAddr >= FLASH_BUFFER_LEN)
-                                wAddr = 0;
-                            FlashQueueSize++;
-                            if (FlashQueueSize == 0)
-                                FlashQueueSizeBH++;
-                        }
-                        //else  // loosing data !!!!
-                        //{
-                        //}
-                    }
-                    //else  // loosing data !!!!
-                    //{
-                    //}
-                    ptrMy++;
-                } while(--ilen);
-             
-                FlashEntry = wAddr;
-                FlashEntryBH = AdrBH;
-            }
-        }
-        CS_HIGH; // that will keep interrupted read/write from com (if any) -
-                 //  on next byte from com interrupted w/r will send to flash enable write/interrupted addr
 #else // NOT NON_STANDART_MODEM
         if (ATCMD & MODE_CALL_LUNA_COM)
         {
@@ -5688,9 +5655,9 @@ READ_WORD:
 #define PROC_WRITE_LEN 32
 #define PROC_ERACE_LEN 64
 #define PROC_ERASE_MASK 0x20
-void setAddr(UWORD Adress)
+void setAddr(unsigned char bTop, UWORD Adress)
 {
-    TBLPTRU = 0;
+    TBLPTRU = bTop;
     TBLPTRH = Adress>>8;
     TBLPTRL = Adress&0xff;
 }
@@ -5712,11 +5679,11 @@ READ_WORD:
     }
     //return 0;
 }
-void EraceFlash(UWORD Adress)
+void EraceFlash(unsigned char bTop, UWORD Adress)
 {
      if (DataB0.EnableFlashWrite)
      {
-         setAddr(Adress);
+         setAddr(bTop,Adress);
 ERASE_BLOCK:
          //BSF EECON1, EEPGD ; point to Flash program memory
          EEPGD = 1;
@@ -5743,11 +5710,11 @@ ERASE_BLOCK:
      }
 }
 
-void WriteFlash(UWORD Adress, unsigned char *MemPtr)
+void WriteFlash(unsigned char bTop, UWORD Adress, unsigned char *MemPtr)
 {
      if (DataB0.EnableFlashWrite)
      {
-         setAddr(Adress);
+         setAddr(bTop,Adress);
          for (i=0; i<PROC_WRITE_LEN;i++)
          {
              WREG = *MemPtr;
@@ -5875,7 +5842,7 @@ unsigned char DGetFromFlash( void)
     return i;    
 }
 
-void PrgUnit(UWORD uwLen)
+void PrgUnit(unsigned char bTop, UWORD Addr, UWORD uwTillAddr)
 {
     unsigned char bFlash;
     UWORD iCount;
@@ -5885,16 +5852,16 @@ void PrgUnit(UWORD uwLen)
         GIE = 0;
         DataB0.GIE = GIE;
         CS_HIGH; // set high == next DGetFromFlash will set read address
-        for (iCount = 0; iCount < uwLen; iCount+=PROC_WRITE_LEN)
+        for (iCount = Addr; iCount < uwTillAddr; iCount+=PROC_WRITE_LEN)
         {
             if ((iCount&PROC_ERASE_MASK) == 0)
-                EraceFlash(iCount);
+                EraceFlash(bTop,iCount);
             for (iFlashRead = 0; iFlashRead < PROC_WRITE_LEN; iFlashRead++)
             {
                 DGetFromFlash(); // each read advance pointer in flash memory
                 BTqueueIn[iFlashRead] = i; // it is in i var!!!
             } 
-            WriteFlash(iCount, BTqueueIn);
+            WriteFlash(bTop,iCount, BTqueueIn);
         }
         #asm
         RESET

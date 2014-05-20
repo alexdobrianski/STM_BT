@@ -75,33 +75,6 @@ NEXT_PORTION:
                     }
                 }
             }
-            /*
-            if (FlashEntry == FlashExit)
-            {
-                if (FlashEntryBH == FlashExitBH)
-                    Main.FlashRQ = 0;
-                else
-                {
-      
-NEEDS_FLASH_PROC:   Main.FlashRQ = 1;
-                    if (!Main.getCMD) // only if it is not a command mode
-                    {
-                        if (RelayPkt==0) // can be write to com -> data can be sent
-                        {
-                            // now it is possible to process data from flash
-                            Main.getCMD = 1;
-                            CS_HIGH;
-
-                            Main.getCMD = 0;
-                            Main.FlashRQ = 0;
-                        }
-                    } 
-                }
-            }
-            else
-                goto NEEDS_FLASH_PROC;
-               
-              */  
 #endif
 #ifndef NO_I2C_PROC
             if (AInI2CQu.iQueueSize == 0)
