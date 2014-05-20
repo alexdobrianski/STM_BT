@@ -1952,104 +1952,50 @@ unsigned char CallBkComm(void)
             // '=', '~', 'F', '*', 'a' - OK to process
         }
     }
-#ifdef NON_STANDART_MODEM
-    //   Main.SendOverLink == 0 => return from call back and process com queue
-    if (!Main.SendOverLink)   // if command * was send then data has to be transferred to up/down link
-        return 1;             // untill end of the packet
-#endif
     if (ATCMD & MODE_CONNECT) // was connection esatblished
     {
-        if (ATCMD & MODE_CALL_LUNA_COM) // calling CubSat
+        //   Main.SendOverLink == 0 => return from call back and process com queue
+        if (!Main.SendOverLink)   // if command * was send then data has to be transferred to up/down link
+            return 1;             // untill end of the packet
+        if (Main.SendOverLinkStarted)   // COm started to fillup BT queue
+            goto FILLUP_BT_BUFFER;
+        if (BTqueueOutLen)        // if BTqueue is not empty
+            return 0;             // skip to process any bytes from COM
+FILLUP_BT_BUFFER:
+        if (BTqueueOutLen >= BT_TX_MAX_LEN) // buffer full
         {
-SEND_BT:    
-            // TBD this is a place where ++++ can be checked for disconnect == needs to accumulate data in InQueu and on ++++ disconnect from remote
-            
-            // returning from call back 0 will block command's processing 
-            if (BTqueueOutLen < BT_TX_MAX_LEN) // enought in output buffer needs to send data to CubSat
-            {
-                //TMR0ON = 0;
-                BTpkt = PCKT_DATA;
-#ifndef NON_STANDART_MODEM                
-                if (DataB0.TransmitESC)
-                {
-                    if (ESCCount)
-                    {
-OUT_ESC_CHARS:
-                        ESCCount--;
-                        bByte = '+';
-                        goto PUSH_TO_BT_QUEUE;
-                    }
-                    else
-                    {
-                        bByte = AfterESCChar;
-                        DataB0.TransmitESC = 0;
-                        goto PUSH_TO_BT_QUEUE;
-                    }
-                }
-#endif
-                bByte = getch();
-#ifdef NON_STANDART_MODEM
-                if (Main.ESCNextByte)
-                {
-                    Main.ESCNextByte = 0;
-                    goto PUSH_TO_BT_QUEUE;
-                }
-                else
-                {
-                    if (bByte == ESC_SYMB)
-                    {
-                        Main.ESCNextByte = 1;
-                        goto PUSH_TO_BT_QUEUE;
-                    }
-                    else if (bByte == MY_UNIT)
-                    {
-                        Main.getCMD = 0; // CMD stream done
-                        Main.SendOverLink = 0;
-                        return 0; 
-                    }
-                }
-#else           // standart modem implementation
-                if (bByte == '+')
-                {
-                    if (++ESCCount >=4) // disconnect condition
-                    {
-                        ATCMD = 0;
-                        ESCCount = 0;
-                        PutsToUnit("\r\nOK\r\n");
-                    }
-                    return 0;
-                }
-                else
-                {
-                    if (ESCCount)
-                    {
-                        AfterESCChar = bByte;
-                        DataB0.TransmitESC = 1;
-                        goto OUT_ESC_CHARS;
-                    }
-                }
-#endif
-PUSH_TO_BT_QUEUE:       
-                ATCMD |= SOME_DATA_OUT_BUFFER;
-                BTqueueOut[BTqueueOutLen] = bByte;//
-                if (++BTqueueOutLen >= BT_TX_MAX_LEN) // buffer full
-                    goto SET_FLAG;
-            }
-            else // no space in buffer but chars is coming == left it in queue in hope that they will not owerfrlow buffer
-            {
-                // if BT in RX mode set request to transmit
-                // in this moment (before transmit happened) input queue is blocked before TX set 
 SET_FLAG:
-            }
-            return 0; // this will block retreiving data from com queue
+            ATCMD |= SOME_DATA_OUT_BUFFER; // that will force transmit on next FQ1
+            return 0;             // skip to process any bytes from COM
         }
-        else if (ATCMD & MODE_CALL_EARTH) // calling earth (it can be relay data from a loop or communication with some devices)
+        bByte = AInQu.Queue[AInQu.iExit];
+        if (Main.ESCNextByte)
+            Main.ESCNextByte = 0;
+        if (bByte == ESC_SYMB)
         {
-#ifndef NON_STANDART_MODEM
-            if (UnitFrom == 0)
-#endif
-               goto SEND_BT;
+            return 1;             // that will process ESC inside main CMD loop and all flags will be set
         }
+        else if (bByte == MY_UNIT)
+        {
+            Main.SendOverLink = 0;
+            Main.SendOverLinkStarted = 0;
+            ATCMD |= SOME_DATA_OUT_BUFFER; // that will force transmit on next FQ1
+            return 1;             // that will process ESC inside main CMD loop and all flags will be set
+        }
+        getch();
+        if (BTqueueOutLen ==0)
+        {
+            if (Main.SendOverLinkAndProc)
+                BTqueueOut[BTqueueOutLen] = bByte;
+            else
+                BTqueueOut[BTqueueOutLen] = '*';
+            ++BTqueueOutLen;
+            Main.SendOverLinkStarted = 1;
+        }
+        BTqueueOut[BTqueueOutLen] = bByte;
+        if (++BTqueueOutLen >= BT_TX_MAX_LEN) // buffer full
+            goto SET_FLAG;
+
     }
     return 1;                          // do process data
 }
@@ -2568,6 +2514,7 @@ INIT_TX:
                 if (Main.PingRQ || Main.PingRSPRQ)
                 {
                      if (BTqueueOutLen == 0)   // only when nothing in BT output queue
+                     if (!Main.SendOverLink)   // if it is no packet from COM 
                      {
                          //if (FqRXCount == 0) // only if it is listening on FQ1
                          {
@@ -2589,6 +2536,7 @@ INIT_TX:
                 else // was not dialed yet
                 {
                     if (BTqueueOutLen == 0)   // only when nothing in BT output queue
+                    if (!Main.SendOverLink)   // if it is no packet from COM 
                     {
 
                         BTqueueOut[0] = 'l'; BTqueueOut[1] = 'u';BTqueueOut[2] = 'n';BTqueueOut[3] = 'a';
@@ -2682,6 +2630,7 @@ SEND_PKT_DIAL:
 #endif
                     {
                          if (BTqueueOutLen == 0)   // only when nothing in BT output queue
+                         if (!Main.SendOverLink)   // if it is no packet from COM 
                          {
                              BTqueueOut[0] = 'p'; //BTqueueOut[1] = 'i';BTqueueOut[2] = 'n';BTqueueOut[3] = 'g';
                              Main.PingRSPRQ = 0;
@@ -2702,6 +2651,7 @@ SEND_PKT_DIAL:
                 else                           // responce to earth was not send from luna
                 {
                     if (BTqueueOutLen == 0)   // only when nothing in BT output queue
+                    if (!Main.SendOverLink)   // if it is no packet from COM 
                     {
                         BTqueueOut[0] = 'e';BTqueueOut[1] = 'a';BTqueueOut[2] = 'r';BTqueueOut[3] = 'z';
                         ATCMD |= RESPONCE_WAS_SENT;

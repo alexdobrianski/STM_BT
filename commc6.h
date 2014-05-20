@@ -52,6 +52,7 @@
 #ifdef NON_STANDART_MODEM
         Main.SendOverLink = 0;
         Main.SendOverLinkAndProc = 0;
+        Main.SendOverLinkStarted = 0;
         Main.FlashRQ = 0;
         Main.PingRQ = 0;
         Main.PingRSPRQ = 0;

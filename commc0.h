@@ -1812,6 +1812,7 @@ unsigned RetransmitTo:1;
 #ifdef NON_STANDART_MODEM
 unsigned SendOverLink:1;
 unsigned SendOverLinkAndProc:1;
+unsigned SendOverLinkStarted:1;
 unsigned FlashRQ:1;
 unsigned PingRQ:1;
 unsigned PingRSPRQ:1;
