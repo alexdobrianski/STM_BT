@@ -1813,6 +1813,7 @@ unsigned RetransmitTo:1;
 unsigned SendOverLink:1;
 unsigned SendOverLinkAndProc:1;
 unsigned SendOverLinkStarted:1;
+unsigned SendOverlinkWasESC:1;
 unsigned FlashRQ:1;
 unsigned PingRQ:1;
 unsigned PingRSPRQ:1;
@@ -1861,6 +1862,7 @@ VOLATILE unsigned InDoneNoSleep:1;
 VOLATILE unsigned ExtFirst:1;
 #endif
 } Main;
+
 unsigned char PingAttempts;
 
 VOLATILE unsigned char OutPacketUnit;

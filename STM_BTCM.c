@@ -1709,6 +1709,7 @@ CONTINUE_NOT_AT:
             {
                  Main.SendOverLink = 1;
                  Main.SendOverLinkAndProc = 1;
+                 Main.SendOverlinkWasESC = 0;
             }
             // TBD: on no connection established - needs to do something with uplink data - it is going to nowhere
         }
@@ -1717,6 +1718,7 @@ CONTINUE_NOT_AT:
             if (ATCMD & MODE_CONNECT) // was connection esatblished?
             {
                  Main.SendOverLink = 1;
+                 Main.SendOverlinkWasESC = 0;
             }
             // TBD: on no connection established - needs to do something with uplink data - it is going to nowhere
         }
@@ -1968,23 +1970,22 @@ SET_FLAG:
             ATCMD |= SOME_DATA_OUT_BUFFER; // that will force transmit on next FQ1
             return 0;             // skip to process any bytes from COM
         }
-        bByte = AInQu.Queue[AInQu.iExit];
-        if (Main.ESCNextByte)
-            Main.ESCNextByte = 0;
-        if (bByte == ESC_SYMB)
-        {
-            return 1;             // that will process ESC inside main CMD loop and all flags will be set
-        }
+        bByte = AInQu.Queue[AInQu.iExit]; // just pickup byte
+        if (Main.SendOverlinkWasESC) // that is done only to account ESC
+            Main.SendOverlinkWasESC = 0;
+        else if (bByte == ESC_SYMB)       // that is done only to account ESC
+            Main.SendOverlinkWasESC = 1;  // each ESC must be transmitted - to be processed on another end
         else if (bByte == MY_UNIT)
         {
             Main.SendOverLink = 0;
             Main.SendOverLinkStarted = 0;
             ATCMD |= SOME_DATA_OUT_BUFFER; // that will force transmit on next FQ1
-            return 1;             // that will process ESC inside main CMD loop and all flags will be set
+            return 1;             // that will process end of message inside main CMD loop
         }
-        getch();
+        getch();   // clean queue
         if (BTqueueOutLen ==0)
         {
+            // one extra byte (a) '*' or (b) 'N' 
             if (Main.SendOverLinkAndProc)
                 BTqueueOut[BTqueueOutLen] = bByte;
             else
@@ -1995,7 +1996,6 @@ SET_FLAG:
         BTqueueOut[BTqueueOutLen] = bByte;
         if (++BTqueueOutLen >= BT_TX_MAX_LEN) // buffer full
             goto SET_FLAG;
-
     }
     return 1;                          // do process data
 }
