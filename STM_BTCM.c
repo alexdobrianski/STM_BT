@@ -1733,7 +1733,27 @@ CONTINUE_NOT_AT:
             ATCMDStatusAddon = 1;
             Main.DoneWithCMD = 0; // long command
         }
-
+        else if (bByte == 'U')  // CMD upgrade PIC from storage <U><XXXXXX>=<xxxxxx>=<llll>// additional command
+        {
+            DataB0.UpgradeProgFlags =1;
+            UpgradeProgStatus = 0;
+            Main.DoneWithCMD = 0; // long command
+        }
+        else if (bByte == 'C')  // CRC flash <C><XXXXXX>=<xxxxxx>=<CRC1>=<CRC2>=<CRC3>=<CRC4> 
+        {                       // if CRCX is OK respond "O000"
+                                // if CRCX is not OK respond o<CRC1>=<CRC2>=<CRC3>=<CRC4>
+                                // on each 1/4 of the 1/4 
+                                // i.e C008000=00a000=1234=5678=9abc=def0
+                                // CRC of 008000-008800 = 1234
+                                // CRC    008800-009000 = 5678
+                                //        009000-009800 = 9abc
+                                //        009800-00a000 = def0
+                                //   responce OOOO in case of all 4 CRC are OK
+                                //   responce o0101=2345=5432=9876 on each not matched CRC
+        }
+        else if (bByte == 'c')  // CRC prog  <c><XXXXXX>=<xxxxxx>=<CRC1>=<CRC2>=<CRC3>=<CRC4>
+        {
+        }
 SKIP_BYTE:;
     } // do not confuse: this is a else from getCMD == 1
 }
