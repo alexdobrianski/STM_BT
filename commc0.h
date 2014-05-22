@@ -1927,9 +1927,10 @@ rtccTimeDate RtccTimeDateVal;
 #endif
 
 //bit ReTransToI2C;
+#ifndef _WIN32
 unsigned char eeprom_read(unsigned char addr);
 void eeprom_write(unsigned char addr, unsigned char value);
-
+#endif
 
 
 #define SPBRG_4800_40MIPS 2064
