@@ -9,6 +9,7 @@ typedef WORD UWORD;
 
 //////////////////////////////////////////////////////////////
 unsigned int i;         // int -> char
+unsigned int j;
 unsigned int iTotalLen; // int -> char
 unsigned int iCrc;      // int -> char
 //unsigned char *ptr1;
@@ -21,16 +22,33 @@ UWORD CRCcmp;
 UWORD CRC;
 UWORD CRC16TX;
 unsigned char BTqueueOutCopy[512];
-int BTqueueInLen;
+unsigned int BTqueueInLen;
 unsigned char BTqueueIn[512];
-int BTqueueInLen2;
+unsigned int BTqueueInLen2;
 unsigned char BTqueueIn2[512];
-int BTqueueInLen3;
+unsigned int BTqueueInLen3;
 unsigned char BTqueueIn3[512];
 unsigned char OutputMsg[512];
 unsigned char *ptrOut;
 unsigned char *ptrTemp;
 unsigned char mask;
+int OutputMsgLen;
+int iShift;unsigned char res;unsigned char bByte1;unsigned char bByte2;
+unsigned char bByte3;
+unsigned char bByteOut;
+unsigned char Vote;
+unsigned char FisrtR;
+unsigned char SecondR;
+unsigned char FisrtR2;
+unsigned char SecondR2;
+unsigned char CmpCount;
+
+unsigned char NextByte1;
+unsigned char NextByte2;
+
+unsigned char CRCM8TXNext;
+unsigned char CRCM8TX2Next;
+
 
 struct _BTFLAGS
 {
@@ -179,7 +197,9 @@ unsigned char *FSR1;
 #define INDF1 (*FSR1)
 unsigned char *FSR2;
 #define INDF2 (*FSR2)
-
+unsigned char *FSR0;
+#define INDF0 (*FSR0)
+#if 0
 unsigned char CheckPacket(unsigned char*MyData, unsigned int iLen)  // used IntRXCount as a number of the RF Ch
 {  
     iTotalLen = iCrc = iLen;//26;
@@ -690,7 +710,9 @@ EXIT_WITH_CHECK:
 RETURN_ERROR:
     return 0xff;
 }
-
+#else
+#include "..\..\FixBTpkt.h"
+#endif
 int main(int argc,char *argv[])
 {
     //HRESULT hres;

@@ -34,6 +34,10 @@ file_006=.
 file_007=.
 file_008=.
 file_009=.
+file_010=.
+file_011=.
+file_012=.
+file_013=.
 [GENERATED_FILES]
 file_000=no
 file_001=no
@@ -45,6 +49,10 @@ file_006=no
 file_007=no
 file_008=no
 file_009=no
+file_010=no
+file_011=no
+file_012=no
+file_013=no
 [OTHER_FILES]
 file_000=no
 file_001=no
@@ -56,6 +64,10 @@ file_006=no
 file_007=no
 file_008=no
 file_009=no
+file_010=no
+file_011=no
+file_012=no
+file_013=no
 [FILE_INFO]
 file_000=STM_BTCM.c
 file_001=commc8.h
@@ -67,6 +79,10 @@ file_006=commc4.h
 file_007=commc5.h
 file_008=commc6.h
 file_009=commc7.h
+file_010=FixBTpkt.H
+file_011=ProcCMD.H
+file_012=Var001.H
+file_013=Var002.H
 [SUITE_INFO]
 suite_guid={12421EB7-4F43-A0D4-830A-F8D0EEA8E231}
 suite_state=
@@ -74,6 +90,11 @@ suite_state=
 TS{58963C7E-B41F-4859-8C9A-C4F34364F0B4}=/e+;/l+;/x-;/p;/c+
 TS{42A20E31-236E-47FB-851A-FD464985044B}=/o;/l;/k
 TS{C1E40F78-5DA3-1A91-7292-022A0372504D}=-CC;-fINHX32;-p;-I;-a;-L;-Q;-V;-FM
+TS{58963C7E-B41F-4859-8C9A-C4F34364F0B4}000=/e+;/l+;/x-;/p;/c+
+TS{42A20E31-236E-47FB-851A-FD464985044B}000=/o;/l;/k
+TS{C1E40F78-5DA3-1A91-7292-022A0372504D}000=-CC;-fINHX32;-p;-I;-a;-L;-Q;-V;-FM
+[ACTIVE_FILE_SETTINGS]
+TS{C1E40F78-5DA3-1A91-7292-022A0372504D}000_active=yes
 [INSTRUMENTED_TRACE]
 enable=0
 transport=0
