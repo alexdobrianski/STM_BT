@@ -70,11 +70,15 @@ RETRANSMIT:
             if (bByte == ESC_SYMB)
             {
                 Main.LastWasUnitAddr = 0;
+#ifndef NO_I2C_PROC
+
                 if (!Main.PrepI2C)
                     Main.ESCNextByte = 1;
                 else
                     I2C.ESCI2CChar = 1;
-             
+#else
+                Main.ESCNextByte = 1;
+#endif
                 return;
             }
             else if (bByte == MY_UNIT)
@@ -90,6 +94,7 @@ RETRANSMIT:
                     goto END_I2C_MSG_WAIT;
                 }
 #endif
+                return;
             }
             Main.LastWasUnitAddr = 0;
         }
@@ -335,14 +340,8 @@ SEND_AGAIN:         // that is equivalent of a function -- just on some PIC it i
                 if (--CountWrite)
                     return;
 DONE_WITH_FLASH:
-                if (DataB3.FlashWas1byteWrite)
-                {
-                    if (OldFlashCmd != 0x06) // not write enable command
-                    {
-                        CS_LOW;
-                        SendSSByte(OldFlashCmd);
-                    }
-                }
+                OldFlashCmd = 0;
+                CurFlashCmd = 0;
                 DataB3.FlashCmd = 0;
                 CS_HIGH;
                 Main.DoneWithCMD = 1; // long command flash manipulation done 

@@ -463,10 +463,12 @@ unsigned char *ptr_FSR;
 #define PTR_FSR (*ptr_FSR)
 #else
 //#include "18f25fk20.h"
+#ifndef _WIN32
 #include "int18XXX.H"
 char PORTE    @ 0xF84;
 #define FSR_REGISTER FSR0
 #define PTR_FSR INDF0
+#endif
 #endif
 #define RAM_BANK_0 0
 #define RAM_BANK_1 1
@@ -489,6 +491,10 @@ char PORTE    @ 0xF84;
 #define _TRMT TRMT
 #undef UWORD  
 #define UWORD unsigned long
+#ifdef _WIN32
+#undef UWORD  
+#define UWORD unsigned short int
+#endif
 #endif
 //////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -1806,8 +1812,9 @@ VOLATILE struct BQueue AOutQuCom2;
 unsigned char UnitADR;
 unsigned char UnitFrom;
 unsigned char SendCMD;
-struct _MainB2{
 
+
+struct _MainB2{
 unsigned RetransmitTo:1;
 #ifdef NON_STANDART_MODEM
 unsigned SendOverLink:1;
@@ -1863,8 +1870,8 @@ VOLATILE unsigned ExtFirst:1;
 #endif
 } Main;
 
-unsigned char PingAttempts;
 
+unsigned char PingAttempts;
 VOLATILE unsigned char OutPacketUnit;
 VOLATILE unsigned char RelayPkt;
 VOLATILE unsigned char AllowMask;
