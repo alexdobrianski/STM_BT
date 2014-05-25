@@ -100,6 +100,28 @@ unsigned char AfterESCChar;
 #pragma rambank RAM_BANK_1
 ///////////////////////////////////////BANK 1//////////////////////////
 
+///////////////////////////////////////BANK 4//////////////////////////
+#pragma rambank RAM_BANK_4
+
+unsigned char AdrBH;
+UWORD wAddr;
+unsigned char AdrBH2;
+UWORD wAddr2;
+unsigned char DiffBH;
+UWORD wDiff;
+UWORD wtemp;
+unsigned char btempres;
+
+UWORD CRC1;
+UWORD CRC2;
+UWORD CRC3;
+UWORD CRC4;
+
+UWORD CRC1Cmp;
+UWORD CRC2Cmp;
+UWORD CRC3Cmp;
+UWORD CRC4Cmp;
+
 #pragma rambank RAM_BANK_3
 /////////////////////////////////////////////BANK 3//////////////////////
 struct _DataB3{
@@ -127,19 +149,6 @@ UWORD T2Byte2;
 
 UWORD T2Count3;
 UWORD T2Byte3;
-unsigned char AdrBH;
-UWORD wAddr;
-unsigned char AdrBH2;
-UWORD wAddr2;
-UWORD CRC1;
-UWORD CRC2;
-UWORD CRC3;
-UWORD CRC4;
-
-UWORD CRC1Cmp;
-UWORD CRC2Cmp;
-UWORD CRC3Cmp;
-UWORD CRC4Cmp;
 
 unsigned char ProgAdrBH;
 UWORD wProgAddr;
@@ -408,7 +417,7 @@ typedef struct PacketStart
     UWORD Tmr1LLowOpponent;
 };
 
-void wCRCupdt(int bByte);
+//void wCRCupdt(int bByte);
 unsigned char SendBTcmd(unsigned char cmd);
 void SendBTbyte(unsigned char cmd);
 unsigned char GetBTbyte(void);

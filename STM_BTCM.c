@@ -683,6 +683,9 @@ unsigned char getchInternal(void)
 
 void Reset_device(void);
 void ShowMessage(void);
+#pragma rambank RAM_BANK_4
+#include "addon.h"
+#pragma rambank RAM_BANK_1
 #include "ProcCMD.h"
 #pragma codepage 1
 
@@ -3643,29 +3646,6 @@ void SetupBT(unsigned char SetupBtMode)
     Main.ExtInterrupt = 0;
     INT0_ENBL = 1;
 }
-void wCRCupdt(int bByte)
-{
-    UWORD Temp ;
-    unsigned char iBits;
-
-    Temp = ((UWORD)bByte << 8);
-    CRC ^= Temp;
-    for (iBits = 8 ; iBits ; --iBits)
-    {
-        if (CRC & 0x8000)
-        {
-            //CRC = (CRC << 1) ^ 0x1021;
-            CRC = (CRC << 1);
-            CRC = CRC ^ 0x1021;
-        }
-        else
-        {
-            //CRC = (CRC << 1) ^ 0 ;
-            CRC = (CRC << 1);
-            CRC = CRC ^ 0 ;
-        }
-    }
-}
 unsigned char SendCMD;
 unsigned char SendBTcmd(unsigned char cmd)
 {
@@ -3809,7 +3789,7 @@ unsigned char GetBTbyte(void)
 
 #ifdef _18F2321_18F25K20  // comaptability mode == branch on 0ffset 8 and no priority
 #pragma insertConst
-#pragma origin 0x3000
+#pragma origin 0x4000
 UWORD dummy(UWORD Adress)
 {
      UWORD RdFlash;

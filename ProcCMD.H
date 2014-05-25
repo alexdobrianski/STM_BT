@@ -697,8 +697,65 @@ CONTINUE_NOT_AT:
         else if (CRCFlashCalcStatus == 7)// <C><xxxxxx>=<xxXXxx>=<CRC1>=<CRC2>=<CRC3>=<CRC4>
             wAddr2 += bByte;
         else if (CRCFlashCalcStatus == 8)// <C><xxxxxx>=<xxxxXX>=<CRC1>=<CRC2>=<CRC3>=<CRC4> 
-            ;        
+            ;    
+        else if (CRCFlashCalcStatus == 9)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4>
+            CRC1Cmp = ((UWORD)bByte)<<8;
+        else if (CRCFlashCalcStatus == 10)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4>
+            CRC1Cmp += bByte;
+        else if (CRCFlashCalcStatus == 11)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4>
+            ;    
+        else if (CRCFlashCalcStatus == 12)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4>
+            CRC2Cmp = ((UWORD)bByte)<<8;
+        else if (CRCFlashCalcStatus == 13)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4>
+            CRC2Cmp += bByte;
+        else if (CRCFlashCalcStatus == 14)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4> 
+            ;    
+        else if (CRCFlashCalcStatus == 15)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4>
+            CRC3Cmp = ((UWORD)bByte)<<8;        
+        else if (CRCFlashCalcStatus == 16)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4>
+            CRC3Cmp += bByte;
+        else if (CRCFlashCalcStatus == 17)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4> 
+            ;    
+        else if (CRCFlashCalcStatus == 18)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4>
+            CRC4Cmp = ((UWORD)bByte)<<8;
+        else if (CRCFlashCalcStatus == 19)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4>
+        {
+            CRC4Cmp += bByte;
 
+            DataB0.CRCCalcFals = 0;
+            CRCFlashCalcStatus = 0;
+            // do calculation of CRC - (a)calculates dif AdrBH2|wAddr2 - AdrBH|wAddr
+            wDiff = Sub3(AdrBH2, wAddr2, AdrBH, wAddr);
+            DiffBH = btempres;
+            // Dif /4 == >>2
+            wDiff>>=2;
+            wtemp = ((UWORD)DiffBH)<<14;
+            DiffBH >>=2;
+            wDiff |= wtemp;
+            // add 
+            wAddr2 = Add3(AdrBH, wAddr, DiffBH, wDiff);
+            AdrBH2 = btempres;
+            CRC1 = CRCCacl();
+
+            AdrBH = AdrBH2;
+            wAddr = wAddr2;
+            wAddr2 = Add3(AdrBH, wAddr, DiffBH, wDiff);
+            AdrBH2 = btempres;
+            CRC2 = CRCCacl();
+
+            AdrBH = AdrBH2;
+            wAddr = wAddr2;
+            wAddr2 = Add3(AdrBH, wAddr, DiffBH, wDiff);
+            AdrBH2 = btempres;
+            CRC3 = CRCCacl();
+
+            AdrBH = AdrBH2;
+            wAddr = wAddr2;
+            wAddr2 = Add3(AdrBH, wAddr, DiffBH, wDiff);
+            AdrBH2 = btempres;
+            CRC4 = CRCCacl();
+  
+        }
     }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
