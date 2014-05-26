@@ -89,15 +89,55 @@ NEXT_PORTION:
                         }
                         Main.getCMD = 0;
                     }
-                    if (BTComIn.iQueueSize)
+                    if (BTComIn.iQueueSize) // after processing data in BTComIn will be bytes to be send to BT
                     {
-                        Main.getCMD = 1;
-                        // ready to process all bytes from remote unit inside unit (i.e. FLASH and etc)
                         while(BTComIn.iQueueSize)
                         {
-                            ProcessCMD(getchBTComIn());
+                            if (ATCMD & MODE_CONNECT) // was connection esatblished
+                            {
+                                if (Main.SendOverLink)   // if command * was send then data has to be transferred to up/down link
+                                    break;               // untill comm processed data will be send to BT fully
+                                if (BTqueueOutLen)        // if BTqueue is not empty
+                                    break;                // do not do anything
+ 
+                                //if (Main.SendOverLinkStarted)   // COm started to fillup BT queue
+                                //    goto FILLUP_BT_BUFFER;
+                                if (BTqueueOutLen >= BT_TX_MAX_LEN) // buffer full
+                                {
+SET_FLAG:
+                                    ATCMD |= SOME_DATA_OUT_BUFFER; // that will force transmit on next FQ1
+                                    break;             // skip to process any bytes from COM
+                                }
+                                bWork = BTComIn.Queue[BTComIn.iExit]; // just pickup byte
+                                if (Main.SendOverlinkWasESC) // that is done only to account ESC
+                                    Main.SendOverlinkWasESC = 0;
+                                else if (bWork == ESC_SYMB)       // that is done only to account ESC
+                                    Main.SendOverlinkWasESC = 1;  // each ESC must be transmitted - to be processed on another end
+                                else if (bWork == MY_UNIT)
+                                {
+                                    Main.SendOverLink = 0;
+                                    Main.SendOverLinkStarted = 0;
+                                    ATCMD |= SOME_DATA_OUT_BUFFER; // that will force transmit on next FQ1
+                                    break;             // that will process end of message inside main CMD loop
+                                }
+                                if (++BTComIn.iExit >= BT_BUF)
+                                    BTComIn.iExit = 0;
+                                BTComIn.iQueueSize --;
+                                if (BTqueueOutLen ==0)
+                                {
+                                     BTqueueOut[BTqueueOutLen] = '*';
+                                     ++BTqueueOutLen;
+                                     Main.SendOverLinkStarted = 1;
+                                }
+                                BTqueueOut[BTqueueOutLen] = bWork;
+                                if (++BTqueueOutLen >= BT_TX_MAX_LEN) // buffer full
+                                    goto SET_FLAG;
+                            }
+                            else
+                                break;
+                            //if (CallBkComm())
+                            //ProcessCMD(getchBTComIn());
                         }
-                        Main.getCMD = 0;
                     }
                 }
             }
