@@ -129,6 +129,7 @@ unsigned FlashCmd:1;
 unsigned FlashCmdLen:1;
 unsigned FlashRead:1;
 unsigned FlashWas1byteWrite:1;
+unsigned FlashCmdShort:1;
 } DataB3;
 unsigned char CountWrite;
 unsigned char FlashCmdPos;

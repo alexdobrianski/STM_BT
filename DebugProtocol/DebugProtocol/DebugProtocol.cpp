@@ -347,10 +347,14 @@ int _tmain(int argc, _TCHAR* argv[])
     BTLuna.FlashMemory = (unsigned char*) GlobalAlloc( GMEM_FIXED, BTLuna.FlashMemoryLen);// 1 MB
     memset(BTLuna.FlashMemory,0xff,BTLuna.FlashMemoryLen);
     memset(BTLuna.EEPROM, 0xff, sizeof(BTLuna.EEPROM));
+    BTLuna.CS_HIGH;
+    
     BTEarth.FlashMemoryLen = 1*1024*1024;
     BTEarth.FlashMemory = (unsigned char*) GlobalAlloc( GMEM_FIXED, BTLuna.FlashMemoryLen);// 1 MB
     memset(BTEarth.FlashMemory,0xff,BTEarth.FlashMemoryLen);
     memset(BTEarth.EEPROM, 0xff, sizeof(BTEarth.EEPROM));
+    BTEarth.CS_HIGH;
+
     FILE *FileComOutEarth = fopen(argv[3], "wb");
     if (FileComOutEarth)
     {

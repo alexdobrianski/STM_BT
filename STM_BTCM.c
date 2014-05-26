@@ -386,6 +386,9 @@ void main()
     DataB0.EnableFlashWrite = 0;
     DataB0.UpgradeProgFlags = 0;
     UpgradeProgStatus = 0;
+    DataB0.CRCCalcFals = 0;
+    CRCFlashCalcStatus = 0;
+    DataB3.FlashCmdShort = 0;
 #ifdef DEBUG_LED
     DEBUG_LED_OFF;
     DebugLedCount = 0;
@@ -551,7 +554,7 @@ void main()
 // adr 0x001000 (4K)== Adr2B = 0x10  (var Ard2BH = 0x00)
 // adr 0x002000 (8k)== Adr2B = 0x20  (var Ard2BH = 0x00)
 // adr 0x010000 (65536)Adr2B = 0x00  (var Adr2BH = 0x01)
-
+#if 0
 void CheckStatus(void)
 {
     unsigned char StatusByte = 0x80;
@@ -624,7 +627,8 @@ void Erace4K(unsigned char Adr2B)
     SendSSByte(0x00); 
     CS_HIGH;
 }
-#endif
+#endif // #if 0
+#endif // NON_STANDART_MODEM
 
 
 void putchExternal(unsigned char simbol)
@@ -886,7 +890,7 @@ unsigned char CallBkComm(void)
 {
     unsigned char bReturn = 0;
     unsigned char bByte;
-    if (DataB0.BTExternalWasStarted)
+    if (DataB0.BTExternalWasStarted)  // do not process anything from comm if BT received data are forwarded to loop
         return 0;
     if (TX_NOT_READY)
     {
@@ -3789,6 +3793,7 @@ unsigned char GetBTbyte(void)
 
 #ifdef _18F2321_18F25K20  // comaptability mode == branch on 0ffset 8 and no priority
 #pragma insertConst
+#if 0
 #pragma origin 0x4000
 UWORD dummy(UWORD Adress)
 {
@@ -3824,6 +3829,7 @@ READ_WORD:
      RdFlash += TABLAT;
      return RdFlash;
 }
+#endif
 #pragma origin 0x7b00
 #endif
 

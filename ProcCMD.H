@@ -248,7 +248,21 @@ DONE_DONE_I2C:
 //            in last case <length-of-packet> must include simbol '@'
 //////////////////////////////////////////////////////////////////////////////
 #ifdef SSPORT
-        if (DataB3.FlashCmd)
+        if (DataB3.FlashCmdShort)
+        {
+            if (DataB3.FlashCmdLen) // store length of a flash command
+            {
+                DataB3.FlashCmdLen = 0;
+                CountWrite = bByte;
+                DataB3.FlashRead = 0;
+                FlashCmdPos = 1;
+                OldFlashCmd = 0x06;
+                CurFlashCmd = 0x02;
+                DataB3.FlashCmdShort = 0;
+                DataB3.FlashCmd = 1;
+            }
+        }
+        else if (DataB3.FlashCmd)
         {
             if (DataB3.FlashCmdLen) // store length of a flash command
             {
@@ -906,6 +920,15 @@ CONTINUE_NOT_AT:
         }
 #endif // NO_I2C_PROC
 #ifdef SSPORT
+        else if (bByte == 'f') // speed up cmd to write into FLASh memory
+        {
+            // instead of :
+            // F\x01\x06F\x0c\x02\x00\x11\x22\x00\x00\x00\x00\x00\x00\x00\x00 == write 8 bytes to address 0x001122
+            //              f\x0b\x00\x11\x22\x00\x00\x00\x00\x00\x00\x00\x00 == write 8 bytes to address 0x001122
+            Main.DoneWithCMD = 0; // long command
+            DataB3.FlashCmdShort = 1;
+            DataB3.FlashCmdLen = 1;
+        }
         else if (bByte == 'F') // manipulation with FLASH memory: read/write/erase/any flash command
         {
             Main.DoneWithCMD = 0; // long command
