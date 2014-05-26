@@ -357,10 +357,10 @@ SEND_AGAIN:         // that is equivalent of a function -- just on some PIC it i
                     }
                     if (!DataB3.FlashRead)
                         SendSSByte(bByte);
-                    if (++AdrFlash1 ==0)
+                    if (++AdrFlash3 ==0)
                     {
                         if (++AdrFlash2 ==0)
-                            ++AdrFlash3;
+                            ++AdrFlash1;
                         CS_HIGH;          // that is extention == FLASH can not read/write over same page
                         goto SEND_AGAIN;
                     }
@@ -754,7 +754,30 @@ CONTINUE_NOT_AT:
             wAddr2 = Add3(AdrBH, wAddr, DiffBH, wDiff);
             AdrBH2 = btempres;
             CRC4 = CRCCacl();
-  
+            if (CRC1 == CRC1Cmp)
+                putch('O');
+            else
+            {
+                putch('o');
+            }
+            if (CRC2 == CRC2Cmp)
+                putch('O');
+            else
+            {
+                putch('o');
+            }
+            if (CRC3 == CRC3Cmp)
+                putch('O');
+            else
+            {
+                putch('o');
+            }
+            if (CRC4 == CRC4Cmp)
+                putch('O');
+            else
+            {
+                putch('o');
+            }
         }
     }
 

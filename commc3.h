@@ -323,10 +323,10 @@ SEND_AGAIN:         // that is equivalent of a function -- just on some PIC it i
                     }
                     if (!DataB3.FlashRead)
                         SendSSByte(bByte);
-                    if (++AdrFlash1 ==0)
+                    if (++AdrFlash3 ==0)
                     {
                         if (++AdrFlash2 ==0)
-                            ++AdrFlash3;
+                            ++AdrFlash1;
                         CS_HIGH;          // that is extention == FLASH can not read/write over same page
                         goto SEND_AGAIN;
                     }

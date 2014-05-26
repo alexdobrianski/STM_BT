@@ -10,11 +10,11 @@ UWORD Add3(unsigned char bFirst, UWORD wFirst, unsigned char bSecond, UWORD wSec
 
 UWORD Sub3(unsigned char bFirst, UWORD wFirst, unsigned char bSecond, UWORD wSecond)
 { 
-    if (wSecond >= wFirst)
+    if (wFirst >= wSecond)
         btempres = bFirst - bSecond;
     else
         btempres = bFirst - bSecond - 1;
-     return (wSecond - wFirst);
+     return (wFirst - wSecond);
 }
 void wCRCupdt(int bByte)
 {
@@ -57,12 +57,11 @@ NEXT_BYTE:
         SendSSByte(AdrFlash2);
         SendSSByte(AdrFlash3);
     }
-    wCRCupdt(GetSSByte());
-    wtemp = ((UWORD)AdrFlash2)<<8 | (UWORD)AdrFlash3; 
-    if (++AdrFlash1 ==0)
+    wCRCupdt(GetSSByte());    wtemp = ((UWORD)AdrFlash2)<<8 | (UWORD)AdrFlash3; 
+    if (++AdrFlash3 ==0)
     {
         if (++AdrFlash2 ==0)
-            ++AdrFlash3;
+            ++AdrFlash1;
         CS_HIGH;          // that is extention == FLASH can not read/write over same page
     }
     if (AdrFlash1 <= AdrBH2)
