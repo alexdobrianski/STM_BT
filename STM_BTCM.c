@@ -233,6 +233,7 @@ unsigned char getch(void);
 void putch_main(void);
 unsigned char getchExternal(void);
 unsigned char getchInternal(void);
+unsigned char getchBTComIn(void);
 void putchInternal(unsigned char simbol);
 void putchExternal(unsigned char simbol);
 void PrgUnit(unsigned char bTop, UWORD Addr, UWORD uwTillAddr);
@@ -389,6 +390,19 @@ void main()
     DataB0.CRCCalcFals = 0;
     CRCFlashCalcStatus = 0;
     DataB3.FlashCmdShort = 0;
+
+    BTInternal.iEntry = 0;
+    BTInternal.iExit = 0;
+    BTInternal.iQueueSize = 0;
+
+    BTExternal.iEntry = 0;
+    BTExternal.iExit = 0;
+    BTExternal.iQueueSize = 0;
+
+    BTComIn.iEntry = 0;
+    BTComIn.iExit = 0;
+    BTComIn.iQueueSize = 0;
+
 #ifdef DEBUG_LED
     DEBUG_LED_OFF;
     DebugLedCount = 0;
@@ -680,6 +694,16 @@ unsigned char getchInternal(void)
         BTInternal.iExit = 0;
 
     BTInternal.iQueueSize --;
+    return bRet;
+}
+
+unsigned char getchBTComIn(void)
+{
+    unsigned char bRet = BTComIn.Queue[BTComIn.iExit];
+    if (++BTComIn.iExit >= BT_BUF)
+        BTComIn.iExit = 0;
+
+    BTComIn.iQueueSize --;
     return bRet;
 }
 

@@ -75,11 +75,11 @@ NEXT_PORTION:
                     }
                 }
             }
-            if (BTInternal.iQueueSize)
+            if (Main.getCMD == 0) // now not CMD mode
             {
-                if (Main.getCMD == 0) // now not CMD mode
+                if (Main.DoneWithCMD)// no long command in process
                 {
-                    if (Main.DoneWithCMD)// no long command in process
+                    if (BTInternal.iQueueSize)
                     {
                         Main.getCMD = 1;
                         // ready to process all bytes from remote unit inside unit (i.e. FLASH and etc)
@@ -89,8 +89,19 @@ NEXT_PORTION:
                         }
                         Main.getCMD = 0;
                     }
+                    if (BTComIn.iQueueSize)
+                    {
+                        Main.getCMD = 1;
+                        // ready to process all bytes from remote unit inside unit (i.e. FLASH and etc)
+                        while(BTComIn.iQueueSize)
+                        {
+                            ProcessCMD(getchBTComIn());
+                        }
+                        Main.getCMD = 0;
+                    }
                 }
             }
+            
 #endif
 #ifndef NO_I2C_PROC
             if (AInI2CQu.iQueueSize == 0)

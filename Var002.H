@@ -159,6 +159,18 @@ UWORD wProgMaxAddr;
 unsigned char NextLen;
 unsigned char TypePkt;
 
+#pragma rambank RAM_BANK_3
+///////////////////////////////////////BANK 5//////////////////////////
+#define BT_BUF 120
+//unsigned char ByteInbank5;
+struct _BtComIn
+{
+    WORD iEntry;
+    WORD iQueueSize;
+    WORD iExit;
+    unsigned char Queue[BT_BUF];
+} BTComIn;
+
 #pragma rambank RAM_BANK_5
 ///////////////////////////////////////BANK 5//////////////////////////
 #define BT_BUF 120
