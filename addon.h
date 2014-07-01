@@ -16,6 +16,7 @@ UWORD Sub3(unsigned char bFirst, UWORD wFirst, unsigned char bSecond, UWORD wSec
         btempres = bFirst - bSecond - 1;
      return (wFirst - wSecond);
 }
+
 void wCRCupdt(int bByte)
 {
     UWORD Temp ;
@@ -57,7 +58,8 @@ NEXT_BYTE:
         SendSSByte(AdrFlash2);
         SendSSByte(AdrFlash3);
     }
-    wCRCupdt(GetSSByte());    wtemp = ((UWORD)AdrFlash2)<<8 | (UWORD)AdrFlash3; 
+    wCRCupdt(GetSSByte());
+    wtemp = ((UWORD)AdrFlash2)<<8 | (UWORD)AdrFlash3; 
     if (++AdrFlash3 ==0)
     {
         if (++AdrFlash2 ==0)

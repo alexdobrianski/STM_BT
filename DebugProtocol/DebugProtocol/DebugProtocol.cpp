@@ -220,7 +220,7 @@ void putmsg(const char *s, unsigned char len)
 
 int iStat;
 unsigned char ConstByte;
-unsigned char WriteFileComHex(unsigned char bInByte, BOOL &CharReady)
+unsigned char ReadComInHex(unsigned char bInByte, BOOL &CharReady)
 {
     CharReady = FALSE;
     switch(iStat)
@@ -374,7 +374,7 @@ int _tmain(int argc, _TCHAR* argv[])
                 while(fread(bByff,1,1,FileComEarth)==1)
                 {
                     // main simulation - Luna & Earth are talking
-                    OutPutByte = WriteFileComHex(bByff[0], CharReady);
+                    OutPutByte = ReadComInHex(bByff[0], CharReady);
                     if (CharReady)
                     {
                         BTEarth.ProcessCMD(OutPutByte);
