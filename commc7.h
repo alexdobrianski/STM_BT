@@ -6,7 +6,9 @@
 
     while(1)
     {
+#ifndef NOT_USE_COM1
         putch_main();
+#endif
         if (CallBkMain() == 0) // return 0 = do continue; 1 = process queues
             continue;
 #ifndef NO_I2C_PROC
@@ -26,6 +28,7 @@
             }
         }
 #endif // #ifndef NO_I2C_PROC
+#ifndef NOT_USE_COM1
         if (AInQu.iQueueSize)      // in comm queue bytes
         {
             if (CallBkComm()) // return 0 = do not process byte; 1 = process;
@@ -157,6 +160,7 @@ SET_FLAG:
 #endif
             }
         }
+#endif // #ifndef NOT_USE_COM1
    }
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////

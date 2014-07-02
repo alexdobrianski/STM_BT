@@ -1,0 +1,62 @@
+Clean: Deleting intermediary and output files.
+Clean: Deleted file "D:\alex\moon\STM_BT\STM_BTCM.HEX".
+Clean: Done.
+Executing: "D:\Program Files\bknd\CC8E\CC8E.EXE" STM_BTCM.c -CC -fINHX32 -p18F2321 -a -L -Q -V -FM
+CC8E Version 1.3D, Copyright (c) B Knudsen Data, Norway 2001-2010
+ --> FREE edition, 8-16 bit int, 24 bit float, 128k code words, reduced optim.
+STM_BTCM.c:
+ Chip = 18F2321
+Warning[1] D:\alex\moon\STM_BT\STM_BTCM.c 2570 : Local variables and parameters in uncalled functions are not allocated (4)
+ (The application contains non-library functions that are not called. Local
+ variables in these functions (option -wU) are not allocated to save space)
+ RAM : ******** ******** ******** ******** ******** ******** ******** ********
+  40h: ******** ******** ******** ******** ******** ******** ******** ********
+  80h: ======== ======== ======== ======== =....... ........ ........ ........
+  C0h: ........ ........ ........ ........ ........ ........ ........ .*******
+ Bank  0:135  1:23   bytes free
+RAM usage: 354 bytes (46 local), 158 bytes free
+Warning[2] D:\alex\moon\STM_BT\commc1.h 1288 : Condition (or parts of it) is always false
+ (This is superfluous code that can be removed - check for application bugs)
+Warning[3] D:\alex\moon\STM_BT\commc1.h 1296 : Condition (or parts of it) is always false
+ File 'STM_BTCM.fcs'
+ Optimizing - removed 722 code words (-21 %)
+ File 'STM_BTCM.var'
+ File 'STM_BTCM.asm'
+ File 'STM_BTCM.lst'
+ File 'STM_BTCM.cod'
+ File 'STM_BTCM.occ'
+Warning[4] D:\alex\moon\STM_BT\STM_BTCM.c 417 : Read-modify-write sequence on the same PORT may fail
+ (Two consecutive instructions modifying the same PORT may fail depending on
+ execution speed and load (fall/rise times) on the port pins. Option -wf will
+ remove this warning)
+Warning[5] D:\alex\moon\STM_BT\commc8.h 464 : Read-modify-write sequence on the same PORT may fail
+Warning[6] D:\alex\moon\STM_BT\commc8.h 547 : Read-modify-write sequence on the same PORT may fail
+Warning[7] D:\alex\moon\STM_BT\commc8.h 549 : Read-modify-write sequence on the same PORT may fail
+Warning[8] D:\alex\moon\STM_BT\commc8.h 551 : Read-modify-write sequence on the same PORT may fail
+Warning[9] D:\alex\moon\STM_BT\commc8.h 553 : Read-modify-write sequence on the same PORT may fail
+Warning[10] D:\alex\moon\STM_BT\commc8.h 555 : Read-modify-write sequence on the same PORT may fail
+Warning[11] D:\alex\moon\STM_BT\commc8.h 557 : Read-modify-write sequence on the same PORT may fail
+Warning[12] D:\alex\moon\STM_BT\commc8.h 562 : Read-modify-write sequence on the same PORT may fail
+Warning[13] D:\alex\moon\STM_BT\commc8.h 564 : Read-modify-write sequence on the same PORT may fail
+Warning[14] D:\alex\moon\STM_BT\commc8.h 568 : Read-modify-write sequence on the same PORT may fail
+Warning[15] D:\alex\moon\STM_BT\STM_BTCM.c 2205 : Read-modify-write sequence on the same PORT may fail
+Warning[16] D:\alex\moon\STM_BT\STM_BTCM.c 2324 : Read-modify-write sequence on the same PORT may fail
+Warning[17] D:\alex\moon\STM_BT\STM_BTCM.c 2336 : Read-modify-write sequence on the same PORT may fail
+Warning[18] D:\alex\moon\STM_BT\STM_BTCM.c 2348 : Read-modify-write sequence on the same PORT may fail
+Warning[19] D:\alex\moon\STM_BT\STM_BTCM.c 2353 : Read-modify-write sequence on the same PORT may fail
+Warning[20] D:\alex\moon\STM_BT\STM_BTCM.c 2375 : Read-modify-write sequence on the same PORT may fail
+Warning[21] D:\alex\moon\STM_BT\STM_BTCM.c 2381 : Read-modify-write sequence on the same PORT may fail
+Warning[22] D:\alex\moon\STM_BT\STM_BTCM.c 2386 : Read-modify-write sequence on the same PORT may fail
+Warning[23] D:\alex\moon\STM_BT\STM_BTCM.c 2391 : Read-modify-write sequence on the same PORT may fail
+Warning[24] D:\alex\moon\STM_BT\STM_BTCM.c 2398 : Read-modify-write sequence on the same PORT may fail
+Warning[25] D:\alex\moon\STM_BT\STM_BTCM.c 2403 : Read-modify-write sequence on the same PORT may fail
+Warning[26] D:\alex\moon\STM_BT\STM_BTCM.c 2410 : Read-modify-write sequence on the same PORT may fail
+Warning[27] D:\alex\moon\STM_BT\STM_BTCM.c 2417 : Read-modify-write sequence on the same PORT may fail
+Warning[28] D:\alex\moon\STM_BT\STM_BTCM.c 2451 : Read-modify-write sequence on the same PORT may fail
+Warning[29] D:\alex\moon\STM_BT\STM_BTCM.c 2526 : Read-modify-write sequence on the same PORT may fail
+Warning[30] D:\alex\moon\STM_BT\STM_BTCM.c 2547 : Read-modify-write sequence on the same PORT may fail
+ File 'STM_BTCM.hex'
+Total of 3483 code words (85 %)
+ * Estimated CODE SIZE of full optimization: 3165 code words (-9 %)
+Loaded D:\alex\moon\STM_BT\STM_BTCM.COD.
+BUILD FAILED: Thu Apr 19 01:43:44 2012

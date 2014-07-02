@@ -9,13 +9,13 @@
 //void SendSSByteFAST(unsigned char bByte); // for a values <= 3
 //#endif
 
-
 void enable_uart(void);
 #ifndef NO_I2C_PROC
 void enable_I2C(void);
 #endif
 void EnableTMR1(void);
 
+#ifndef NOT_USE_COM1
 // old version
 #if 0
 void putch(unsigned char simbol)
@@ -108,7 +108,7 @@ SEND_BYTE_TO_QU:
         } 
     }
 }
-#else
+#else  // new version
 void putch_main(void)
 {
     unsigned char simbol;
@@ -198,6 +198,9 @@ SEND_BYTE_TO_QU:
 }
 
 #endif
+
+#endif //#ifndef NOT_USE_COM1
+
 #ifdef USE_COM2
 #ifdef __PIC24H__
 void putchCom2(unsigned char simbol)
@@ -284,6 +287,8 @@ void putchI2C(unsigned char simbol)
     AOutI2CQu.iQueueSize++;
 }
 #endif
+
+#ifndef NOT_USE_COM1
 void putchWithESC(unsigned char simbol)
 {
     if (Main.SendWithEsc)
@@ -351,6 +356,7 @@ unsigned char getch(void)
     iInQuSize --;
     return bRet;
 }*/
+#endif // #ifndef NOT_USE_COM1
 #ifndef NO_I2C_PROC
 unsigned char getchI2C(void)
 {

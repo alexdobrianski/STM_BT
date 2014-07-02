@@ -767,14 +767,14 @@ void CsHigh(void);
 //#pragma config PWRTE=off, WDTE=off, FOSC=5, BODEN=off
 //#pragma config |= 0x2f20
 // for debuging by pickit 3
-#pragma config |= 0x2720
-// 0010 1111 0010 0000
+#pragma config |= 0x27b0
+// 0010 0111 1011 0000
 //   1                = 1 = Code protection off
 //    0               = 0 = CCP1 function on RB3
-//      1             = 1 = In-Circuit Debugger disabled, RB6 and RB7 are general purpose I/O pins
+//      0             = 1 = In-Circuit Debugger disabled, RB6 and RB7 are general purpose I/O pins
 //       11           = 11 = Write protection off
 //         1          = 1 = Code protection off;
-//           0        = 1 = RB3/PGM pin has PGM function, Low-Voltage Programming enabled
+//           1        = 1 = RB3/PGM pin has PGM function, Low-Voltage Programming enabled
 //            0       = 0 = BOR disabled
 //             1      = 0 = RA5/MCLR/VPP pin function is digital I/O, MCLR internally tied to VDD
 //                0   = 0 = PWRT enabled
@@ -1768,7 +1768,7 @@ unsigned char setTMR1DAY;
    #endif
  #endif
 #endif
-
+#ifndef NOT_USE_COM1
 // 0 byte == iInQuSize
 // 1 byte == iPtr1InQu
 // 2 byte == iPtr2InQu
@@ -1803,6 +1803,8 @@ VOLATILE struct OLQueue
 VOLATILE struct AQueue AInQuCom2;
 VOLATILE struct BQueue AOutQuCom2;
 #endif
+
+#endif // #ifndef NOT_USE_COM1
 
 #define MAX_ADR '9'
 #define MIN_ADR '1'
