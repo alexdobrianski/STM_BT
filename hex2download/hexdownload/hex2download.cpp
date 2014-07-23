@@ -81,6 +81,11 @@ int _tmain(int argc, _TCHAR* argv[])
     FirstEntry=0;
     LastEntry = 0;
     SkipCheck = 0;
+    if (argc != 4)
+    {
+        printf ("\n usage:\n      hex2download <input> <output> 0x0ffset");
+        return 1;
+    }
     FILE * InputF = fopen(argv[1],"r");
     if (InputF)
     {
@@ -178,7 +183,7 @@ int _tmain(int argc, _TCHAR* argv[])
         fclose(InputF);
     }
     else
-        printf ("\n usage:\n      hex2downloa <input> <output> 0x0ffset");
+        printf ("\n usage:\n      hex2download <input> <output> 0x0ffset");
 	return 0;
 }
 
