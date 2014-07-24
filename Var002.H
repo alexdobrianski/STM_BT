@@ -33,6 +33,7 @@ unsigned EnableFlashWrite:1;
 unsigned GIE:1;
 unsigned UpgradeProgFlags:1;
 unsigned CRCCalcFals:1; 
+unsigned SENDcmd:1;
 } DataB0;
 
 #ifdef DEBUG_LED
@@ -113,14 +114,8 @@ UWORD wtemp;
 unsigned char btempres;
 
 UWORD CRC1;
-UWORD CRC2;
-UWORD CRC3;
-UWORD CRC4;
 
 UWORD CRC1Cmp;
-UWORD CRC2Cmp;
-UWORD CRC3Cmp;
-UWORD CRC4Cmp;
 
 #pragma rambank RAM_BANK_3
 /////////////////////////////////////////////BANK 3//////////////////////
@@ -355,6 +350,7 @@ unsigned char ATCMDStatusAddon;
 
 unsigned char UpgradeProgStatus;
 unsigned char CRCFlashCalcStatus;
+unsigned char SENDStatus;
 
 #define PCKT_DIAL 0xf0
 #define PCKT_DATA 0xf1

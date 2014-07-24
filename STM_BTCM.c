@@ -390,6 +390,9 @@ void main()
     DataB0.CRCCalcFals = 0;
     CRCFlashCalcStatus = 0;
     DataB3.FlashCmdShort = 0;
+    DataB0.SENDcmd = 1;
+    SENDStatus = 0;
+
 
     BTInternal.iEntry = 0;
     BTInternal.iExit = 0;

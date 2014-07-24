@@ -688,7 +688,6 @@ CONTINUE_NOT_AT:
             DataB0.UpgradeProgFlags = 0;
             // reset after upgrade
             PrgUnit(ProgAdrBH, wProgAddr, wProgMaxAddr);
- 
         }
         return;
     }
@@ -717,24 +716,24 @@ CONTINUE_NOT_AT:
         else if (CRCFlashCalcStatus == 10)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4>
             CRC1Cmp += bByte;
         else if (CRCFlashCalcStatus == 11)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4>
-            ;    
-        else if (CRCFlashCalcStatus == 12)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4>
-            CRC2Cmp = ((UWORD)bByte)<<8;
-        else if (CRCFlashCalcStatus == 13)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4>
-            CRC2Cmp += bByte;
-        else if (CRCFlashCalcStatus == 14)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4> 
-            ;    
-        else if (CRCFlashCalcStatus == 15)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4>
-            CRC3Cmp = ((UWORD)bByte)<<8;        
-        else if (CRCFlashCalcStatus == 16)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4>
-            CRC3Cmp += bByte;
-        else if (CRCFlashCalcStatus == 17)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4> 
-            ;    
-        else if (CRCFlashCalcStatus == 18)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4>
-            CRC4Cmp = ((UWORD)bByte)<<8;
-        else if (CRCFlashCalcStatus == 19)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4>
+//            ;    
+//        else if (CRCFlashCalcStatus == 12)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4>
+///            CRC2Cmp = ((UWORD)bByte)<<8;
+//        else if (CRCFlashCalcStatus == 13)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4>
+//            CRC2Cmp += bByte;
+//        else if (CRCFlashCalcStatus == 14)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4> 
+//            ;    
+//        else if (CRCFlashCalcStatus == 15)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4>
+//            CRC3Cmp = ((UWORD)bByte)<<8;        
+//        else if (CRCFlashCalcStatus == 16)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4>
+//            CRC3Cmp += bByte;
+//        else if (CRCFlashCalcStatus == 17)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4> 
+//            ;    
+//        else if (CRCFlashCalcStatus == 18)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4>
+//            CRC4Cmp = ((UWORD)bByte)<<8;
+//        else if (CRCFlashCalcStatus == 19)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4>
         {
-            CRC4Cmp += bByte;
+//            CRC4Cmp += bByte;
 
             DataB0.CRCCalcFals = 0;
             CRCFlashCalcStatus = 0;
@@ -751,47 +750,47 @@ CONTINUE_NOT_AT:
             AdrBH2 = btempres;
             CRC1 = CRCCacl();
 
-            AdrBH = AdrBH2;
-            wAddr = wAddr2;
-            wAddr2 = Add3(AdrBH, wAddr, DiffBH, wDiff);
-            AdrBH2 = btempres;
-            CRC2 = CRCCacl();
+ //           AdrBH = AdrBH2;
+ //           wAddr = wAddr2;
+ //           wAddr2 = Add3(AdrBH, wAddr, DiffBH, wDiff);
+ //           AdrBH2 = btempres;
+ //           CRC2 = CRCCacl();
 
-            AdrBH = AdrBH2;
-            wAddr = wAddr2;
-            wAddr2 = Add3(AdrBH, wAddr, DiffBH, wDiff);
-            AdrBH2 = btempres;
-            CRC3 = CRCCacl();
+ //           AdrBH = AdrBH2;
+ //           wAddr = wAddr2;
+ //           wAddr2 = Add3(AdrBH, wAddr, DiffBH, wDiff);
+ //           AdrBH2 = btempres;
+ //           CRC3 = CRCCacl();
 
-            AdrBH = AdrBH2;
-            wAddr = wAddr2;
-            wAddr2 = Add3(AdrBH, wAddr, DiffBH, wDiff);
-            AdrBH2 = btempres;
-            CRC4 = CRCCacl();
+ //           AdrBH = AdrBH2;
+ //           wAddr = wAddr2;
+ //           wAddr2 = Add3(AdrBH, wAddr, DiffBH, wDiff);
+ //           AdrBH2 = btempres;
+ //           CRC4 = CRCCacl();
             if (CRC1 == CRC1Cmp)
                 putch('O');
-            else
-            {
-                putch('o');
-            }
-            if (CRC2 == CRC2Cmp)
-                putch('O');
-            else
-            {
-                putch('o');
-            }
-            if (CRC3 == CRC3Cmp)
-                putch('O');
-            else
-            {
-                putch('o');
-            }
-            if (CRC4 == CRC4Cmp)
-                putch('O');
-            else
-            {
-                putch('o');
-            }
+ //           else
+ //           {
+ //               putch('o');
+ //           }
+ //           if (CRC2 == CRC2Cmp)
+ //               putch('O');
+ //           else
+ //           {
+ //               putch('o');
+ //           }
+ //           if (CRC3 == CRC3Cmp)
+ //               putch('O');
+ //           else
+ //           {
+ //               putch('o');
+ //           }
+ //           if (CRC4 == CRC4Cmp)
+ //               putch('O');
+ //           else
+ //           {
+ //               putch('o');
+ //           }
         }
     }
 
@@ -960,32 +959,30 @@ CONTINUE_NOT_AT:
             // TBD: on no connection established - needs to do something with uplink data - it is going to nowhere
         }
 #endif
-        else if (bByte == 'a')
+        else if (bByte == 'a')  // begining of the command at...
         {
             ATCMDStatus = 1;
             Main.DoneWithCMD = 0; // long command
         }
-        else if (bByte == 'A')  // additional command
+        else if (bByte == 'A')  // additional command AT....
         {
             ATCMDStatusAddon = 1;
             Main.DoneWithCMD = 0; // long command
         }
-        else if (bByte == 'U')  // CMD upgrade PIC from storage <U><XXXXXX>=<xxxxxx>=<llll>// additional command
+        else if (bByte == 'U')  // CMD upgrade PIC from storage U<XXXXXX>=<xxxxxx>=<llll>// additional command
         {
             DataB0.UpgradeProgFlags =1;
             UpgradeProgStatus = 0;
             Main.DoneWithCMD = 0; // long command
         }
-        else if (bByte == 'C')  // CRC flash <C><XXXXXX>=<xxxxxx>=<CRC1>=<CRC2>=<CRC3>=<CRC4> 
-        {                       // if CRCX is OK respond "O000"
-                                // if CRCX is not OK respond o<CRC1>=<CRC2>=<CRC3>=<CRC4>
-                                // on each 1/4 of the 1/4 
-                                // i.e C008000=00a000=1234=5678=9abc=def0
+        else if (bByte == 'C')  // CRC flash <C><XXXXXX>=<xxxxxx>=<CRC1> 
+        {                       // if CRC1 is OK respond "O"
+                                // if CRCX is not OK respond c<XXXXXXXX>=<xxxxxx>=<CRC1>=<CRC2>
+                                // on each 1/2 of the 1/2 
+                                // i.e C008000=009000=1234
                                 // CRC of 008000-008800 = 1234
-                                // CRC    008800-009000 = 5678
-                                //        009000-009800 = 9abc
-                                //        009800-00a000 = def0
-                                //   responce OOOO in case of all 4 CRC are OK
+                                // CRC    008800-009000 = 9abc
+                                //   responce O in case of CRC are OK
                                 //   responce o0101=2345=5432=9876 on each not matched CRC
             DataB0.CRCCalcFals = 1;
             CRCFlashCalcStatus = 0;
@@ -993,6 +990,12 @@ CONTINUE_NOT_AT:
         }
         else if (bByte == 'c')  // CRC prog  <c><XXXXXX>=<xxxxxx>=<CRC1>=<CRC2>=<CRC3>=<CRC4>
         {
+        }
+        else if (bByte == 'S')        // SEND to another connected unit data from FLASH memory
+        {                             // S<XXXXXX>=<llll> 
+            DataB0.SENDcmd = 1;       // address=XXXXXX length=llll
+            SENDStatus = 0;
+            Main.DoneWithCMD = 0; // long command
         }
 SKIP_BYTE:;
     } // do not confuse: this is a else from getCMD == 1
