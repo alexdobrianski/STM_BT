@@ -33,7 +33,8 @@ unsigned EnableFlashWrite:1;
 unsigned GIE:1;
 unsigned UpgradeProgFlags:1;
 unsigned CRCCalcFals:1; 
-unsigned SENDcmd:1;
+unsigned ExcgFlashcmd:1;
+unsigned ExcgRcvCmd:1;
 } DataB0;
 
 #ifdef DEBUG_LED
@@ -70,11 +71,8 @@ UWORD INTTimer1HCount;
 UWORD INTTimer3;
 UWORD INTTimer3HCount;
 
-
 UWORD Timer1HCount;
 UWORD Timer3HCount;
-
-
 
 UWORD AdjRX;
 int iAdjRX;
@@ -83,7 +81,6 @@ unsigned char FqRXRealCount;
 unsigned char IntRXCount;
 unsigned char FqRXCount;
 unsigned char FqRX;
-
 
 UWORD Tmr3High; // to count for a 536 sec with presision of 0.000000125s== 1/4mks == 37.5m
                 // UWORD in TMR3 counts till 0.008192 s = 8.192ms
@@ -350,13 +347,11 @@ unsigned char ATCMDStatusAddon;
 
 unsigned char UpgradeProgStatus;
 unsigned char CRCFlashCalcStatus;
-unsigned char SENDStatus;
 
 #define PCKT_DIAL 0xf0
 #define PCKT_DATA 0xf1
 unsigned char BTpkt;
-//unsigned char RXreceiveFQ;
-//unsigned char BTFQcurr;
+
 unsigned char BTType;
 unsigned char BTokMsg;
 
@@ -376,7 +371,18 @@ unsigned char OpponentFreq3;
 unsigned char OpponentAddr1;
 unsigned char OpponentAddr2;
 unsigned char OpponentAddr3;
-#pragma rambank RAM_BANK_1
+
+#pragma rambank RAM_BANK_3  /////////////////////////////////////////////////////////
+unsigned char ExcgArd1;
+unsigned char ExcgArd2;
+unsigned char ExcgArd3;
+UWORD ExcgLen;
+unsigned char ExchSendStatus;  // 0 - nothing; 
+                               // 1 - send packet
+                               // 2 - wait for interrupt from BT 
+unsigned char ExchCmdStatus;
+
+#pragma rambank RAM_BANK_1  /////////////////////////////////////////////////////////
 
 
 /*

@@ -656,6 +656,34 @@ DONE_ADDON_CMD:
           return;
     }
 CONTINUE_NOT_AT:
+    if ((DataB0.ExcgFlashcmd) || (DataB0.ExcgRcvCmd))              // SEND to another connected unit data from FLASH memory
+    {                                     // S<XXXXXX>=<llll>
+        ExchCmdStatus++;                  // address=XXXXXX length=llll
+        if (ExchCmdStatus == 1)
+            ExcgArd1 = bByte;
+        else if (ExchCmdStatus == 2)
+            ExcgArd2 = bByte;
+        else if (ExchCmdStatus == 3)
+            ExcgArd3 = bByte;
+        else if (ExchCmdStatus == 4)
+            ;
+        else if (ExchCmdStatus == 5)
+            ExcgLen = ((UWORD)bByte)<<8;
+        else if (ExchCmdStatus == 6)
+        {
+            ExcgLen += bByte;
+            Main.DoneWithCMD = 1;
+            if (DataB0.ExcgFlashcmd)
+            {
+                DataB0.ExcgFlashcmd = 0;
+                ExchSendStatus =1;
+            }
+            else
+            {
+                DataB0.ExcgRcvCmd = 0;
+            }
+        }
+    }
     if (DataB0.UpgradeProgFlags)
     {
         // CMD upgrade PIC from storage
@@ -722,7 +750,7 @@ CONTINUE_NOT_AT:
 //        else if (CRCFlashCalcStatus == 13)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4>
 //            CRC2Cmp += bByte;
 //        else if (CRCFlashCalcStatus == 14)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4> 
-//            ;    
+//            ;    9
 //        else if (CRCFlashCalcStatus == 15)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4>
 //            CRC3Cmp = ((UWORD)bByte)<<8;        
 //        else if (CRCFlashCalcStatus == 16)// <C><xxxxxx>=<XXxxxx>=<CRc1>=<crc2>=<crc3>=<crc4>
@@ -991,12 +1019,19 @@ CONTINUE_NOT_AT:
         else if (bByte == 'c')  // CRC prog  <c><XXXXXX>=<xxxxxx>=<CRC1>=<CRC2>=<CRC3>=<CRC4>
         {
         }
-        else if (bByte == 'S')        // SEND to another connected unit data from FLASH memory
-        {                             // S<XXXXXX>=<llll> 
-            DataB0.SENDcmd = 1;       // address=XXXXXX length=llll
-            SENDStatus = 0;
+        else if (bByte == 'S')             // SEND to another connected unit data from FLASH memory
+        {                                  // S<XXXXXX>=<llll> 
+            DataB0.ExcgFlashcmd = 1;       // address=XXXXXX length=llll
+            ExchCmdStatus = 0;
             Main.DoneWithCMD = 0; // long command
         }
+        else if (bByte == 's')             // prepear to recive from another connection unit data from FLASH memory
+        {                                  // s<XXXXXX>=<llll> 
+            DataB0.ExcgRcvCmd = 1;       // address=XXXXXX length=llll
+            ExchCmdStatus = 0;
+            Main.DoneWithCMD = 0; // long command
+        }
+        
 SKIP_BYTE:;
     } // do not confuse: this is a else from getCMD == 1
 }

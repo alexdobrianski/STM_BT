@@ -390,9 +390,10 @@ void main()
     DataB0.CRCCalcFals = 0;
     CRCFlashCalcStatus = 0;
     DataB3.FlashCmdShort = 0;
-    DataB0.SENDcmd = 1;
-    SENDStatus = 0;
-
+    DataB0.ExcgFlashcmd = 0;
+    DataB0.ExcgRcvCmd = 0;
+    ExchCmdStatus = 0;
+    ExchSendStatus = 0;
 
     BTInternal.iEntry = 0;
     BTInternal.iExit = 0;
@@ -1083,6 +1084,7 @@ unsigned char SwitchFQ(unsigned char iFQ)
 unsigned char CallBkMain(void) // 0 = do continue; 1 = process queues
 {
     unsigned char bWork;
+    ProcessExch();
     if (INT0_ENBL)
     {   
 MAIN_INT_ENTRY:          

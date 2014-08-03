@@ -73,3 +73,7 @@ NEXT_BYTE:
     }
     return CRC;
 }
+
+void ProcessExch(void)
+{
+}
