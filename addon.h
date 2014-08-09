@@ -76,4 +76,31 @@ NEXT_BYTE:
 
 void ProcessExch(void)
 {
+    if (ATCMD & MODE_CONNECT)
+    {
+        if (BTqueueOutLen == 0)   // only when nothing in BT output queue
+        {
+            if (!Main.SendOverLink)   // if it is no packet from COM 
+            {
+                if (ExchSendStatus)
+                {
+                    if (btest(SSPORT,SSCS))
+                    {
+                        CS_LOW;
+                        SendSSByte(0x03);
+                        SendSSByte(ExcgArd1);
+                        SendSSByte(ExcgArd2);
+                        SendSSByte(ExcgArd3);
+                        GetSSByte();
+                        CS_HIGH;
+
+                        BTpkt = PCKT_DATA;
+                        BTqueueOutLen = 12;
+                        ATCMD |= SOME_DATA_OUT_BUFFER;
+                        BTqueueOut[0] = 'l'; BTqueueOut[1] = 'u';BTqueueOut[2] = 'n';BTqueueOut[3] = 'a';
+                    }
+                }
+            }    
+        }
+    }
 }

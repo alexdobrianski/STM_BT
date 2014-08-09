@@ -1783,7 +1783,7 @@ void Reset_device(void)
     __builtin_write_OSCCONL(OSCCON | 0x40); //lock back port remapping
      
     //RBPU_ = 0;
-    //bitclr(OPTION,RBPU_); //Each of the PORTB pins has a weak internal pull-up. A
+    //bitclr(OPTION,RBPU_); //Each of the PORTB pins has a weak internal pull-up. A-
                           //single control bit can turn on all the pull-ups. This is
                           //performed by clearing bit RBPU (OPTION_REG<7>).
                           //The weak pull-up is automatically turned off when the
