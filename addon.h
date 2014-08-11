@@ -77,13 +77,13 @@ NEXT_BYTE:
 void ProcessExch(void)
 {
     unsigned char bByte;
-    if (ATCMD & MODE_CONNECT)
+    if (ExchSendStatus == 1)
     {
-        if (BTqueueOutLen == 0)   // only when nothing in BT output queue
+        if (ATCMD & MODE_CONNECT)
         {
-            if (!Main.SendOverLink)   // if it is no packet from COM 
+            if (BTqueueOutLen == 0)   // only when nothing in BT output queue 
             {
-                if (ExchSendStatus)
+                if (!Main.SendOverLink)   // if it is no packet from COM
                 {
                     if (btest(SSPORT,SSCS))
                     {
@@ -96,19 +96,20 @@ void ProcessExch(void)
                         SendSSByte(ExcgArd3);
                         //bByte=GetSSByte();
                         //CS_HIGH;
-
+#define FLASH_PCKT_SIZE 16
                         BTpkt = PCKT_DATA;
                         *ptrMy++ = '*';
                         //              f\x0b\x00\x11\x22\x00\x00\x00\x00\x00\x00\x00\x00 == write 8 bytes to address 0x001122
                         *ptrMy++ = 'f';
-                        *ptrMy++ = 16+3;
+                        *ptrMy++ = FLASH_PCKT_SIZE+3;
                         *ptrMy++ = ExcgArd1;*ptrMy++ = ExcgArd2;*ptrMy++ = ExcgArd3;
-                        for (i = 0; i < 16; i++)
+                        for (i = 0; i < FLASH_PCKT_SIZE; i++)
                         {
-                            *ptrMy++ =GetSSByte();
+                            bByte = GetSSByte(); 
+                            *ptrMy++ = bByte;
                             ExcgArd3++;
                             if (ExcgArd3 == 0)
-                            {
+                            {              
                                 ExcgArd2++;
                                 if (ExcgArd2 == 0)
                                 {
@@ -116,10 +117,19 @@ void ProcessExch(void)
                                 }
                             }
                         }
-                        BTqueueOutLen++;
-
+                        CS_HIGH;
+                        BTqueueOutLen = FLASH_PCKT_SIZE+6;
                         ATCMD |= SOME_DATA_OUT_BUFFER;
-                        BTqueueOut[0] = bByte;
+                        if (ExcgLen<= FLASH_PCKT_SIZE)
+                        {
+                            ExcgLen = 0;
+                            ExchSendStatus = 0; // done send
+                        }
+                        else
+                        {
+                            ExcgLen-= FLASH_PCKT_SIZE;
+                            ExchSendStatus = 2; // wait for a next transmit
+                        }
                     }
                 }
             }    
