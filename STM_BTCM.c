@@ -2402,13 +2402,10 @@ void BTbyteCRCM3(unsigned char bByte)
 //=========================================================================================================
 void ProcessBTdata(void)
 {
-    //CRC = BTbyteCRC(CRC,0xaa);// preambul offset 0
-    //CRC = BTbyteCRC(CRC,Addr1);  // addr1 offset 1
-    //CRC = BTbyteCRC(CRC,Addr2);  // addr2 offset 2
-    //CRC = BTbyteCRC(CRC,Addr3);  // addr3   // done for a case of missing first preambul+addr offset 3
-    //CRC = BTbyteCRC(CRC,BTFQcurr);  // current frequency offset 4
-    //CRC = BTbyteCRC(CRC,BTpkt);  // sequence/packet offset 5
-    //CRC = BTbyteCRC(CRC,BTqueueOutLen);  // length   offset 6
+//             0  1  2  3  4  5  6 
+// RF ctrl pkt AA AA AA F0 CH LN CTRL CRC16 CRCM8
+// RF data pkt AA AA AA F1 CH LN DATA CRC16 CRCM8
+
 
     unsigned char *ptrMy =&OutputMsg[0] ;
     unsigned char ilen;
@@ -2431,6 +2428,9 @@ void ProcessBTdata(void)
 #endif
     if (MyPacket->BTpacket == PCKT_DIAL)// (ptrMy[5] & PCKT_DIAL) // receved packet = dial call
     {
+        //             0  1  2  3  4  5  6 
+        // RF ctrl pkt AA AA AA F0 CH LN CTRL CRC16 CRCM8
+        //    CTRL=  le r1 r2 r3 A1 A2 A3 F1 F2 F3 <TMR>
         if ((MyPacket->Type == 'e') || (MyPacket->Type == 'l'))
         {
             //          6                          7                  8                  9 
@@ -2496,12 +2496,6 @@ SEND_CONNECT:
                }
             }
         }
-        else if (MyPacket->Type == 'W') // write data directly to FLASH/magnetoresistive memory/ferromagnetic memory
-        {
-        }
-        else if (MyPacket->Type == 'R') // read request from FLASH/magnetoresistive memory/ferromagnetic memory
-        {
-        }
         else if (MyPacket->Type == 'P') // ping packet - now need to send responce right away
         {
             if (MyPacket->Tmr1LLowOpponent !=0)
@@ -2555,7 +2549,9 @@ SEND_CONNECT:
     }
     else // another packets == data
     {
-        ptrMy+=sizeof(PacketStart);
+        //             0  1  2  3  4  5  6 
+        // RF data pkt AA AA AA F1 CH LN DATA CRC16 CRCM8
+        ptrMy+=6;
 #ifdef NON_STANDART_MODEM
         // write good packet into FLASH memory for processing
         if (*ptrMy == '*') // pkt needs to be processed inside UNIT
@@ -3201,9 +3197,6 @@ void TransmitBTdata(void)
         BTbyteCRC(0xaa);// preambul offset 0
         BTbyteCRC(0xaa);// preambul offset 1
         BTbyteCRC(0xaa);// preambul offset 2
-        //BTbyteCRC(Addr1);  // addr1 offset 1
-        //BTbyteCRC(Addr2);  // addr2 offset 2
-        //BTbyteCRC(Addr3);  // addr3   // done for a case of missing first preambul+addr offset 3
         BTbyteCRC(BTpktCopy);  // sequence/packet offset 3
         SendBTbyte(FqTXCount);//BTbyteCRC(FqTXCount);  // current frequency offset 4
 

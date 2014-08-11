@@ -330,7 +330,8 @@ BOOL Simulation(BTUnit *BTLuna, BTUnit *BTEarth, FILE *FileComOutEarth, FILE *Fi
         BTLuna->BTqueueOutLen = 0;
         BTLuna->ATCMD &= (0xff ^SOME_DATA_OUT_BUFFER);
     }
-    
+    BTEarth->ProcessExch();
+    BTLuna->ProcessExch();
     return (bRet);
 }
 
@@ -348,12 +349,14 @@ int _tmain(int argc, _TCHAR* argv[])
     memset(BTLuna.FlashMemory,0xff,BTLuna.FlashMemoryLen);
     memset(BTLuna.EEPROM, 0xff, sizeof(BTLuna.EEPROM));
     BTLuna.CS_HIGH;
+    BTLuna.ATCMD |= MODE_CONNECT;
     
     BTEarth.FlashMemoryLen = 1*1024*1024;
     BTEarth.FlashMemory = (unsigned char*) GlobalAlloc( GMEM_FIXED, BTLuna.FlashMemoryLen);// 1 MB
     memset(BTEarth.FlashMemory,0xff,BTEarth.FlashMemoryLen);
     memset(BTEarth.EEPROM, 0xff, sizeof(BTEarth.EEPROM));
     BTEarth.CS_HIGH;
+    BTEarth.ATCMD |= MODE_CONNECT;
 
     FILE *FileComOutEarth = fopen(argv[3], "wb");
     if (FileComOutEarth)
@@ -378,6 +381,7 @@ int _tmain(int argc, _TCHAR* argv[])
                     if (CharReady)
                     {
                         BTEarth.ProcessCMD(OutPutByte);
+            
                         Simulation(&BTLuna, &BTEarth, FileComOutEarth, FileComOutLuna);
                     }
                 }

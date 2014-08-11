@@ -411,13 +411,13 @@ typedef struct PacketDial
 typedef struct PacketStart
 {
     //unsigned char Preamb;
-    unsigned char Preamb1;
-    unsigned char Preamb2;
-    unsigned char Preamb3;
-    unsigned char BTpacket;
-    unsigned char FqCur;
+    unsigned char Preamb1;   // offset 0
+    unsigned char Preamb2;   // offset 1
+    unsigned char Preamb3;   // offset 2
+    unsigned char BTpacket;  // offset 3
+    unsigned char FqCur;     // offset 4
 #define PACKET_LEN_OFFSET 5
-    unsigned char BTpacketLen;
+    unsigned char BTpacketLen; // offset 5
 
     unsigned char Type; //  'l'        'e'
     unsigned char Res1;  // 'u'        'a'

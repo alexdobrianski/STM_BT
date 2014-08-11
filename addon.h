@@ -76,6 +76,7 @@ NEXT_BYTE:
 
 void ProcessExch(void)
 {
+    unsigned char bByte;
     if (ATCMD & MODE_CONNECT)
     {
         if (BTqueueOutLen == 0)   // only when nothing in BT output queue
@@ -86,18 +87,39 @@ void ProcessExch(void)
                 {
                     if (btest(SSPORT,SSCS))
                     {
+                        unsigned char *ptrMy = &BTqueueOutCopy[0];
+                        
                         CS_LOW;
                         SendSSByte(0x03);
                         SendSSByte(ExcgArd1);
                         SendSSByte(ExcgArd2);
                         SendSSByte(ExcgArd3);
-                        GetSSByte();
-                        CS_HIGH;
+                        //bByte=GetSSByte();
+                        //CS_HIGH;
 
                         BTpkt = PCKT_DATA;
-                        BTqueueOutLen = 12;
+                        *ptrMy++ = '*';
+                        //              f\x0b\x00\x11\x22\x00\x00\x00\x00\x00\x00\x00\x00 == write 8 bytes to address 0x001122
+                        *ptrMy++ = 'f';
+                        *ptrMy++ = 16+3;
+                        *ptrMy++ = ExcgArd1;*ptrMy++ = ExcgArd2;*ptrMy++ = ExcgArd3;
+                        for (i = 0; i < 16; i++)
+                        {
+                            *ptrMy++ =GetSSByte();
+                            ExcgArd3++;
+                            if (ExcgArd3 == 0)
+                            {
+                                ExcgArd2++;
+                                if (ExcgArd2 == 0)
+                                {
+                                    ExcgArd1++;
+                                }
+                            }
+                        }
+                        BTqueueOutLen++;
+
                         ATCMD |= SOME_DATA_OUT_BUFFER;
-                        BTqueueOut[0] = 'l'; BTqueueOut[1] = 'u';BTqueueOut[2] = 'n';BTqueueOut[3] = 'a';
+                        BTqueueOut[0] = bByte;
                     }
                 }
             }    
