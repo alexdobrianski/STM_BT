@@ -350,6 +350,9 @@ int _tmain(int argc, _TCHAR* argv[])
     memset(BTLuna.EEPROM, 0xff, sizeof(BTLuna.EEPROM));
     BTLuna.CS_HIGH;
     BTLuna.ATCMD |= MODE_CONNECT;
+    BTLuna.DataB0.ExcgFlashcmd = 0;
+    BTLuna.DataB0.ExcgRcvCmd = 0;
+    BTLuna.DataB0.ExcgSendinProgress = 0;
     
     BTEarth.FlashMemoryLen = 1*1024*1024;
     BTEarth.FlashMemory = (unsigned char*) GlobalAlloc( GMEM_FIXED, BTLuna.FlashMemoryLen);// 1 MB
@@ -357,6 +360,9 @@ int _tmain(int argc, _TCHAR* argv[])
     memset(BTEarth.EEPROM, 0xff, sizeof(BTEarth.EEPROM));
     BTEarth.CS_HIGH;
     BTEarth.ATCMD |= MODE_CONNECT;
+    BTEarth.DataB0.ExcgFlashcmd = 0;
+    BTEarth.DataB0.ExcgRcvCmd = 0;
+    BTEarth.DataB0.ExcgSendinProgress = 0;
 
     FILE *FileComOutEarth = fopen(argv[3], "wb");
     if (FileComOutEarth)

@@ -5,11 +5,6 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 #pragma rambank RAM_BANK_4
 ///////////////////////////////////////BANK 4//////////////////////////
-
-
-
-
-
 struct _Data_B0{
 unsigned Timer1Meausre:1;
 unsigned Timer1Count:1;
@@ -35,6 +30,7 @@ unsigned UpgradeProgFlags:1;
 unsigned CRCCalcFals:1; 
 unsigned ExcgFlashcmd:1;
 unsigned ExcgRcvCmd:1;
+unsigned ExcgSendinProgress:1;
 } DataB0;
 
 #ifdef DEBUG_LED
@@ -114,6 +110,7 @@ UWORD CRC1;
 
 UWORD CRC1Cmp;
 
+
 #pragma rambank RAM_BANK_3
 /////////////////////////////////////////////BANK 3//////////////////////
 struct _DataB3{
@@ -182,6 +179,12 @@ struct _BtExternal
     WORD iExit;
     unsigned char Queue[BT_BUF];
 } BTExternal;
+
+#pragma rambank RAM_BANK_2
+/////////////////////////////////////////////BANK 2//////////////////////
+#define FLASH_PCKT_SIZE 16
+#define FLASH_ARRAY_BITS 128
+unsigned char FLASH_SEND[FLASH_ARRAY_BITS]; // max send per send is FLASH_PCKT_SIZE*8*128 = 16K
 
 
 #pragma rambank RAM_BANK_1
@@ -377,9 +380,16 @@ unsigned char ExcgArd1;
 unsigned char ExcgArd2;
 unsigned char ExcgArd3;
 UWORD ExcgLen;
+unsigned char ExcgArd1Init;
+unsigned char ExcgArd2Init;
+unsigned char ExcgArd3Init;
+UWORD ExcgLenInit;
+
 unsigned char ExchSendStatus;  // 0 - nothing; 
                                // 1 - send packet
                                // 2 - wait for interrupt from BT 
+                               // 3 - send CRC packet
+                               // 4 - wait for conformation of done
 unsigned char ExchCmdStatus;
 
 #pragma rambank RAM_BANK_1  /////////////////////////////////////////////////////////

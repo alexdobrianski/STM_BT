@@ -507,6 +507,10 @@ void main()
     }
     iAdjRX = 0;
     SetTimer3(0);
+    DataB0.ExcgFlashcmd = 0;
+    DataB0.ExcgRcvCmd = 0;
+    DataB0.ExcgSendinProgress = 0;
+
     ShowMessage();
     INT0_ENBL = 1;
     /*ptrMemset = &BTqueueOut[0];

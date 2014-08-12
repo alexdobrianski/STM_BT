@@ -96,7 +96,7 @@ void ProcessExch(void)
                         SendSSByte(ExcgArd3);
                         //bByte=GetSSByte();
                         //CS_HIGH;
-#define FLASH_PCKT_SIZE 16
+// #define FLASH_PCKT_SIZE 16 in Var002.h
                         BTpkt = PCKT_DATA;
                         *ptrMy++ = '*';
                         //              f\x0b\x00\x11\x22\x00\x00\x00\x00\x00\x00\x00\x00 == write 8 bytes to address 0x001122
