@@ -656,6 +656,22 @@ DONE_ADDON_CMD:
           return;
     }
 CONTINUE_NOT_AT:
+    // sequence
+    //   EARTH                               LUNA
+    //   '*s000000=f000'  ->                send to internally process "s000000=f000
+    //                                      prepear array FLASH_SEND[] = 0
+    //                                      
+    //                    <-                '*S000000=f000'
+    //   process intenally "S000000=f000"
+    //       send packet
+    //   '*f%16000000<16 bytes from FLASH>'-> process intenally and store into FLASH at address 000000 <16 bytes from FLASH>
+    //                                          mark bit as 1, byte offset 0 value 0x01
+    //   interrupt
+    //  '*f%16000010<16 bytes from FLASH>'-> process intenally and store into FLASH at address 000010 <16 bytes from FLASH>
+    //                                          mark bit as 1, byte offset 0 value 0x03
+    //   interrupt
+    //   '*f%16000020<16 bytes from FLASH>'-> process intenally and store into FLASH at address 000020 <16 bytes from FLASH>
+    //                                          mark bit as 1,  byte offset 0 value 0x01
     if ((DataB0.ExcgFlashcmd) || (DataB0.ExcgRcvCmd))              // SEND to another connected unit data from FLASH memory
     {                                     // S<XXXXXX>=<llll>
         ExchCmdStatus++;                  // address=XXXXXX length=llll
@@ -694,6 +710,7 @@ CONTINUE_NOT_AT:
                 DataB0.ExcgRcvCmd = 0;
             }
         }
+        return;
     }
     if (DataB0.UpgradeProgFlags)
     {
