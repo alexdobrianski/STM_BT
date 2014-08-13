@@ -657,21 +657,37 @@ DONE_ADDON_CMD:
     }
 CONTINUE_NOT_AT:
     // sequence
-    //   EARTH                               LUNA
-    //   '*s000000=f000'  ->                send to internally process "s000000=f000
-    //                                      prepear array FLASH_SEND[] = 0
+    //   EARTH                             direction         LUNA
+    //  comm->'*s000000=4000'                 ->        send to internally process "s000000=4000"
+    //                                                  prepear array FLASH_SEND[] = 0
+    //                                                  loop for cleaning arrays of 4k pages = total 4 pages
     //                                      
-    //                    <-                '*S000000=f000'
-    //   process intenally "S000000=f000"
+    //                                        <-        '*S000000=4000'
+    //   process intenally "S000000=4000"
     //       send packet
-    //   '*f%16000000<16 bytes from FLASH>'-> process intenally and store into FLASH at address 000000 <16 bytes from FLASH>
-    //                                          mark bit as 1, byte offset 0 value 0x01
+    //   '*f%16000000<16 bytes from FLASH>'   ->        process intenally and store into FLASH at address 000000 <16 bytes from FLASH>
+    //                                                  mark bit as 1, byte offset 0 value 0x80
     //   interrupt
-    //  '*f%16000010<16 bytes from FLASH>'-> process intenally and store into FLASH at address 000010 <16 bytes from FLASH>
-    //                                          mark bit as 1, byte offset 0 value 0x03
+    //  '*f%16000010<16 bytes from FLASH>'    ->        process intenally and store into FLASH at address 000010 <16 bytes from FLASH>
+    //                                                  mark bit as 1, byte offset 0 value 0xc0
     //   interrupt
-    //   '*f%16000020<16 bytes from FLASH>'-> process intenally and store into FLASH at address 000020 <16 bytes from FLASH>
-    //                                          mark bit as 1,  byte offset 0 value 0x01
+    //   '*f%16000020<16 bytes from FLASH>'   ->        process intenally and store into FLASH at address 000020 <16 bytes from FLASH>
+    //                                                  mark bit as 1,  byte offset 0 value 0xe0
+    // .....
+    //   interrupt
+    //   '*f%16003ff0<16 bytes from FLASH>'   ->        process intenally and store into FLASH at address 003ff0 <16 bytes from FLASH>
+    //                                                  mark bit as 1,  byte offset 0xff value 0xff
+    //                                                  last adress is indication that all send done
+    //                                                  if no packet for a last adress for a timeout period = last measured time btw EARTH-MOON + <N packets> * 40 mks
+    //
+    //                                                  analyse all bits in FLASH_SEND and prepear command on each bit and/or sequence of bits
+    //                                                  i.e byte 0x16 has value 0x0e == 0b00001110 first command will be S000b00=0040
+    //   process internally "S000b00=0040"    <-        '*S000b00=0040' 
+    //    send packet
+    //   '*f%16000b00<16 bytes from FLASH>'   ->        process intenally and store into FLASH at address 000b00 <16 bytes from FLASH>
+    //                                                  mark bit as 1, byte offset 0 value 0x8e
+    
+
     if ((DataB0.ExcgFlashcmd) || (DataB0.ExcgRcvCmd))              // SEND to another connected unit data from FLASH memory
     {                                     // S<XXXXXX>=<llll>
         ExchCmdStatus++;                  // address=XXXXXX length=llll
