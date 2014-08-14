@@ -658,12 +658,13 @@ DONE_ADDON_CMD:
 CONTINUE_NOT_AT:
     // sequence
     //   EARTH                             direction         LUNA
-    //  comm->'*s000000=4000'                 ->        send to internally process "s000000=4000"
+    //  comm->'*s000000=4100'                 ->        send to internally process "s000000=4100"
     //                                                  prepear array FLASH_SEND[] = 0
-    //                                                  loop for cleaning arrays of 4k pages = total 4 pages
-    //                                      
-    //                                        <-        '*S000000=4000'
-    //   process intenally "S000000=4000"
+    //                                                  loop for cleaning arrays of 4k pages = total 5 pages
+    //                                                  000000 - 1000 => 001000 -1000 => 002000 -1000 => 003000 - 1000 => 004000 - 0100 
+    //
+    //                                        <-        '*S000000=4100'
+    //   process intenally "S000000=4100"
     //       send packet
     //   '*f%16000000<16 bytes from FLASH>'   ->        process intenally and store into FLASH at address 000000 <16 bytes from FLASH>
     //                                                  mark bit as 1, byte offset 0 value 0x80
@@ -675,8 +676,8 @@ CONTINUE_NOT_AT:
     //                                                  mark bit as 1,  byte offset 0 value 0xe0
     // .....
     //   interrupt
-    //   '*f%16003ff0<16 bytes from FLASH>'   ->        process intenally and store into FLASH at address 003ff0 <16 bytes from FLASH>
-    //                                                  mark bit as 1,  byte offset 0xff value 0xff
+    //   '*f%160040f0<16 bytes from FLASH>'   ->        process intenally and store into FLASH at address 0040f0 <16 bytes from FLASH>
+    //                                                  mark bit as 1,  byte offset 0xff value => 0xff
     //                                                  last adress is indication that all send done
     //                                                  if no packet for a last adress for a timeout period = last measured time btw EARTH-MOON + <N packets> * 40 mks
     //
@@ -686,8 +687,23 @@ CONTINUE_NOT_AT:
     //    send packet
     //   '*f%16000b00<16 bytes from FLASH>'   ->        process intenally and store into FLASH at address 000b00 <16 bytes from FLASH>
     //                                                  mark bit as 1, byte offset 0 value 0x8e
-    
-
+    //   '*f%16000b10<16 bytes from FLASH>'   ->        process intenally and store into FLASH at address 000b10 <16 bytes from FLASH>
+    //                                                  mark bit as 1, byte offset 0 value 0xce
+    //   '*f%16000b20<16 bytes from FLASH>'   ->        process intenally and store into FLASH at address 000b20 <16 bytes from FLASH>
+    //                                                  mark bit as 1, byte offset 0 value 0xee
+    //   '*f%16000b30<16 bytes from FLASH>'   ->        process intenally and store into FLASH at address 000b30 <16 bytes from FLASH>
+    //                                                  mark bit as 1, byte offset 0 value 0xfe
+    //
+    //                                                  last adress is indication that all send done
+    //                                                  if no packet for a last adress for a timeout period = last measured time btw EARTH-MOON + <N packets> * 40 mks
+    //
+    //                                                  analyse all bits in FLASH_SEND and prepear command on each bit and/or sequence of bits
+    //                                                  i.e byte 0x16 has value 0xfe == 0b11111110 first command will be S000b70=0010
+    //   process internally "S000b70=0010"    <-        '*S000b70=0010' 
+    //    send packet
+    //   '*f%16000b00<16 bytes from FLASH>'   ->        process intenally and store into FLASH at address 000b00 <16 bytes from FLASH>
+    //                                                  mark bit as 1, byte offset 0 value 0xff
+    //
     if ((DataB0.ExcgFlashcmd) || (DataB0.ExcgRcvCmd))              // SEND to another connected unit data from FLASH memory
     {                                     // S<XXXXXX>=<llll>
         ExchCmdStatus++;                  // address=XXXXXX length=llll
@@ -717,12 +733,52 @@ CONTINUE_NOT_AT:
             }
             else
             {
+                // 1. clean array, value 0 mean no data received yet. 
                 unsigned char *Ptr = &FLASH_SEND[0];
                 
                 for (i = 0; i <FLASH_ARRAY_BITS; i++)
                 {
                     *Ptr++ = 0;
                 }
+                // 2. clean FLASH memroy in chank of 4K bytes
+                // F\x01\x06F\x04\x20\x00\x04\x00 == erase sector (4K)  starting from address 0x000400
+                // F\x01\x06F\x04\xd8\x00\x04\x00 == erase sector (64K) starting from address 0x010000
+                // in a case of 64K only addresses 0xxx0000 will be erased
+//#define USE64KFLASH_ERASE 1
+#ifndef USE64KFLASH_ERASE
+                while(!(ExcgLen & 0x8000))
+#endif
+                {
+                    CS_LOW;
+                    SendSSByte(0x06);
+                    CS_HIGH;
+                    nop();
+                    CS_LOW;
+#ifdef USE64KFLASH_ERASE
+                    SendSSByte(0xd8);
+#else
+                    SendSSByte(0x20);
+#endif
+                    SendSSByte(ExcgArd1);
+                    SendSSByte(ExcgArd2 & 0xfc);
+                    SendSSByte(0);
+                    CS_LOW;
+#ifndef USE64KFLASH_ERASE
+                    ExcgLen -= 0x1000;
+#endif
+                    // wait to finish erace
+                    bByte = 0x80;
+                    CS_LOW;
+                    SendSSByte(0x05);
+                    while( bByte & 0x80)
+                    {
+                        bByte = GetSSByte();
+                    }
+                    CS_HIGH;
+                }
+                ExcgLen = ExcgLenInit;
+                // 3. send command "*S000000=4100" to different unit whit it will be possible
+                ExchSendStatus = 10;
                 DataB0.ExcgRcvCmd = 0;
             }
         }

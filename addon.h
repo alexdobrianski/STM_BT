@@ -77,17 +77,17 @@ NEXT_BYTE:
 void ProcessExch(void)
 {
     unsigned char bByte;
-    if (ExchSendStatus == 1)
+    if (BTqueueOutLen == 0)   // only when nothing in BT output queue 
     {
         if (ATCMD & MODE_CONNECT)
         {
-            if (BTqueueOutLen == 0)   // only when nothing in BT output queue 
+            if (!Main.SendOverLink)   // if it is no packet from COM
             {
-                if (!Main.SendOverLink)   // if it is no packet from COM
+                ptrMy = &BTqueueOut[0];
+                if (ExchSendStatus == 1) // 1 - send packet with data from flash memory to another unit  
                 {
                     if (btest(SSPORT,SSCS))
                     {
-                        unsigned char *ptrMy = &BTqueueOutCopy[0];
                         
                         CS_LOW;
                         SendSSByte(0x03);
@@ -131,6 +131,15 @@ void ProcessExch(void)
                             ExchSendStatus = 2; // wait for a next transmit
                         }
                     }
+                }
+                else if (ExchSendStatus == 10) // 3. send command "*S000000=4100" to different unit
+                {
+                    BTpkt = PCKT_DATA;
+                    *ptrMy++ = '*'; *ptrMy++ = 'S';
+                    *ptrMy++ = ExcgArd1; *ptrMy++ = ExcgArd2; *ptrMy++ = ExcgArd3; *ptrMy++ = '=';
+                    *ptrMy++ = ExcgLen >> 8; ExcgLen = ExcgLen & 0xff;
+                    BTqueueOutLen = 8;
+                    ExchSendStatus = 11;
                 }
             }    
         }

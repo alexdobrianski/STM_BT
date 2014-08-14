@@ -384,6 +384,7 @@ unsigned char ExcgArd1Init;
 unsigned char ExcgArd2Init;
 unsigned char ExcgArd3Init;
 UWORD ExcgLenInit;
+unsigned char *ptrMy;
 
 unsigned char ExchSendStatus;  // 0 - nothing; 
                                // 1 - send packet
