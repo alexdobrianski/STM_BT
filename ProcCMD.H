@@ -391,6 +391,9 @@ DONE_WITH_FLASH:
                 OldFlashCmd = 0;
                 CurFlashCmd = 0;
                 DataB3.FlashCmd = 0;
+                if (ExchSendStatus == 11)  // normal processing of the packet & possible end of the receive
+                {
+                }
                 CS_HIGH;
                 Main.DoneWithCMD = 1; // long command flash manipulation done 
             }
