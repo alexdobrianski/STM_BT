@@ -109,7 +109,22 @@ void SendSSByte(unsigned char bByte)
         break;
     case 1:FlashAdr1 = bByte;break;
     case 2:FlashAdr2 = bByte;break;
-    case 3:FlashAdr3 = bByte;FlashPointerByteN = 0;FlashAdr = FlashAdr1 * 256*256 + FlashAdr2*256+FlashAdr3;break;
+    case 3:FlashAdr3 = bByte;FlashPointerByteN = 0;FlashAdr = FlashAdr1 * 256*256 + FlashAdr2*256+FlashAdr3;
+        if (FlashCMD == 0x20)
+        {
+            for (int ip=0; ip < 4096; ip++)
+            {
+                FlashMemory[FlashAdr+ip] = 0xff;
+            }
+        }
+        else if (FlashCMD == 0xd8)
+        {
+            for (int ip=0; ip < 1024*64; ip++)
+            {
+                FlashMemory[FlashAdr+ip] = 0xff;
+            }
+        }
+        break;
     default:
         switch(FlashCMD)
         {
@@ -208,7 +223,36 @@ void putmsg(const char *s, unsigned char len)
         len--;
     }
 }
-
+int CheckEndOfPacketAndSend(unsigned char bByte)
+{
+    if (Main.SendOverlinkWasESC) // that is done only to account ESC
+        Main.SendOverlinkWasESC = 0;
+    else if (bByte == ESC_SYMB)       // that is done only to account ESC
+        Main.SendOverlinkWasESC = 1;  // each ESC must be transmitted - to be processed on another end
+    else if (bByte == MY_UNIT)
+    {
+        Main.SendOverLink = 0;
+        Main.SendOverLinkStarted = 0;
+        ATCMD |= SOME_DATA_OUT_BUFFER; // that will force transmit on next FQ1
+        return 1;             // that will process end of message inside main CMD loop
+    }
+    if (BTqueueOutLen ==0)
+    {
+        // one extra byte (a) '*' or (b) 'N' 
+        if (Main.SendOverLinkAndProc)
+            BTqueueOut[BTqueueOutLen] = bByte;
+        else
+            BTqueueOut[BTqueueOutLen] = '*';
+        ++BTqueueOutLen;
+        Main.SendOverLinkStarted = 1;
+    }
+    BTqueueOut[BTqueueOutLen] = bByte;
+    if (++BTqueueOutLen >= BT_TX_MAX_LEN) // buffer full
+    {
+        ATCMD |= SOME_DATA_OUT_BUFFER; // that will force transmit on next FQ1
+        return 0;             // skip to process any bytes from COM
+    }        
+}
 #include "..\..\addon.h"
 
 
@@ -279,11 +323,20 @@ BOOL Simulation(BTUnit *BTLuna, BTUnit *BTEarth, FILE *FileComOutEarth, FILE *Fi
         EarthLunaPktN++;
         if (BTEarth->BTqueueOut[0] == '*') // process by Luna BT unit
         {
+            BTLuna->Main.getCMD = 1;
             for (int ii = 1; ii <BTEarth->BTqueueOutLen;ii++)
             {
                 if (!LostPacket)
-                    BTLuna->ProcessCMD(BTEarth->BTqueueOut[ii]);
+                {
+                    if (BTLuna->Main.SendOverLink) // fillup BT buffer till end of data
+                    {
+                        BTLuna->CheckEndOfPacketAndSend(BTEarth->BTqueueOut[ii]);
+                    }
+                    else
+                        BTLuna->ProcessCMD(BTEarth->BTqueueOut[ii]);
+                }
             }
+            BTLuna->Main.getCMD = 0;
         }
         else
         {
@@ -313,11 +366,20 @@ BOOL Simulation(BTUnit *BTLuna, BTUnit *BTEarth, FILE *FileComOutEarth, FILE *Fi
         LunaEarthPktN++;
         if (BTLuna->BTqueueOut[0] == '*') // process by Luna BT unit
         {
+            BTEarth->Main.getCMD = 1;
             for (int ii = 1; ii <BTLuna->BTqueueOutLen;ii++)
             {
                 if (LostPacket)
-                     BTLuna->ProcessCMD(BTLuna->BTqueueOut[ii]);
+                {
+                    if (BTEarth->Main.SendOverLink) // fillup BT buffer till end of data
+                    {
+                        BTEarth->CheckEndOfPacketAndSend(BTLuna->BTqueueOut[ii]);
+                    }
+                    else
+                        BTEarth->ProcessCMD(BTLuna->BTqueueOut[ii]);
+                }
             }
+            BTEarth->Main.getCMD = 0;
         }
         else
         {
@@ -386,9 +448,17 @@ int _tmain(int argc, _TCHAR* argv[])
                     OutPutByte = ReadComInHex(bByff[0], CharReady);
                     if (CharReady)
                     {
-                        BTEarth.ProcessCMD(OutPutByte);
-            
-                        Simulation(&BTLuna, &BTEarth, FileComOutEarth, FileComOutLuna);
+                        if (BTEarth.Main.SendOverLink) // fillup BT buffer till end of data
+                        {
+                            BTEarth.CheckEndOfPacketAndSend(OutPutByte);
+                        }
+                        else
+                            BTEarth.ProcessCMD(OutPutByte);
+                        if (BTEarth.Main.SendOverLink) // fillup BT buffer till end of data
+                        {
+                        }
+                        else
+                            Simulation(&BTLuna, &BTEarth, FileComOutEarth, FileComOutLuna);
                     }
                 }
 

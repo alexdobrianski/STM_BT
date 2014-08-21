@@ -248,7 +248,7 @@ DONE_DONE_I2C:
 //            in last case <length-of-packet> must include simbol '@'
 //////////////////////////////////////////////////////////////////////////////
 #ifdef SSPORT
-        if (DataB3.FlashCmdShort)
+        if (DataB3.FlashCmdShort)  // short version of the flash read
         {
             if (DataB3.FlashCmdLen) // store length of a flash command
             {
@@ -261,7 +261,7 @@ DONE_DONE_I2C:
                 DataB3.FlashCmdShort = 0;
                 DataB3.FlashCmd = 1;
             }
-        }
+        }//////regular version of flash read
         else if (DataB3.FlashCmd)
         {
             if (DataB3.FlashCmdLen) // store length of a flash command
@@ -274,7 +274,7 @@ DONE_DONE_I2C:
             }
             else
             {
-                if (DataB3.FlashRead)
+                if (DataB3.FlashRead)  // was detected read 
                 {
                     goto SEND_AGAIN;
 CONTINUE_READ: 
@@ -316,6 +316,18 @@ CONTINUE_READ:
                    {
                        if (OldFlashCmd!=0) // two 1 byte commands in a row
                        {
+                            if (DataB3.FlashCmdNeedWait)
+                            {
+                                // check that status == 0 (previous CMD done)
+                                CS_LOW;
+                                SendSSByte(0x05);
+CHK1:
+                                if (GetSSByte() & 0x80)
+                                    goto CHK1;
+                                CS_HIGH;
+                                DataB3.FlashCmdNeedWait = 0;
+                            }
+
                             CS_LOW;
                             SendSSByte(OldFlashCmd);
                             CS_HIGH;
@@ -356,6 +368,18 @@ WRITE_FLASH_CMD:
 SEND_AGAIN:         // that is equivalent of a function -- just on some PIC it is not enought stack
                     if (btest(SSPORT,SSCS)) // another FLASH write can pause FLASH write intiated by serial 
                     {
+                        if (DataB3.FlashCmdNeedWait)
+                        {
+                            // check that status == 0 (previous CMD done)
+                            CS_LOW;
+                            SendSSByte(0x05);
+CHK2:
+                            if (GetSSByte() & 0x80)
+                                goto CHK2;
+                            CS_HIGH;
+                            DataB3.FlashCmdNeedWait = 0;
+                        }
+
                         if (OldFlashCmd != 0)
                         {
                             CS_LOW;
@@ -380,6 +404,7 @@ SEND_AGAIN:         // that is equivalent of a function -- just on some PIC it i
                     }
                     if (DataB3.FlashRead)
                         goto CONTINUE_READ;
+                    DataB3.FlashCmdNeedWait = 1;
                 }
                 FlashCmdPos++;
                
@@ -749,8 +774,14 @@ CONTINUE_NOT_AT:
                 // F\x01\x06F\x04\xd8\x00\x04\x00 == erase sector (64K) starting from address 0x010000
                 // in a case of 64K only addresses 0xxx0000 will be erased
 //#define USE64KFLASH_ERASE 1
+                ExcgArd2 &=0xf0;
+                // i.e 000000=4000
+                //     000000-> 0x3000
+                //     001000-> 0x2000
+                //     002000-> 0x1000
+                //     0x3000-> 0x0000
 #ifndef USE64KFLASH_ERASE
-                while(!(ExcgLen & 0x8000))
+                while(ExcgLen)
 #endif
                 {
                     CS_LOW;
@@ -764,11 +795,14 @@ CONTINUE_NOT_AT:
                     SendSSByte(0x20);
 #endif
                     SendSSByte(ExcgArd1);
-                    SendSSByte(ExcgArd2 & 0xfc);
+                    SendSSByte(ExcgArd2);
                     SendSSByte(0);
                     CS_LOW;
 #ifndef USE64KFLASH_ERASE
                     ExcgLen -= 0x1000;
+                    ExcgArd2+=0x10;
+                    if (ExcgArd2 == 0)
+                        ExcgArd1++;
 #endif
                     // wait to finish erace
                     bByte = 0x80;
@@ -781,6 +815,9 @@ CONTINUE_NOT_AT:
                     CS_HIGH;
                 }
                 ExcgLen = ExcgLenInit;
+                ExcgArd1 = ExcgArd1Init;
+                ExcgArd2 = ExcgArd2Init;
+
                 // 3. send command "*S000000=4100" to different unit whit it will be possible
                 ExchSendStatus = 10;
                 DataB0.ExcgRcvCmd = 0;
