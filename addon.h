@@ -132,14 +132,97 @@ void ProcessExch(void)
                         }
                     }
                 }
+                else if (ExchSendStatus == 2) // 2 - wait for interrupt from BT == send was done and then switch for back ExchSendStatus=1 == to send next packet
+                {                             // because output message in BT TX queue - it is savely to set ExchSendStatus=1 on first occasion
+                    ExchSendStatus = 1;
+                }
                 else if (ExchSendStatus == 10) // 3. send command "*S000000=4100" to different unit
                 {
+GET_ALL_PKT_FROM_FLASH:
                     BTpkt = PCKT_DATA;
                     *ptrMy++ = '*'; *ptrMy++ = 'S';
                     *ptrMy++ = ExcgArd1; *ptrMy++ = ExcgArd2; *ptrMy++ = ExcgArd3; *ptrMy++ = '=';
-                    *ptrMy++ = ExcgLen >> 8; ExcgLen = ExcgLen & 0xff;
+                    *ptrMy++ = ExcgLen >> 8; *ptrMy++ = ExcgLen & 0xff;
                     BTqueueOutLen = 8;
                     ExchSendStatus = 11;
+                    ATCMD |= SOME_DATA_OUT_BUFFER;
+                }
+                else if (ExchSendStatus == 12) // 3. all pakets done no needs to go over BITS array to resend lost data
+                {
+
+                    ExcgArd1 = ExcgArd1Init;  ExcgArd2 = ExcgArd2Init; ExcgArd3 = ExcgArd3Init;
+                    ExcgLen = ExcgLenInit;
+                    ExchByte = 0;
+                    j = 0xff;
+                    CRC1Cmp = 0;
+                    for (ExchByte = 0; ExchByte <FLASH_ARRAY_BITS; ExchByte++)
+                    {
+                        if (FLASH_SEND[ExchByte] != 0xff)
+                        {
+                            ExchBits = 0x80;
+                            bByte = FLASH_SEND[ExchByte];
+                            for (i=0; i< 8; i++)
+                            {
+                                if ((bByte & ExchBits) == 0) // skipped packet ??
+                                {
+                                    if (j == 0xff)
+                                    {
+                                        bByte1 = ExcgArd1; bByte2 = ExcgArd2; bByte3 = ExcgArd3;
+                                        j = i;
+                                    }
+                                    CRC1Cmp += FLASH_PCKT_SIZE;
+                                }
+                                else // was the good packet
+                                {
+                                    if (j != 0xff) // done bad packet(s) detected
+                                        break;
+                                }
+                                ExcgArd3+=FLASH_PCKT_SIZE;
+                                if (ExcgArd3 < FLASH_PCKT_SIZE)
+                                {
+                                    ExcgArd2++;
+                                    if (ExcgArd2==0)
+                                        ExcgArd1++;
+                                }
+                                ExcgLen -= FLASH_PCKT_SIZE;
+
+                            }
+                        }
+                        else
+                        {
+                            if (j != 0xff) // done with sequential lost 8 packets
+                                break;
+#ifdef _NOT_16BYTE_PKT
+                            for (i=0; i< 8; i++)
+                            {
+                                ExcgArd3+=FLASH_PCKT_SIZE;
+                                if (ExcgArd3 < FLASH_PCKT_SIZE)
+                                {
+                                    ExcgArd2++;
+                                    if (ExcgArd2==0)
+                                        ExcgArd1++;
+                                }
+                            }
+#else
+                            ExcgArd2++;
+                            if (ExcgArd2==0)
+                                ExcgArd1++;
+                            ExcgLen -=0x100;
+
+#endif
+                            ExchByte++;
+                        }
+                    }
+                    if (CRC1Cmp != 0)
+                    {
+                        ExcgArd1 = bByte1;  ExcgArd2 = bByte2; ExcgArd3 = bByte3;
+                        ExcgLen = CRC1Cmp;
+                        goto GET_ALL_PKT_FROM_FLASH;
+                    }
+                    else // done really 
+                    {
+                        ExchSendStatus = 0;
+                    }
                 }
             }    
         }

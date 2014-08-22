@@ -1841,6 +1841,7 @@ VOLATILE unsigned RelayPktLenNull:1;
 VOLATILE unsigned RelayGranted:1;
 VOLATILE unsigned RelayPktOverload:1;
 VOLATILE unsigned RelayPktESC:1;
+VOLATILE unsigned PktAsCMD:1;
 unsigned getCMD:1;
 unsigned ESCNextByte:1;
 unsigned LastWasUnitAddr:1;
@@ -1870,6 +1871,7 @@ VOLATILE unsigned ExtInterrupt2:1;
 VOLATILE unsigned InDoneNoSleep:1;
 VOLATILE unsigned ExtFirst:1;
 #endif
+
 } Main;
 
 

@@ -25,6 +25,8 @@ void ProcessCMD(unsigned char bByte)
 // done area with no difference as a command or stream distingvishing
 //////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////
+    if (Main.PktAsCMD)
+        goto ALL_COMMANDS;
     if (!Main.getCMD)
     {
 /////////////////////////////////////////////////////////////////////
@@ -247,6 +249,7 @@ DONE_DONE_I2C:
 //        F<length-of-packet><CMD><data>@<length-to-read>
 //            in last case <length-of-packet> must include simbol '@'
 //////////////////////////////////////////////////////////////////////////////
+ALL_COMMANDS:
 #ifdef SSPORT
         if (DataB3.FlashCmdShort)  // short version of the flash read
         {
@@ -260,6 +263,7 @@ DONE_DONE_I2C:
                 CurFlashCmd = 0x02;
                 DataB3.FlashCmdShort = 0;
                 DataB3.FlashCmd = 1;
+                return;
             }
         }//////regular version of flash read
         else if (DataB3.FlashCmd)
@@ -271,6 +275,7 @@ DONE_DONE_I2C:
                 DataB3.FlashRead = 0;
                 FlashCmdPos = 0;
                 //CS_LOW;
+                return;
             }
             else
             {
@@ -392,6 +397,39 @@ CHK2:
                         SendSSByte(AdrFlash1);
                         SendSSByte(AdrFlash2);
                         SendSSByte(AdrFlash3);
+                        if ((ExchSendStatus == 11) && BTInternal.iQueueSize)  // processing of the packet & possible end of the receive
+                        {
+                            while ((AdrFlash1 != ExcgArd1) || (AdrFlash2 != ExcgArd2) || (AdrFlash3 != ExcgArd3)) // packet was missed
+                            {
+                                ExcgArd3+=FLASH_PCKT_SIZE;
+                                if (ExcgArd3 < FLASH_PCKT_SIZE)
+                                {
+                                    ExcgArd2++;
+                                    if (ExcgArd2 == 0)
+                                        ExcgArd1++;
+                                }
+                                ExchBits>>=1;
+                                if (ExchBits == 0)
+                                {
+                                    ExchBits=0x80;
+                                    ExchByte++;
+                                }
+                                ExcgLen -= FLASH_PCKT_SIZE;
+                                if ((ExcgLen ==0) || (0x8000&ExcgLen))
+                                { // that is the end of transfer => needs to check bits for missing packets and ask to retransmit missed one
+                                    ExchSendStatus = 12;
+                                    goto NOTHING_TO_FLAG;
+                                }
+                            }
+                            FLASH_SEND[ExchByte] |=ExchBits;
+                            ExchBits>>=1;
+                            if (ExchBits == 0)
+                            {
+                                ExchBits=0x80;
+                                ExchByte++;
+                            }
+NOTHING_TO_FLAG:            ;
+                        }
                     }
                     if (!DataB3.FlashRead)
                         SendSSByte(bByte);
@@ -399,8 +437,11 @@ CHK2:
                     {
                         if (++AdrFlash2 ==0)
                             ++AdrFlash1;
-                        CS_HIGH;          // that is extention == FLASH can not read/write over same page
-                        goto SEND_AGAIN;
+                        if (CountWrite != 1)
+                        {
+                            CS_HIGH;          // that is extention == FLASH can not read/write over same page
+                            goto SEND_AGAIN;
+                        }
                     }
                     if (DataB3.FlashRead)
                         goto CONTINUE_READ;
@@ -417,8 +458,20 @@ DONE_WITH_FLASH:
                 CurFlashCmd = 0;
 
                 DataB3.FlashCmd = 0;
-                if (ExchSendStatus == 11)  // normal processing of the packet & possible end of the receive
+                if ((ExchSendStatus == 11) &&  BTInternal.iQueueSize)  // normal processing of the packet & possible end of the receive
                 {
+                    ExcgArd3+=FLASH_PCKT_SIZE;
+                    if (ExcgArd3 < FLASH_PCKT_SIZE)
+                    {
+                        ExcgArd2++;
+                        if (ExcgArd2 == 0)
+                            ExcgArd1++;
+                    }
+                    ExcgLen -= FLASH_PCKT_SIZE;
+                    if ((ExcgLen ==0) || (0x8000&ExcgLen))
+                    { // that is the end of transfer => needs to check bits for missing packets and ask to retransmit missed one
+                        ExchSendStatus = 12;
+                    }
                 }
                 CS_HIGH;
                 Main.DoneWithCMD = 1; // long command flash manipulation done 
@@ -817,6 +870,9 @@ CONTINUE_NOT_AT:
                 ExcgLen = ExcgLenInit;
                 ExcgArd1 = ExcgArd1Init;
                 ExcgArd2 = ExcgArd2Init;
+                ExchByte = 0;
+                ExchBits = 0x80;
+
 
                 // 3. send command "*S000000=4100" to different unit whit it will be possible
                 ExchSendStatus = 10;
@@ -860,6 +916,7 @@ CONTINUE_NOT_AT:
         }
         return;
     }
+    /*
     if (DataB0.CRCCalcFals)
     {
         // CRC flash <C><XXXXXX>=<xxxxxx>=<CRC1>=<CRC2>=<CRC3>=<CRC4>
@@ -905,7 +962,7 @@ CONTINUE_NOT_AT:
             if (CRC1 == CRC1Cmp)
                 putch('O');
         }
-    }
+    }*/
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 //#include "commc4.h"
@@ -1106,6 +1163,7 @@ CONTINUE_NOT_AT:
             UpgradeProgStatus = 0;
             Main.DoneWithCMD = 0; // long command
         }
+/*
         else if (bByte == 'C')  // CRC flash <C><XXXXXX>=<xxxxxx>=<CRC1> 
         {                       // if CRC1 is OK respond "O"
                                 // if CRCX is not OK respond c<XXXXXXXX>=<xxxxxx>=<CRC1>=<CRC2>
@@ -1122,6 +1180,7 @@ CONTINUE_NOT_AT:
         else if (bByte == 'c')  // CRC prog  <c><XXXXXX>=<xxxxxx>=<CRC1>=<CRC2>=<CRC3>=<CRC4>
         {
         }
+*/
         else if (bByte == 'S')             // SEND to another connected unit data from FLASH memory
         {                                  // S<XXXXXX>=<llll> 
             DataB0.ExcgFlashcmd = 1;       // address=XXXXXX length=llll

@@ -233,7 +233,9 @@ unsigned char getch(void);
 void putch_main(void);
 unsigned char getchExternal(void);
 unsigned char getchInternal(void);
+/*
 unsigned char getchBTComIn(void);
+*/
 void putchInternal(unsigned char simbol);
 void putchExternal(unsigned char simbol);
 void PrgUnit(unsigned char bTop, UWORD Addr, UWORD uwTillAddr);
@@ -388,8 +390,10 @@ void main()
     DataB0.EnableFlashWrite = 0;
     DataB0.UpgradeProgFlags = 0;
     UpgradeProgStatus = 0;
+/*
     DataB0.CRCCalcFals = 0;
     CRCFlashCalcStatus = 0;
+*/
     DataB3.FlashCmdShort = 0;
     DataB0.ExcgFlashcmd = 0;
     DataB0.ExcgRcvCmd = 0;
@@ -403,11 +407,11 @@ void main()
     BTExternal.iEntry = 0;
     BTExternal.iExit = 0;
     BTExternal.iQueueSize = 0;
-
+/*
     BTComIn.iEntry = 0;
     BTComIn.iExit = 0;
     BTComIn.iQueueSize = 0;
-
+*/
 #ifdef DEBUG_LED
     DEBUG_LED_OFF;
     DebugLedCount = 0;
@@ -705,7 +709,7 @@ unsigned char getchInternal(void)
     BTInternal.iQueueSize --;
     return bRet;
 }
-
+/*
 unsigned char getchBTComIn(void)
 {
     unsigned char bRet = BTComIn.Queue[BTComIn.iExit];
@@ -715,7 +719,7 @@ unsigned char getchBTComIn(void)
     BTComIn.iQueueSize --;
     return bRet;
 }
-
+*/
 
 
 void Reset_device(void);

@@ -25,7 +25,19 @@ typedef struct BTUnit
     {
         EEPROM[addr] = value;
     };
-
+    int LostPkt[1024];
+    void SetLostPkt(int iArrayLen, int * iArray)
+    {
+        int i;
+        for (i = 0; i <sizeof(LostPkt)/sizeof(int); i++)
+        {
+            LostPkt[i] = 1;
+        }
+        for (i = 0; i <iArrayLen; i++)
+        {
+            LostPkt[i] = iArray[i];
+        }
+    }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "..\..\Var001.H"
@@ -307,6 +319,7 @@ BOOL Simulation(BTUnit *BTLuna, BTUnit *BTEarth, FILE *FileComOutEarth, FILE *Fi
 {
     BOOL bRet = FALSE;
     unsigned char bWorkByte;
+    unsigned char BitSave;
     if (BTEarth->AOutQu.iQueueSize)
     {
         bWorkByte = BTEarth->AOutQu.Queue[BTEarth->AOutQu.iExit];
@@ -320,10 +333,17 @@ BOOL Simulation(BTUnit *BTLuna, BTUnit *BTEarth, FILE *FileComOutEarth, FILE *Fi
         bRet = TRUE;
         // earth to luna TX
         BOOL LostPacket = FALSE;
+        if (EarthLunaPktN < (sizeof(BTEarth->LostPkt)/sizeof(int)) )
+        {
+            LostPacket = (BTEarth->LostPkt[EarthLunaPktN] == 0); // zero == packet lost 1 = packet transmitted
+            if (LostPacket)
+                bRet = TRUE;
+        }
         EarthLunaPktN++;
         if (BTEarth->BTqueueOut[0] == '*') // process by Luna BT unit
         {
-            BTLuna->Main.getCMD = 1;
+            BTLuna->Main.PktAsCMD = 1;
+            BTLuna->BTInternal.iQueueSize =1 ;
             for (int ii = 1; ii <BTEarth->BTqueueOutLen;ii++)
             {
                 if (!LostPacket)
@@ -336,7 +356,8 @@ BOOL Simulation(BTUnit *BTLuna, BTUnit *BTEarth, FILE *FileComOutEarth, FILE *Fi
                         BTLuna->ProcessCMD(BTEarth->BTqueueOut[ii]);
                 }
             }
-            BTLuna->Main.getCMD = 0;
+            BTLuna->Main.PktAsCMD = 0;
+            BTLuna->BTInternal.iQueueSize =0 ;
         }
         else
         {
@@ -349,6 +370,7 @@ BOOL Simulation(BTUnit *BTLuna, BTUnit *BTEarth, FILE *FileComOutEarth, FILE *Fi
         BTEarth->BTqueueOutLen = 0;
         BTEarth->ATCMD &= (0xff ^SOME_DATA_OUT_BUFFER);
     }
+    BTLuna->ProcessExch();
     if (BTLuna->AOutQu.iQueueSize)
     {
         bWorkByte = BTLuna->AOutQu.Queue[BTLuna->AOutQu.iExit];
@@ -363,13 +385,21 @@ BOOL Simulation(BTUnit *BTLuna, BTUnit *BTEarth, FILE *FileComOutEarth, FILE *Fi
         // luna to earth communication
         // 
         BOOL LostPacket = FALSE;
+        if (EarthLunaPktN <(sizeof(BTLuna->LostPkt)/sizeof(int)) )
+        {
+            LostPacket = (BTLuna->LostPkt[EarthLunaPktN] == 0); // zero == packet lost 1 = packet transmitted
+            if (LostPacket)
+                bRet = TRUE;
+        }
         LunaEarthPktN++;
         if (BTLuna->BTqueueOut[0] == '*') // process by Luna BT unit
         {
-            BTEarth->Main.getCMD = 1;
+            BTEarth-> Main.PktAsCMD = 1;
+            BitSave = BTEarth->BTInternal.iQueueSize;
+            BTEarth->BTInternal.iQueueSize =1 ;
             for (int ii = 1; ii <BTLuna->BTqueueOutLen;ii++)
             {
-                if (LostPacket)
+                if (!LostPacket)
                 {
                     if (BTEarth->Main.SendOverLink) // fillup BT buffer till end of data
                     {
@@ -379,7 +409,8 @@ BOOL Simulation(BTUnit *BTLuna, BTUnit *BTEarth, FILE *FileComOutEarth, FILE *Fi
                         BTEarth->ProcessCMD(BTLuna->BTqueueOut[ii]);
                 }
             }
-            BTEarth->Main.getCMD = 0;
+            BTEarth->Main.PktAsCMD = 0;
+            BTEarth->BTInternal.iQueueSize = BitSave ;
         }
         else
         {
@@ -393,10 +424,14 @@ BOOL Simulation(BTUnit *BTLuna, BTUnit *BTEarth, FILE *FileComOutEarth, FILE *Fi
         BTLuna->ATCMD &= (0xff ^SOME_DATA_OUT_BUFFER);
     }
     BTEarth->ProcessExch();
+
+    // just speed up for simulation -> all packets ready to transfer will be in 
     BTLuna->ProcessExch();
+    BTEarth->ProcessExch();
     return (bRet);
 }
-
+//#define TEST_ALL_OK
+#define TEST_2PKT_LOST
 int _tmain(int argc, _TCHAR* argv[])
 {
     unsigned char bWorkByte;
@@ -415,6 +450,7 @@ int _tmain(int argc, _TCHAR* argv[])
     BTLuna.DataB0.ExcgFlashcmd = 0;
     BTLuna.DataB0.ExcgRcvCmd = 0;
     BTLuna.DataB0.ExcgSendinProgress = 0;
+    BTLuna.BTInternal.iQueueSize = 0 ;
     
     BTEarth.FlashMemoryLen = 1*1024*1024;
     BTEarth.FlashMemory = (unsigned char*) GlobalAlloc( GMEM_FIXED, BTLuna.FlashMemoryLen);// 1 MB
@@ -425,6 +461,28 @@ int _tmain(int argc, _TCHAR* argv[])
     BTEarth.DataB0.ExcgFlashcmd = 0;
     BTEarth.DataB0.ExcgRcvCmd = 0;
     BTEarth.DataB0.ExcgSendinProgress = 0;
+    BTEarth.BTInternal.iQueueSize = 0 ;
+
+#ifdef TEST_ALL_OK
+    {
+        int LostPkt[] = {
+            1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+        };
+        BTLuna.SetLostPkt(sizeof(LostPkt)/sizeof(int), &LostPkt[0]);
+        BTEarth.SetLostPkt(sizeof(LostPkt)/sizeof(int), &LostPkt[0]);
+    }
+#endif
+#ifdef TEST_2PKT_LOST
+    {
+        int LostPkt[] = {
+            1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1
+        };
+        BTLuna.SetLostPkt(sizeof(LostPkt)/sizeof(int), &LostPkt[0]);
+        BTEarth.SetLostPkt(sizeof(LostPkt)/sizeof(int), &LostPkt[0]);
+    }
+#endif
+
+
 
     FILE *FileComOutEarth = fopen(argv[3], "wb");
     if (FileComOutEarth)
@@ -442,6 +500,7 @@ int _tmain(int argc, _TCHAR* argv[])
                 unsigned char OutPutByte;
                 iStat=0;
                 // initial commands
+                
                 while(fread(bByff,1,1,FileComEarth)==1)
                 {
                     // main simulation - Luna & Earth are talking

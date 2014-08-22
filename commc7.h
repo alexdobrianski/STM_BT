@@ -84,14 +84,17 @@ NEXT_PORTION:
                 {
                     if (BTInternal.iQueueSize)
                     {
-                        Main.getCMD = 1;
+                        //Main.getCMD = 1;
+                        Main.PktAsCMD = 1;
                         // ready to process all bytes from remote unit inside unit (i.e. FLASH and etc)
                         while(BTInternal.iQueueSize)
                         {
                             ProcessCMD(getchInternal());
                         }
-                        Main.getCMD = 0;
+                        //Main.getCMD = 0;
+                        Main.PktAsCMD = 0;
                     }
+                    /*
                     if (BTComIn.iQueueSize) // after processing data in BTComIn will be bytes to be send to BT
                     {
                         while(BTComIn.iQueueSize)
@@ -141,7 +144,7 @@ SET_FLAG:
                             //if (CallBkComm())
                             //ProcessCMD(getchBTComIn());
                         }
-                    }
+                    }*/
                 }
             }
             

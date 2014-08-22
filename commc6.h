@@ -29,6 +29,7 @@
 #endif
 
         //Main = 0;
+        Main.PktAsCMD = 0;
         Main.getCMD = 0;
         Main.ESCNextByte = 0;
         Main.OutPacket = 0;

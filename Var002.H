@@ -27,7 +27,9 @@ unsigned BTExternalWasStarted:1;
 unsigned EnableFlashWrite:1;
 unsigned GIE:1;
 unsigned UpgradeProgFlags:1;
+/*
 unsigned CRCCalcFals:1; 
+*/
 unsigned ExcgFlashcmd:1;
 unsigned ExcgRcvCmd:1;
 unsigned ExcgSendinProgress:1;
@@ -152,7 +154,7 @@ unsigned char TypePkt;
 #pragma rambank RAM_BANK_3
 ///////////////////////////////////////BANK 5//////////////////////////
 #define BT_BUF 120
-//unsigned char ByteInbank5;
+/*
 struct _BtComIn
 {
     WORD iEntry;
@@ -160,7 +162,7 @@ struct _BtComIn
     WORD iExit;
     unsigned char Queue[BT_BUF];
 } BTComIn;
-
+*/
 #pragma rambank RAM_BANK_5
 ///////////////////////////////////////BANK 5//////////////////////////
 #define BT_BUF 120
@@ -350,8 +352,9 @@ unsigned char ATCMDStatus;
 unsigned char ATCMDStatusAddon;
 
 unsigned char UpgradeProgStatus;
+/*
 unsigned char CRCFlashCalcStatus;
-
+*/
 #define PCKT_DIAL 0xf0
 #define PCKT_DATA 0xf1
 unsigned char BTpkt;
@@ -393,6 +396,8 @@ unsigned char ExchSendStatus;  // 0 - nothing;
                                // 3 - send CRC packet
                                // 4 - wait for conformation of done
 unsigned char ExchCmdStatus;
+unsigned char ExchByte;
+unsigned char ExchBits;
 
 #pragma rambank RAM_BANK_1  /////////////////////////////////////////////////////////
 
