@@ -475,7 +475,7 @@ int _tmain(int argc, _TCHAR* argv[])
 #ifdef TEST_2PKT_LOST
     {
         int LostPkt[] = {
-            1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1
+            1,1,1,1,0,0,0,0,0,0,1,1,1,1,0,0,1,1,1,0
         };
         BTLuna.SetLostPkt(sizeof(LostPkt)/sizeof(int), &LostPkt[0]);
         BTEarth.SetLostPkt(sizeof(LostPkt)/sizeof(int), &LostPkt[0]);

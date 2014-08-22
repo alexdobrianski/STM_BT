@@ -401,34 +401,15 @@ CHK2:
                         {
                             while ((AdrFlash1 != ExcgArd1) || (AdrFlash2 != ExcgArd2) || (AdrFlash3 != ExcgArd3)) // packet was missed
                             {
-                                ExcgArd3+=FLASH_PCKT_SIZE;
-                                if (ExcgArd3 < FLASH_PCKT_SIZE)
-                                {
-                                    ExcgArd2++;
-                                    if (ExcgArd2 == 0)
-                                        ExcgArd1++;
-                                }
-                                ExchBits>>=1;
-                                if (ExchBits == 0)
-                                {
-                                    ExchBits=0x80;
-                                    ExchByte++;
-                                }
-                                ExcgLen -= FLASH_PCKT_SIZE;
-                                if ((ExcgLen ==0) || (0x8000&ExcgLen))
+                                if (AdwancePkt())
                                 { // that is the end of transfer => needs to check bits for missing packets and ask to retransmit missed one
                                     ExchSendStatus = 12;
-                                    goto NOTHING_TO_FLAG;
+                                    goto NOTHING_TO_RX;
                                 }
                             }
                             FLASH_SEND[ExchByte] |=ExchBits;
-                            ExchBits>>=1;
-                            if (ExchBits == 0)
-                            {
-                                ExchBits=0x80;
-                                ExchByte++;
-                            }
-NOTHING_TO_FLAG:            ;
+                            
+NOTHING_TO_RX:            ;
                         }
                     }
                     if (!DataB3.FlashRead)
@@ -460,18 +441,8 @@ DONE_WITH_FLASH:
                 DataB3.FlashCmd = 0;
                 if ((ExchSendStatus == 11) &&  BTInternal.iQueueSize)  // normal processing of the packet & possible end of the receive
                 {
-                    ExcgArd3+=FLASH_PCKT_SIZE;
-                    if (ExcgArd3 < FLASH_PCKT_SIZE)
-                    {
-                        ExcgArd2++;
-                        if (ExcgArd2 == 0)
-                            ExcgArd1++;
-                    }
-                    ExcgLen -= FLASH_PCKT_SIZE;
-                    if ((ExcgLen ==0) || (0x8000&ExcgLen))
-                    { // that is the end of transfer => needs to check bits for missing packets and ask to retransmit missed one
+                    if (AdwancePkt())  // that is the end of transfer => needs to check bits for missing packets and ask to retransmit missed one
                         ExchSendStatus = 12;
-                    }
                 }
                 CS_HIGH;
                 Main.DoneWithCMD = 1; // long command flash manipulation done 
@@ -810,8 +781,7 @@ CONTINUE_NOT_AT:
             if (DataB0.ExcgFlashcmd)
             {
                 DataB0.ExcgFlashcmd = 0;
-                ExchSendStatus =1;
-                
+                ExchSendStatus =1;     
             }
             else
             {
