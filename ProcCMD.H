@@ -403,7 +403,7 @@ CHK2:
                             {
                                 if (AdwancePkt())
                                 { // that is the end of transfer => needs to check bits for missing packets and ask to retransmit missed one
-                                    ExchSendStatus = 12;
+                                    ExchSendStatus = 15;
                                     goto NOTHING_TO_RX;
                                 }
                             }
@@ -442,7 +442,7 @@ DONE_WITH_FLASH:
                 if ((ExchSendStatus == 11) &&  BTInternal.iQueueSize)  // normal processing of the packet & possible end of the receive
                 {
                     if (AdwancePkt())  // that is the end of transfer => needs to check bits for missing packets and ask to retransmit missed one
-                        ExchSendStatus = 12;
+                        ExchSendStatus = 15;
                 }
                 CS_HIGH;
                 Main.DoneWithCMD = 1; // long command flash manipulation done 

@@ -2416,7 +2416,8 @@ void ProcessBTdata(void)
 // RF data pkt AA AA AA F1 CH LN DATA CRC16 CRCM8
 
 
-    unsigned char *ptrMy =&OutputMsg[0] ;
+    //unsigned char *
+    ptrMy =&OutputMsg[0] ;
     unsigned char ilen;
     struct PacketStart *MyPacket;
     unsigned int BeginAddr;
@@ -2797,7 +2798,7 @@ unsigned char ReceiveBTdata(void)
    //unsigned char iCrc;
     unsigned char iFix;
     unsigned char bByte;
-    unsigned char *ptrMy ;
+    //unsigned char *ptrMy ;
     //CRC=0;
     //BTCE_low();  // Chip Enable (Activates RX or TX mode) now disable== standby
 

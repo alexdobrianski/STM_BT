@@ -141,18 +141,29 @@ void ProcessExch(void)
                 {                             // because output message in BT TX queue - it is savely to set ExchSendStatus=1 on first occasion
                     ExchSendStatus = 1;
                 }
-                else if (ExchSendStatus == 10) // 3. send command "*S000000=4100" to different unit
+                else if (ExchSendStatus == 10) // 3. needs to ping to get distance BTV transmitters and reset all TX - RX timers
                 {
-GET_ALL_PKT_FROM_FLASH:
+                    UnitFrom = 0; // to process distance calculatrion on board
+                    ExchSendStatus = 11; // wait for a ping done
+                }
+                else if (ExchSendStatus == 11) // 3. wait for a ping done
+                {
+                    ExchSendStatus = 12; // send "*S000000=4100" to different unit
+                }
+                else if (ExchSendStatus == 13)// 3. send command "*S000000=4100" to different unit
+                {
+
                     BTpkt = PCKT_DATA;
                     *ptrMy++ = '*'; *ptrMy++ = 'S';
                     *ptrMy++ = ExcgArd1; *ptrMy++ = ExcgArd2; *ptrMy++ = ExcgArd3; *ptrMy++ = '=';
                     *ptrMy++ = ExcgLen >> 8; *ptrMy++ = ExcgLen & 0xff;
                     BTqueueOutLen = 8;
-                    ExchSendStatus = 11;
+                    ExchSendStatus = 14;
                     ATCMD |= SOME_DATA_OUT_BUFFER;
+                    // now need to calculate time for all packets to be receved (responce of the last packet)
+                    // Timer1HCount is ticks each TX time - 3 tick - one message send - all time is == ExcgLen / 16 * 3 ticks + dowble distance btw transmitters
                 }
-                else if (ExchSendStatus == 12) // 3. all pakets done no needs to go over BITS array to resend lost data
+                else if (ExchSendStatus == 15) // 3. all pakets done no needs to go over BITS array to resend lost data
                 {
                     ExcgArd1 = ExcgArd1Init;  ExcgArd2 = ExcgArd2Init; ExcgArd3 = ExcgArd3Init;
                     ExcgLen = ExcgLenInit;
@@ -204,7 +215,7 @@ ALL_CHECK_SEND:
                         ExcgLen = CRC1Cmp;
                         ExchByte = j;
                         ExchBits = bByteOut;
-                        goto GET_ALL_PKT_FROM_FLASH;
+                        ExchSendStatus = 10; // resend losted packets
                     }
                     else // done really 
                     {
