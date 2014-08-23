@@ -4,6 +4,7 @@
 // begin COPY 4
 ///////////////////////////////////////////////////////////////////////   
 
+
 // standart commands:
 //<unit>=Xci<unit> - set responce unit(X) and command (c)
 //<unit>=X*<unit> and all data transfers to X till end of the packet

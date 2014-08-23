@@ -1,3 +1,4 @@
+
 unsigned char CheckPacket(unsigned char*MyData, unsigned int iLen)  // used IntRXCount as a number of the RF Ch
 {  
     iTotalLen = iCrc = iLen;//26;
