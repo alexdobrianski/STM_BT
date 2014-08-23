@@ -398,13 +398,13 @@ CHK2:
                         SendSSByte(AdrFlash1);
                         SendSSByte(AdrFlash2);
                         SendSSByte(AdrFlash3);
-                        if ((ExchSendStatus == 11) && BTInternal.iQueueSize)  // processing of the packet & possible end of the receive
+                        if ((ExchSendStatus == EXCG_WAIT_TO_OR_END_14) && BTInternal.iQueueSize)  // processing of the packet & possible end of the receive
                         {
                             while ((AdrFlash1 != ExcgArd1) || (AdrFlash2 != ExcgArd2) || (AdrFlash3 != ExcgArd3)) // packet was missed
                             {
                                 if (AdwancePkt())
                                 { // that is the end of transfer => needs to check bits for missing packets and ask to retransmit missed one
-                                    ExchSendStatus = 15;
+                                    ExchSendStatus = EXCG_ALL_PKTS_DONE_15;
                                     goto NOTHING_TO_RX;
                                 }
                             }
@@ -440,10 +440,10 @@ DONE_WITH_FLASH:
                 CurFlashCmd = 0;
 
                 DataB3.FlashCmd = 0;
-                if ((ExchSendStatus == 11) &&  BTInternal.iQueueSize)  // normal processing of the packet & possible end of the receive
+                if ((ExchSendStatus == EXCG_WAIT_TO_OR_END_14) &&  BTInternal.iQueueSize)  // normal processing of the packet & possible end of the receive
                 {
                     if (AdwancePkt())  // that is the end of transfer => needs to check bits for missing packets and ask to retransmit missed one
-                        ExchSendStatus = 15;
+                        ExchSendStatus = EXCG_ALL_PKTS_DONE_15;
                 }
                 CS_HIGH;
                 Main.DoneWithCMD = 1; // long command flash manipulation done 
@@ -615,7 +615,7 @@ DONE_ADDON_CMD:
               }
               if (bByte == 'x') // from ATSX=LunBMF1F2F3 // set 
                  ATCMDStatus = 10;      // on next entry will be 11
-              if (bByte == 'y') // ATSY=<pkt><len><data> set into a FLASH memory <pkt> with a <data>
+              if (bByte == 't') // ATSt=<expecting timeout btw transmitters>
                  ATCMDStatus = 23;  // on next entry will be 24
               return;
          }
@@ -701,9 +701,19 @@ DONE_ADDON_CMD:
                 //INT0_ENBL = 1;
                 return;
           }
-          //else if (ATCMDStatus == 24) 
-          //{
-          //}
+          else if (ATCMDStatus == 24) // ATSt=<expecting timeout btw transmitters>
+          {                           //     A
+             
+          }
+          else if (ATCMDStatus == 25) // ATSt=NN // hex values
+          {                           //      A
+             DistTimeOut = ((UWORD)bByte) << 8;
+          }
+          else if (ATCMDStatus == 26) // ATSt=NN // hex values
+          {                           //       A
+             DistTimeOut |= (UWORD)bByte;
+             ATCMDStatus = 3;         // on next entry will be 4
+          }
           // something wrong == done with AT
           ATCMDStatus = 0;
           Main.DoneWithCMD = 1; // long command done
@@ -782,7 +792,7 @@ CONTINUE_NOT_AT:
             if (DataB0.ExcgFlashcmd)
             {
                 DataB0.ExcgFlashcmd = 0;
-                ExchSendStatus =1;     
+                ExchSendStatus = EXCG_SEND_PACKET_1;     
             }
             else
             {
@@ -846,7 +856,7 @@ CONTINUE_NOT_AT:
 
 
                 // 3. send command "*S000000=4100" to different unit whit it will be possible
-                ExchSendStatus = 10;
+                ExchSendStatus = EXCG_PING_10;
                 DataB0.ExcgRcvCmd = 0;
             }
         }

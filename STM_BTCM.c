@@ -312,7 +312,8 @@ void main()
         //UnitADR = '4';
 #include "commc6.h"
 
-
+        // TBD: what are default values????
+        // needs to grab it from last compilation???
         Config01 = eeprom_read(0x30);
         Freq1 = eeprom_read(0x31);
         Freq2 = eeprom_read(0x32);
@@ -320,6 +321,8 @@ void main()
         Addr1 = eeprom_read(0x34);
         Addr2 = eeprom_read(0x35);
         Addr3 = eeprom_read(0x36);
+        DistTimeOut  = ((UWORD)(eeprom_read(0x37))<<8);
+        DistTimeOut |=  (UWORD) eeprom_read(0x38);
         InitModem();
 
         DataB3.FlashCmd = 0;
@@ -2417,8 +2420,7 @@ void ProcessBTdata(void)
 // RF data pkt AA AA AA F1 CH LN DATA CRC16 CRCM8
 
 
-    //unsigned char *
-    ptrMy =&OutputMsg[0] ;
+    unsigned char *ptrMy =&OutputMsg[0] ;
     unsigned char ilen;
     struct PacketStart *MyPacket;
     unsigned int BeginAddr;
@@ -2799,7 +2801,7 @@ unsigned char ReceiveBTdata(void)
    //unsigned char iCrc;
     unsigned char iFix;
     unsigned char bByte;
-    //unsigned char *ptrMy ;
+    unsigned char *ptrMy ;
     //CRC=0;
     //BTCE_low();  // Chip Enable (Activates RX or TX mode) now disable== standby
 

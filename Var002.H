@@ -34,6 +34,7 @@ unsigned CRCCalcFals:1;
 unsigned ExcgFlashcmd:1;
 unsigned ExcgRcvCmd:1;
 unsigned ExcgSendinProgress:1;
+unsigned ExcgTOCmpType:1;
 } DataB0;
 
 #ifdef DEBUG_LED
@@ -267,6 +268,25 @@ unsigned char NextByte2;
 
 unsigned char CRCM8TXNext;
 unsigned char CRCM8TX2Next;
+//////////////////////////////////////////////////////////
+//
+//      TX -> TX -> TX              RX -> RX -> RX
+//        int 0->                     int 0->
+//              TXbTmr<=TXaTmr        RXbTmr<=RXaTmr
+//              TXaTmr=TMR1           RXaTmr<=TMR1
+//
+//     when Main.DoPing==1 sequential pings was running
+//     after it was done (Main.DoPing==0)
+//             RXaTmr - TXaTmr must be > 0
+// if for some reason that value < 0 its mean == RX was missed
+//   needs to take RXaTmr - TXbTmr => it is also must be > 0
+/////////////////////////////////////////////////////////
+//   special case with PING-ping message
+//             BT1                            BT2
+//             PING ->                       
+//                     <-p<DistMeasure structure of BT2>
+// if UnitFrom set
+// com <- <DistMeasure structure of BT2> <DistMeasure structure of BT1>
 struct _DistMeasure{
 UWORD RXaTmr1;
 UWORD RXaTmr1H;
@@ -399,6 +419,11 @@ unsigned char ExchSendStatus;  // 0 - nothing;
 unsigned char ExchCmdStatus;
 unsigned char ExchByte;
 unsigned char ExchBits;
+UWORD ExcgTime;
+UWORD ExcgTime0;
+UWORD DistTimeOut;
+
+unsigned char OldUnitFrom;
 
 #pragma rambank RAM_BANK_1  /////////////////////////////////////////////////////////
 

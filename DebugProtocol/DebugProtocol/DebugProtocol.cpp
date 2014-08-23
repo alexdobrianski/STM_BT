@@ -328,6 +328,7 @@ BOOL Simulation(BTUnit *BTLuna, BTUnit *BTEarth, FILE *FileComOutEarth, FILE *Fi
         BTEarth->AOutQu.iQueueSize--;
         fwrite(&bWorkByte,1,1,FileComOutEarth);
     }
+    BTEarth->Timer1HCount+=3;
     if (BTEarth->ATCMD & SOME_DATA_OUT_BUFFER) // BTEarth send something to the BTLuna
     {
         bRet = TRUE;
@@ -340,6 +341,7 @@ BOOL Simulation(BTUnit *BTLuna, BTUnit *BTEarth, FILE *FileComOutEarth, FILE *Fi
                 bRet = TRUE;
         }
         EarthLunaPktN++;
+        
         if (BTEarth->BTqueueOut[0] == '*') // process by Luna BT unit
         {
             BTLuna->Main.PktAsCMD = 1;
@@ -370,6 +372,12 @@ BOOL Simulation(BTUnit *BTLuna, BTUnit *BTEarth, FILE *FileComOutEarth, FILE *Fi
         BTEarth->BTqueueOutLen = 0;
         BTEarth->ATCMD &= (0xff ^SOME_DATA_OUT_BUFFER);
     }
+    if (BTEarth->Main.DoPing)
+    {
+        bRet = TRUE;
+        if (--BTEarth->PingAttempts == 0)
+            BTEarth->Main.DoPing = 0;
+    }
     BTLuna->ProcessExch();
     if (BTLuna->AOutQu.iQueueSize)
     {
@@ -379,6 +387,7 @@ BOOL Simulation(BTUnit *BTLuna, BTUnit *BTEarth, FILE *FileComOutEarth, FILE *Fi
         BTLuna->AOutQu.iQueueSize--;
         fwrite(&bWorkByte,1,1,FileComOutLuna);
     }
+    BTLuna->Timer1HCount+=3;
     if (BTLuna->ATCMD & SOME_DATA_OUT_BUFFER) // BTEarth send something to the BTLuna
     {
         bRet = TRUE;
@@ -422,6 +431,12 @@ BOOL Simulation(BTUnit *BTLuna, BTUnit *BTEarth, FILE *FileComOutEarth, FILE *Fi
         }
         BTLuna->BTqueueOutLen = 0;
         BTLuna->ATCMD &= (0xff ^SOME_DATA_OUT_BUFFER);
+    }
+    if (BTLuna->Main.DoPing)
+    {
+        bRet = TRUE;
+        if (--BTLuna->PingAttempts == 0)
+            BTLuna->Main.DoPing = 0;
     }
     BTEarth->ProcessExch();
 

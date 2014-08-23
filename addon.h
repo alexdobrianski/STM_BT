@@ -94,6 +94,13 @@ unsigned char AdwancePkt(void)
         return 1;
     return 0;
 }
+#define EXCG_SEND_PACKET_1          1
+#define EXCG_WAIT_INT_FROM_BT_2     2
+#define EXCG_PING_10               10
+#define EXCG_WAIT_PING_DONE_11     11
+#define EXCG_SEND_S_CMD_12         12
+#define EXCG_WAIT_TO_OR_END_14     14
+#define EXCG_ALL_PKTS_DONE_15      15
 void ProcessExch(void)
 {
     unsigned char bByte;
@@ -104,7 +111,7 @@ void ProcessExch(void)
             if (!Main.SendOverLink)   // if it is no packet from COM
             {
                 ptrMy = &BTqueueOut[0];
-                if (ExchSendStatus == 1) // 1 - send packet with data from flash memory to another unit  
+                if (ExchSendStatus == EXCG_SEND_PACKET_1) // 1 - send packet with data from flash memory to another unit  
                 {
                     if (btest(SSPORT,SSCS))
                     {
@@ -135,23 +142,34 @@ void ProcessExch(void)
                         if (AdwancePkt())
                             ExchSendStatus = 0; // done send
                         else
-                            ExchSendStatus = 2; // wait for a next transmit
+                            ExchSendStatus = EXCG_WAIT_INT_FROM_BT_2; // wait for a next transmit
                     }
                 }
-                else if (ExchSendStatus == 2) // 2 - wait for interrupt from BT == send was done and then switch for back ExchSendStatus=1 == to send next packet
-                {                             // because output message in BT TX queue - it is savely to set ExchSendStatus=1 on first occasion
-                    ExchSendStatus = 1;
+                else if (ExchSendStatus == EXCG_WAIT_INT_FROM_BT_2) // 2 - wait for interrupt from BT == send was done and then switch for back ExchSendStatus=1 == to send next packet
+                {                             // because output message in BT TX queue - it is safely to set ExchSendStatus=1 on first occasion
+                    ExchSendStatus = EXCG_SEND_PACKET_1;
                 }
-                else if (ExchSendStatus == 10) // 3. needs to ping to get distance BTV transmitters and reset all TX - RX timers
+                else if (ExchSendStatus == EXCG_PING_10) // 3. needs to ping to get distance BTV transmitters and reset all TX - RX timers
                 {
-                    UnitFrom = 0; // to process distance calculatrion on board
-                    ExchSendStatus = 11; // wait for a ping done
+                    OldUnitFrom = UnitFrom;
+                    UnitFrom = 0; // to process block distance data from send over comm
+                    Main.DoPing =1;
+                    PingAttempts = 2;
+                    Main.ConstantPing = 0;
+                    ExchSendStatus = EXCG_WAIT_PING_DONE_11; // wait for a ping done
+                    ExcgTime = Timer1HCount;
                 }
-                else if (ExchSendStatus == 11) // 3. wait for a ping done
+                else if (ExchSendStatus == EXCG_WAIT_PING_DONE_11) // 3. wait for a ping done
                 {
-                    ExchSendStatus = 12; // send "*S000000=4100" to different unit
+                    if (!Main.DoPing)
+                    {
+                        ExchSendStatus = EXCG_SEND_S_CMD_12; // send "*S000000=4100" to different unit
+                        UnitFrom = OldUnitFrom;
+                        ExcgTime = DistTimeOut;
+                    }
+
                 }
-                else if (ExchSendStatus == 13)// 3. send command "*S000000=4100" to different unit
+                else if (ExchSendStatus == EXCG_SEND_S_CMD_12)// 3. send command "*S000000=4100" to different unit
                 {
 
                     BTpkt = PCKT_DATA;
@@ -159,13 +177,40 @@ void ProcessExch(void)
                     *ptrMy++ = ExcgArd1; *ptrMy++ = ExcgArd2; *ptrMy++ = ExcgArd3; *ptrMy++ = '=';
                     *ptrMy++ = ExcgLen >> 8; *ptrMy++ = ExcgLen & 0xff;
                     BTqueueOutLen = 8;
-                    ExchSendStatus = 14;
+                    ExchSendStatus = EXCG_WAIT_TO_OR_END_14;
                     ATCMD |= SOME_DATA_OUT_BUFFER;
                     // now need to calculate time for all packets to be receved (responce of the last packet)
                     // Timer1HCount is ticks each TX time - 3 tick - one message send - all time is == ExcgLen / 16 * 3 ticks + dowble distance btw transmitters
+                    ExcgTime0 = Timer1HCount;
+                    ExcgTime += ExcgTime0;
+                    CRC1Cmp = ExcgLen>>3;
+                    ExcgTime += CRC1Cmp;
+                    CRC1Cmp>>=1;
+                    ExcgTime += CRC1Cmp;
+                    if (ExcgTime > ExcgTime0)  // normal case
+                        DataB0.ExcgTOCmpType =1;
+                    else
+                        DataB0.ExcgTOCmpType =0;
                 }
-                else if (ExchSendStatus == 15) // 3. all pakets done no needs to go over BITS array to resend lost data
+                else if (ExchSendStatus == EXCG_WAIT_TO_OR_END_14)  //waiting for TO or the end of data 
+                {                                                    // TO chaked here and last packet set in FLASH write
+                    if (DataB0.ExcgTOCmpType)
+                    {
+                        if (Timer1HCount > ExcgTime) // TO
+                            goto WAS_TO;
+                        if (Timer1HCount <= ExcgTime0) // TO
+                            goto WAS_TO;
+                    }
+                    else
+                    {
+                        if (Timer1HCount > ExcgTime)
+                            if (Timer1HCount <= ExcgTime0) // TO
+                                goto WAS_TO;
+                    }
+                }
+                else if (ExchSendStatus == EXCG_ALL_PKTS_DONE_15) // 3. all pakets done no needs to go over BITS array to resend lost data
                 {
+WAS_TO:
                     ExcgArd1 = ExcgArd1Init;  ExcgArd2 = ExcgArd2Init; ExcgArd3 = ExcgArd3Init;
                     ExcgLen = ExcgLenInit;
                     ExchByte = 0;
@@ -216,7 +261,7 @@ ALL_CHECK_SEND:
                         ExcgLen = CRC1Cmp;
                         ExchByte = j;
                         ExchBits = bByteOut;
-                        ExchSendStatus = 10; // resend losted packets
+                        ExchSendStatus = EXCG_PING_10; // resend losted packets
                     }
                     else // done really 
                     {
