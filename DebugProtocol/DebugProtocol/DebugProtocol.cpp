@@ -25,7 +25,7 @@ typedef struct BTUnit
     {
         EEPROM[addr] = value;
     };
-    int LostPkt[1024];
+    int LostPkt[4096];
     void SetLostPkt(int iArrayLen, int * iArray)
     {
         int i;
@@ -37,6 +37,10 @@ typedef struct BTUnit
         {
             LostPkt[i] = iArray[i];
         }
+    }
+    void SetOneLostPkt(int iPkt)
+    {
+        LostPkt[iPkt] = 0;
     }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -339,6 +343,9 @@ BOOL Simulation(BTUnit *BTLuna, BTUnit *BTEarth, FILE *FileComOutEarth, FILE *Fi
             LostPacket = (BTEarth->LostPkt[EarthLunaPktN] == 0); // zero == packet lost 1 = packet transmitted
             if (LostPacket)
                 bRet = TRUE;
+            else
+                EarthLunaPktN = EarthLunaPktN;
+
         }
         EarthLunaPktN++;
         
@@ -356,6 +363,9 @@ BOOL Simulation(BTUnit *BTLuna, BTUnit *BTEarth, FILE *FileComOutEarth, FILE *Fi
                     }
                     else
                         BTLuna->ProcessCMD(BTEarth->BTqueueOut[ii]);
+                }
+                else
+                {
                 }
             }
             BTLuna->Main.PktAsCMD = 0;
@@ -417,6 +427,9 @@ BOOL Simulation(BTUnit *BTLuna, BTUnit *BTEarth, FILE *FileComOutEarth, FILE *Fi
                     else
                         BTEarth->ProcessCMD(BTLuna->BTqueueOut[ii]);
                 }
+                else
+                {
+                }
             }
             BTEarth->Main.PktAsCMD = 0;
             BTEarth->BTInternal.iQueueSize = BitSave ;
@@ -446,7 +459,8 @@ BOOL Simulation(BTUnit *BTLuna, BTUnit *BTEarth, FILE *FileComOutEarth, FILE *Fi
     return (bRet);
 }
 //#define TEST_ALL_OK
-#define TEST_2PKT_LOST
+//#define TEST_2PKT_LOST
+#define TEST_TO
 int _tmain(int argc, _TCHAR* argv[])
 {
     unsigned char bWorkByte;
@@ -494,6 +508,17 @@ int _tmain(int argc, _TCHAR* argv[])
         };
         BTLuna.SetLostPkt(sizeof(LostPkt)/sizeof(int), &LostPkt[0]);
         BTEarth.SetLostPkt(sizeof(LostPkt)/sizeof(int), &LostPkt[0]);
+    }
+#endif
+#ifdef TEST_TO
+    {
+        int LostPkt[] = {
+            1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+        };
+        BTLuna.SetLostPkt(sizeof(LostPkt)/sizeof(int), &LostPkt[0]);
+        BTEarth.SetLostPkt(sizeof(LostPkt)/sizeof(int), &LostPkt[0]);
+        BTLuna.SetOneLostPkt(0x400);
+        BTEarth.SetOneLostPkt(0x400);
     }
 #endif
 
