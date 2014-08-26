@@ -154,7 +154,7 @@ INTERRUPT int_server( void)
                 Timer1HCount++; // become 0 each 111.0016 sec
 
                 
-                if (DataB0.Timer1DoTX) // was a request to TX data on that frquency
+                if (DataB0.Timer1DoTX) // was a request to TX data on that frequency
                 {
                     PORT_AMPL.BT_TX = 1;
                     bitset(PORT_BT,Tx_CE);
