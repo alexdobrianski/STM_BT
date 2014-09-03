@@ -106,7 +106,7 @@ void ProcessExch(void)
     unsigned char bByte;
     if (BTqueueOutLen == 0)   // only when nothing in BT output queue 
     {
-        if (ATCMD & MODE_CONNECT)
+        if (ATCMD & MODE_CONNECT) // case - allready connected
         {
             if (!Main.SendOverLink)   // if it is no packet from COM
             {
@@ -268,6 +268,12 @@ ALL_CHECK_SEND:
                         ExchSendStatus = 0;
                     }
                 }
+                //////////////////////////////////////////////////////////////////////////////////
+                //
+                //  done with exchange - now ping-PING messages
+                //
+                //////////////////////////////////////////////////////////////////////////////////
+                // case of connected - messages PING
                 if (ATCMD & MODE_CALL_LUNA_COM) // earth calls cubsat sequence:
                 {
                     if (Main.PingRQ || Main.PingRSPRQ)
@@ -286,17 +292,6 @@ ALL_CHECK_SEND:
                     {
 #ifdef DEBUG_LED_CALL_EARTH
                         if (Main.PingRQ || Main.PingRSPRQ)
-                        //{
-                        //     if (BTqueueOutLen == 0)   // only when nothing in BT output queue
-                        //     {
-                        //         BTqueueOut[0] = 'p'; BTqueueOut[1] = 'i';BTqueueOut[2] = 'n';BTqueueOut[3] = 'g';
-                        //         //BTqueueOut[0] = 'e';BTqueueOut[1] = 'a';BTqueueOut[2] = 'r';BTqueueOut[3] = 'z';
-                        //         Main.PingRQ = 0;
-                        //         Main.PingRSPRQ = 0;
-                        //         goto SEND_PKT_TX_MODE;
-                        //         
-                        //     }
-                        //}
 #else
                         if (Main.PingRSPRQ)
 #endif
