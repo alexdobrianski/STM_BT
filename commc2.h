@@ -120,10 +120,10 @@ void putch_main(void)
             if (!TXIE) // no interrupts 
             {                            // on 16LH88,16F884,18F2321 = two bytes on pic24 = 4 bytes
 #ifdef TX_NOT_READY
-                if (!TX_NOT_READY)  // next unit is ready to acsept data  
+                if (!TX_NOT_READY)  // next unit is ready to accept data  
 #endif
                 {
-                    if (AOutQu.iQueueSize != 0)  // something in the queue to be send    
+                    if (AOutQu.iQueueSize != 0)  // something in the queue to be sent    
                     {
 #ifdef __PIC24H__
                         if (!U1STAbits.UTXBF) // on pic24 this bit is empy when at least there is one space in Tx buffer
@@ -132,6 +132,7 @@ void putch_main(void)
 #endif
                         {
                             TXEN = 1; // just in case ENABLE transmission
+							TXIF = 1;  // force interrupt
                             TXIE = 1;  // placed simbol will be pushed out of the queue by interrupt
                         }
                     }

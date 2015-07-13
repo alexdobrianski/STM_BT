@@ -13,6 +13,7 @@
 
 //unsigned char CommLinesOld;
 #ifdef __PIC24H__
+
 #ifdef HI_TECH_C
 #define IF_SSPIF void interrupt _MI2C1Interrupt(void) @ MI2C1_VCTR
 #define IF_RCIF void interrupt _U1RXInterrupt(void) @ U1RX_VCTR
@@ -26,6 +27,7 @@
 #define IF_INT1IF void interrupt _INT1Interrupt(void) @ INT1_VCTR
 #define IF_INT2IF void interrupt _INT2Interrupt(void) @ INT2_VCTR
 #else // hitech ends
+
 //#define _ISR __attribute__((interrupt))
 //#define _ISRFAST __attribute__((interrupt, shadow))
 #define _ISR __attribute__((interrupt))
@@ -33,6 +35,8 @@
 #define IF_SSPIF void __attribute__((interrupt, no_auto_psv)) _MI2C1Interrupt(void)
 #define IF_RCIF void __attribute__((interrupt, no_auto_psv)) _U1RXInterrupt(void)
 #define IF_TXIE void __attribute__((interrupt, no_auto_psv)) _U1TXInterrupt(void)
+
+
 #define IF_TIMER0_INT_FLG void __attribute__((interrupt, no_auto_psv)) _T1Interrupt(void)
 #define IF_TMR1IF void __attribute__((interrupt, no_auto_psv)) _T2Interrupt(void)
 #ifdef BT_TIMER3
@@ -54,6 +58,9 @@
 #define IF_TMR5IF void __attribute__((interrupt, no_auto_psv)) _T5Interrupt(void)
 #define IF_TMR4IF void __attribute__((interrupt, no_auto_psv)) _T4Interrupt(void)
 #define IF_RTCC void __attribute__((interrupt, no_auto_psv)) _RTCCInterrupt(void)
+#define IF_ADCDONE void __attribute__((interrupt, no_auto_psv)) _ADC1Interrupt(void)
+#define IF_ADC_DMA void __attribute__((interrupt, no_auto_psv)) _DMA0Interrupt(void)
+//#define IF_ADCDONE void __attribute__((__interrupt__)) _ADC1Interrupt(void)
 
 #endif // C30 ends
 #else // end of C30 support
@@ -131,6 +138,8 @@ INTERRUPT int_server( void)
 #endif
     /////////////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////////////
+	//TIMER ONE Handler (Interrupt Service Routine): 
+	//	logical 1 starting from zero (Type B _PIC24H)
     IF_TMR1IF //if (TMR1IF)  // update clock   TX
     {
         TMR1IF = 0;
@@ -154,7 +163,7 @@ INTERRUPT int_server( void)
                 Timer1HCount++; // become 0 each 111.0016 sec
 
                 
-                if (DataB0.Timer1DoTX) // was a request to TX data on that frequency
+                if (DataB0.Timer1DoTX) // was a request to TX data on that frquency
                 {
                     PORT_AMPL.BT_TX = 1;
                     bitset(PORT_BT,Tx_CE);
@@ -207,6 +216,148 @@ INTERRUPT int_server( void)
         }
 
 #else // BT timer1
+
+#ifdef QUAD_CTLR //src code for quad control
+		quad_ctlr_time++;
+
+		if(quad_ctlr_time >= 20)
+		{
+			quad_ctlr_time = 0;			
+		}
+
+		switch(quad_ctlr_time) 
+		{
+		case 0:
+			QUAD_0 = 1;
+            TMR2 = -QUAD_ONE_MS;
+            AD1CON1bits.ADON = 1; //START analog to digital conversion (This stops @ IF_ADCDONE interrupt)
+			break;
+		case 1: //1ms passed
+            
+			if(period_quad_0 == 0)
+			{
+				quad_ctlr_time++;
+				QUAD_0 = 0;
+				TMR2 = -QUAD_ONE_MS;	
+			}
+            else 
+            {
+                TMR2 = -period_quad_0; //setting offset (manipulating timer)
+            }
+			break;
+		case 2: //1ms plus timer passed
+            QUAD_0 = 0;
+            if(period_quad_0 == QUAD_ONE_MS)
+            {
+                quad_ctlr_time++;
+				TMR2 = -QUAD_ONE_MS;
+            }
+            else 
+            {
+                TMR2 = -QUAD_ONE_MS + period_quad_0;
+            }
+     
+			break;
+//		case 3:	//2ms passed
+//            TMR2 = -QUAD_ONE_MS;
+//			break;
+		case 4: //3ms passed
+            QUAD_1 = 1;
+            TMR2 = -QUAD_ONE_MS;
+			break;
+		case 5: //4ms passed
+            if(period_quad_1 == 0) 
+            {			
+                quad_ctlr_time++;
+                QUAD_1 = 0;
+                TMR2 = -QUAD_ONE_MS;
+            }
+            else
+            {
+                TMR2 = -period_quad_1;
+            }
+            break;
+		case 6:	//4ms plus period_quad_1
+            QUAD_1 = 0;
+            if(period_quad_1 == QUAD_ONE_MS)
+            {
+                quad_ctlr_time++;
+                TMR2 = -QUAD_ONE_MS;
+            }
+            else
+            {
+                TMR2 = -QUAD_ONE_MS + period_quad_1;
+            }
+			break;
+//		case 7:	//5ms passed
+//            TMR2 = -QUAD_ONE_MS;
+//			break;
+		case 8: //6ms passed
+            QUAD_2 = 1;
+            TMR2 = -QUAD_ONE_MS;		
+			break;
+		case 9: //7ms passed
+            if(period_quad_2 == 0)
+            {
+                quad_ctlr_time++;
+                QUAD_2 = 0;
+				TMR2 = -QUAD_ONE_MS;
+            }
+            else
+            {
+                TMR2 = - period_quad_2;
+            }
+			break;
+		case 10: //7ms plus period_quad_2 passed
+            QUAD_2 = 0;
+            if(period_quad_2 == QUAD_ONE_MS)
+            {
+                quad_ctlr_time++;
+                TMR2 = -QUAD_ONE_MS;
+            }
+            else
+            {
+                TMR2 = -QUAD_ONE_MS + period_quad_2;
+            }				
+			break;
+//		case 11: //8ms passed
+//            TMR2 = -QUAD_ONE_MS;			
+//			break;
+		case 12: //9ms passed
+
+            QUAD_3 = 1;
+            TMR2 = -QUAD_ONE_MS;
+			break;
+		case 13: //10ms passed
+            if(period_quad_3 == 0)
+            {
+            QUAD_3 = 0;
+                TMR2 = -QUAD_ONE_MS;
+                quad_ctlr_time++;
+            }
+            else
+            {
+                TMR2 = -period_quad_3;
+            }
+			break;
+		case 14: //10ms plus period_quad_3 passed
+            QUAD_3 = 0;
+            if(period_quad_3 == QUAD_ONE_MS) 
+            {
+                quad_ctlr_time++;
+                TMR2 = -QUAD_ONE_MS;
+            }
+            else
+            {
+                TMR2 = -QUAD_ONE_MS + period_quad_3;
+            }
+			break;
+		default:
+            TMR2 = -QUAD_ONE_MS;
+			break;
+		}
+
+#else
         if (++TMR130 == TIMER1_ADJ0)
         {
 #ifdef __PIC24H__
@@ -289,7 +440,8 @@ TMR2_COUNT_DONE:
             sprintf(&LCDSS[0],"%02d",TMR1SEC);
 #endif
         }
-#endif
+#endif //endif for NONE QUAD_CTLR
+#endif //endif for NONE BT_TIMER
     }
 
 #ifdef BT_TIMER3
@@ -944,7 +1096,7 @@ RELAY_CONDITIONS:
                                     // if it is only one unit on PC then it is possible to set bit 
                                     // needs inform previous unit to suspend send bytes
                                     // that will be done on TX interrupt
-                                    if (TX_NOT_READY)  // next unit is not ready to accsept the data 
+                                    if (TX_NOT_READY)  // next unit is not ready to accept the data 
                                     {
                                         RX_FULL = 1;   // then all must go to the queue
                                         goto RELAY_NOT_GRANTED;
@@ -983,6 +1135,7 @@ OVERLOAD_QUEUE:
                                         if (++AOutQu.iEntry >= OUT_BUFFER_LEN)
                                             AOutQu.iEntry = 0;
                                         AOutQu.iQueueSize++; // this is unar operation == it does not interfere with interrupt service decrement
+										TXIF = 1;  // force interrupt
                                         TXIE = 1;  // placed simbol will be pushed out of the queue by interrupt
                                     } 
 #ifdef RX_FULL
@@ -1058,6 +1211,7 @@ END_INPUT_COM:;
    }
 #endif // 
 #ifdef __PIC24H__
+
     /////////////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////////////
 // UART errors
@@ -1150,22 +1304,24 @@ CONTINUE_WITH_ISR:;
 #endif // #ifndef NOT_USE_COM1
     /////////////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////////////
+	// TIMER ZERO Handler (Type A) - logical from zero based number
     IF_TIMER0_INT_FLG //if (TIMER0_INT_FLG) // can be transfer byte using TMR0
     {
         TIMER0_INT_FLG = 0; // clean timer0 interrupt
         //bitset(TIMER0_CONTROL_REG,5);
 #ifndef __PIC24H__
         T0SE = 1;
-   #ifdef _18F2321_18F25K20
+    #ifdef _18F2321_18F25K20
        TMR0ON = 0;
-   #endif
+    #endif
         I2C.Timer0Fired = 1;
         TIMER0_INT_ENBL = 0; // diasable timer0 interrupt
 #else  // for __PIC24H__
+
    #ifdef TEMP_MEASURE
-#ifdef _16F88
+    #ifdef _16F88
 DELAY_1MKS:
-#endif
+    #endif
        if (TEMP_Index > 0) // case when needs to send sequence with a time to TEMP sensor
        {
 BEGIN_TERM_OP:           
@@ -1180,9 +1336,9 @@ BEGIN_TERM_OP:
                else
                {
 #define VISUAL_TEMP 1
-#ifdef VISUAL_TEMP
+    #ifdef VISUAL_TEMP
                    TEMP_MEASURE = 1;
-#endif
+    #endif
                    TIMER0_BYTE = (TEMP_MASTER_RST_WAIT-5); TEMP_I_O = 1;  TEMP_Index--;  // 30 mks (measure==64)
                } 
                TEMP_Status++; // 0->1 1 ->2
@@ -1523,9 +1679,22 @@ TMR0_DONE:
    #endif
        {
 TMR0_DONE:
+#ifdef QUAD_CTLR //src code for quad control
+          if (Timer0Counter ==0)
+          {
+              TMR0ON = 0;
+              TIMER0_INT_ENBL = 0; // diasable timer0 interrupt
+          }
+          else
+          {
+              Timer0Counter--;
+          }
+#else // non QUAD code
           TMR0ON = 0;
-          I2C.Timer0Fired = 1;
           TIMER0_INT_ENBL = 0; // diasable timer0 interrupt
+#endif
+          I2C.Timer0Fired = 1;
+          
        }
 #endif
     }
@@ -1751,7 +1920,52 @@ NOTHING_CAN_BE_DONE: ;
    }
    #endif
  #endif
+
+
  #ifdef __PIC24H__
+
+    #ifdef USE_ADC_WITH_DMA
+    IF_ADC_DMA
+    {
+        IFS0bits.DMA0IF = 0;
+        AD1CON1bits.ADON = 0; //STOP analog to digital conversion
+    }
+    #endif // end of USE_ADC_WITH_DMA
+
+    #ifdef USE_ADC_WITHOUT_DMA
+    IF_ADCDONE //analog to digital conversion completed interrupt
+    {
+        IFS0bits.AD1IF = 0; 
+        if(QUAD_3_STATe==0)
+        {
+            ADCresultsB[0] = ADC1BUF0; 
+            QUAD_3_STATe = 1;
+            QUAD_3       = 0;
+        }
+        else if(QUAD_3_STATe==1)
+        {
+            QUAD_3_STATe = 2;
+            ADCresultsB[1] = ADC1BUF0; 
+            QUAD_3       = 0;
+            //AD1CON1bits.ADON = 0; //STOP analog to digital conversion
+        }
+        else if(QUAD_3_STATe==2)
+        {
+            QUAD_3_STATe = 3;
+            ADCresultsB[3] = ADC1BUF0; 
+            QUAD_3       = 0;
+            //AD1CON1bits.ADON = 0; //STOP analog to digital conversion
+        }
+        else if(QUAD_3_STATe==3)
+        {
+            QUAD_3_STATe = 0;
+            ADCresultsB[4] = ADC1BUF0; 
+            QUAD_3       = 1;
+            AD1CON1bits.ADON = 0; //STOP analog to digital conversion
+        }
+        //IEC0bits.AD1IE = 1;
+    }
+    #endif // USE_ADC_WITHOUT_DMA
  #define USE_INT1 1
  #endif
  #ifdef USE_INT1

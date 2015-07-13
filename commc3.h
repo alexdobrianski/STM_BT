@@ -32,6 +32,40 @@ SKIP_ECHO_BYTE: ;
     }
     else    // now unit in command mode == processing all data
     {
+    #ifdef DEBUG_HYPER_TERMINAL
+	    if((iDebugHTerm != 0) && (bByte != ESC_SYMB)) //CMD '&' //2F&#0#1&c#72    //2F&A#1&c#72
+	    {
+            Main.ESCNextByte = 0;
+
+	        if(bByte >= '0' && bByte <= '9')
+	        {
+	            bDebugHexValTmp = bByte - '0';
+	        }
+	        else 
+	        {
+	            bByte &= 0x0f;
+	            bDebugHexValTmp = bByte - 1 + 0x0a;
+	        }
+	
+	        if(++iDebugHTerm == 2)
+	        {
+	            bDebugHexVal = bDebugHexValTmp<<4;
+                return;
+	        }
+	        else
+	        {
+	            bDebugHexVal |= bDebugHexValTmp;
+	            
+                //Main.DoneWithCMD = 1; //long CMD finished NOTE THIS WILL SET IN FLASH
+
+                iDebugHTerm     = 0;  //'&' state machine END
+
+                //reassigning bByte for flash cmd
+                bByte           = bDebugHexVal;
+	        }
+
+	    }
+    #endif //DEBUG_HYPER_TERMINAL - END
 
         if (Main.RetransmitTo) // command =X* was entered - all packet till end was retransmitted to different unit
         {
@@ -206,6 +240,17 @@ DONE_DONE_I2C:
             return;
         }  // end if a adressing I2C stream
 #endif
+
+    #ifdef DEBUG_HYPER_TERMINAL //used when passing hex values via hyperTerminal
+        else if(bByte == '&') //state machine for hex conversion //2F&#0#1&c#72
+        {
+            iDebugHTerm      = 1; //Hex debug state machine
+            bDebugHexVal     = 0; //reset value for next hex instructions
+            Main.DoneWithCMD = 0; //long CMD start
+            return;
+        }
+    #endif
+
 //////////////////////////////////////////////////////////////////////////////
 // FLASH command processing
 // set by external comman like F
@@ -215,8 +260,9 @@ DONE_DONE_I2C:
 //            in last case <length-of-packet> must include simbol '@'
 //////////////////////////////////////////////////////////////////////////////
 #ifdef SSPORT
-        if (DataB3.FlashCmd)
+        if (DataB3.FlashCmd) //flash state machine
         {
+
             if (DataB3.FlashCmdLen) // store length of a flash command
             {
                 DataB3.FlashCmdLen = 0;
@@ -229,7 +275,9 @@ DONE_DONE_I2C:
             {
                 if (DataB3.FlashRead)
                 {
-                    goto SEND_AGAIN;
+                    goto SEND_AGAIN; // that is saving stack on low stack model PIC -
+                                     // for read operation it will jump on part of a code (like a 
+                                     // fucntion call than will be return to thr return point (CONTINUE_READ)
 CONTINUE_READ: 
                     Main.SendWithEsc = 1;
                     do 
@@ -242,6 +290,7 @@ CONTINUE_READ:
                     Main.SendWithEsc = 0;
                     if (UnitFrom)
                         putch(UnitFrom);
+                    OldFlashCmd = 0;
                     goto DONE_WITH_FLASH;
                 }
                 else if (CountWrite == 1) // this will be last byte to write or it can be symb=@ request to read
@@ -263,11 +312,11 @@ CONTINUE_READ:
                         }
                     }
                 }
-                if (FlashCmdPos == 0)
+                if (FlashCmdPos == 0) // the position in the commanf ahter the length
                 {
-                   if (CountWrite== 1)
+                   if (CountWrite== 1)  // how many bytes needs to write
                    {
-                       if (OldFlashCmd!=0) // two 1 byte commands in a row
+                       if (OldFlashCmd!=0) // two 1 byte commands in a row (F\x01\x06 F\x01\c7
                        {
                             CS_LOW;
                             SendSSByte(OldFlashCmd);
@@ -288,7 +337,7 @@ WRITE_FLASH_CMD:
                        OldFlashCmd = bByte;
                        DataB3.FlashWas1byteWrite = 1;
                    }
-                   else
+                   else   // that cam be read or write command - huck: length of the bytes to write are bigger than 1
                    {
                        CurFlashCmd = bByte;
                        if (!DataB3.FlashWas1byteWrite)
@@ -333,6 +382,8 @@ SEND_AGAIN:         // that is equivalent of a function -- just on some PIC it i
                     }
                     if (DataB3.FlashRead)
                         goto CONTINUE_READ;
+                    if (CountWrite == 1) // that will be end of the write to flash command (last byte was written alreadi in prev SendSSByte)
+                        OldFlashCmd = 0;
                 }
                 FlashCmdPos++;
                
@@ -340,8 +391,9 @@ SEND_AGAIN:         // that is equivalent of a function -- just on some PIC it i
                 //SendSSByteFAST(bByte); //for testing only
                 if (--CountWrite)
                     return;
+                
 DONE_WITH_FLASH:
-                OldFlashCmd = 0;
+                //OldFlashCmd = 0; - why did you comment this out dalbanko?
                 CurFlashCmd = 0;
                 DataB3.FlashCmd = 0;
                 CS_HIGH;

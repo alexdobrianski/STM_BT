@@ -2,6 +2,14 @@
 ///////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////
 // begin of COPY 0
+//
+// Initialization of variables for different processors. 
+// Utilizing __PIC24H__
+// Other processors:
+// 		_18F2321
+// 		_18F25K20
+// 		_16F884
+// 		_16F724
 ///////////////////////////////////////////////////////////////////////
 
 #ifdef _18F2321
@@ -605,6 +613,8 @@ char PORTE    @ 0xF84;
    #include "pic24HJ64GP502.h"
 #else // end of HI_TECH
    #include "p24hxxxx.h"
+   //#include "common.h"
+   //#include "dsp.h"
    #ifdef __PIC24HJ64GP502__
       #include "p24HJ64GP502.h"
    #endif
@@ -657,12 +667,16 @@ char PORTE    @ 0xF84;
 #define TXIFCOM2 IFS1bits.U2TXIF
 #endif
 
+//Timer 0
 #define TIMER0_INT_FLG IFS0bits.T1IF
 #define TIMER0_INT_ENBL IEC0bits.T1IE
 #define TMR0ON T1CONbits.TON
+
+//Timer 1 used for quad control
 #define TMR1IF IFS0bits.T2IF
 #define TMR1IE IEC0bits.T2IE
 #define TMR1ON T2CONbits.TON
+
 #define INT0_FLG IFS0bits.INT0IF
 #define INT0_ENBL IEC0bits.INT0IE
 #define INT1IF IFS1bits.INT1IF
@@ -1970,6 +1984,8 @@ void eeprom_write(unsigned char addr, unsigned char value);
 #define SPBRG_57600_16MHZ 16
 #define SPBRG_57600_32MHZ 34
 #define SPBRG_57600_64MHZ 68
+#define SPBRG_57600_10MIPS 42
+#define SPBRG_57600_20MIPS 85
 #define SPBRG_57600_40MIPS 172
 
 #define SPBRG_115200_16MHZ 8

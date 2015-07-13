@@ -118,7 +118,8 @@ void enable_uart(void)//bit want_ints)
              //              0  // bit 0 STSEL: Stop Bit Selection bit
                                 //        1 = Two Stop bits
                                 //        0 = One Stop bit
-    U1BRG = SPBRG_SPEED;
+
+    U1BRG = SPBRG_SPEED;        //Speed of bit transfer to UART register
     U1STAbits.UTXBRK = 0;
     U1STAbits.UTXISEL1 = 0;     // 11 = Reserved
     U1STAbits.UTXISEL0 = 0;     // 10 = Interrupt generated when a character is transferred to the Transmit Shift register and the transmit buffer becomes empty
@@ -599,7 +600,7 @@ unsigned char GetSSByte(void)
         
         //bitclr(bWork2,0); // bWork2 is unsigned == zero in low bit garanteed check assembler code to confirm
 //#undef SSDATA_OUT2
-#ifdef SSDATA_OUT2
+#ifdef SSDATA_OUT2 // that is for 3 FLASHes to store redundant data
 
         if (btest(SSPORT_READ,SSDATA_OUT))
         {

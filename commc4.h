@@ -121,19 +121,53 @@
             I2C.NextI2CRead = 1;
         }
 #endif // NO_I2C_PROC
+
 #ifdef SSPORT
         else if (bByte == 'F') // manipulation with FLASH memory: read/write/erase/any flash command
         {
             Main.DoneWithCMD = 0; // long command
-            DataB3.FlashCmd = 1;
+            DataB3.FlashCmd = 1;  //flash state machine START
             DataB3.FlashCmdLen = 1;
             
+            
+            //NOTE, <data> is a generic data, it could be the data to write or address of data to read.
             // send something to FLASH
             // F<length-of-packet><CMD><data>
             // send and receive responce from FLASH
             // F<length-of-packet><CMD><data>@<length-to-read>
             // in last case <length-of-packet> must include simbol '@'
-            // F\x01\x06              == write enable (flash command 06) -> send 0x06
+
+            ///////////////////////////
+            //Things to Note
+            ///////////////////////////
+            // 1. The Erase instruction must be preceded by a Write Enable (WREN) instruction.
+            //     To Bulk erase instr:
+            //          2F&#0#1&#0#6F&#0#1&c#72 
+            //     To read 16 bytes:
+            //          2F&#0#5&#0#3&#0#0&#0#0&#0#0@&#1#02
+            //     To write data:
+            //          2F&#0#1&#0#6F&#3#5&#0#2&#0#0&#0#0&#0#0Nasha Masha Luchshe Vashei potomy chto ona nasha 2 
+
+            ///////////////////////////
+            // Flash CMDs
+            ///////////////////////////
+            // \x02                   == flash write cmd
+            // \x03                   == read from flash
+            // \x04                   == Write Disable 0000 0100 04h
+            // \x06                   == enable write to flash
+            // \x20                   == erase 4Kbyte oage - this cmd does not exist on all flash mem
+            // \xc7                   == erase all mem from flash
+            // \xb9                   == (NOTE, not all flash has this cmd) Deep Power-down 1011 1001 B9h
+            // \xab                   == (NOTE, not all flash has this cmd) Release from Deep Power-down
+            
+            ///////////////////////////
+            // Custom
+            ///////////////////////////
+            // @                      == Chain read CMD after previous CMDs. 
+            //                             NOTE, include Byte count when specifying CMD length 
+            //                             Post '@' indicate length of bytes to be read.
+            
+            // F\x01\x06              == enable write (flash command 06) -> send 0x06
             // F\x01\0xc7             == erase all flash                 -> send =0xc7
             // F\x05\x03\x00\x12\x34@\x04 == read 4 bytes from a address 0x001234  -> send 0x03 0x00 0x12 0x34 <- read 4 bytes (must not to cross boundary)
             // F\x01\x06F\x0c\x02\x00\x11\x22\x00\x00\x00\x00\x00\x00\x00\x00 == write 8 bytes to address 0x001122
