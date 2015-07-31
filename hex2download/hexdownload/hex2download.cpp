@@ -23,6 +23,11 @@ void OutputOffset(FILE *OutputF, DWORD dwOff)
         if (dwOff != SkipCheck)
         {
             int iCount = dwOff - SkipCheck;
+            if (iCount <0)
+            {
+                iCount = 16 - iBytesInLine;
+            }
+
             if (iCount)
             {
                 //if (iCount > 16)
@@ -43,7 +48,7 @@ void OutputOffset(FILE *OutputF, DWORD dwOff)
                 }
             }
         }
-        if (dwOff >= (LastEntry +16))
+        if ((dwOff >= (LastEntry +16)) || ((int)(dwOff - SkipCheck) < 0))
         {
             fprintf(OutputF, "\n%08x:  ", dwOff);
             LastEntry = dwOff;
@@ -78,12 +83,16 @@ DWORD HexVal(char *pHex)
 
 int _tmain(int argc, _TCHAR* argv[])
 {
+    DWORD AddresConfig;
+    DWORD OfsetConfig;
     FirstEntry=0;
     LastEntry = 0;
     SkipCheck = 0;
-    if (argc != 4)
+    if ((argc != 6) && (argc != 5))
     {
-        printf ("\n usage:\n      hex2download <input> <output> 0x0ffset");
+        printf ("\n usage:\n      hex2download <input> <output> 0x0ffsetInFlash 0xAddresConfig [0xOfsetConfig] ");
+        printf ("\n  PIC18F25  0xAddresConfig=0x300000 0xOfsetConfig=0x10000");
+        printf ("\n  PIC24Hb   0xAddresConfig=0x1f00000 0xOfsetConfig=0x20000");
         return 1;
     }
     FILE * InputF = fopen(argv[1],"r");
@@ -92,15 +101,36 @@ int _tmain(int argc, _TCHAR* argv[])
         FILE *OutputF = fopen(argv[2],"w");
         if (OutputF)
         {
-            if (argc ==4)
+            if ((argc ==6) || (argc ==5))
             {
                 DWORD Offset = HexVal(&argv[3][2]);
+                AddresConfig = HexVal(&argv[4][2]);
+                if (argc ==6)
+                    OfsetConfig  = HexVal(&argv[5][2]);
+                else
+                    OfsetConfig = 0;
                 DWORD OffsetAddon= 0;;
                 char szString[256];
                 int iget;
                 memset(szString, 0, sizeof(szString));
                 while(fgets(szString, sizeof(szString)-1, InputF))
                 {
+                    //  Each line in the file has this format:
+                    // :BBAAAATT[DDDDDDDD]CC
+                    //                             where
+                    // :                           is start of line marker
+                    //  BB                         is number of data bytes on line
+                    //    AAAA                     is address in bytes
+                    //        TT                   is type. 00 means data, 01 means EOF and 04 means extended address
+                    //             DD              is data bytes, number depends on BB value
+                    //                    CC       is checksum (2s-complement of number of bytes+address+data)
+                    //    Code: This is at the top of the file and may be proceeded by an extended address 
+                    //     line – :020000040000FA, where 04 is the type for extended address. 
+                    //     Standard Intel Hex files can only address 64KB of data, 
+                    //     and extended addressing gets over this limitation by adding extended address lines for every 64KB, 
+                    //          for example
+                    //    :020000040001F9 – 64KB marker
+                    //    :020000040002F9 – 128KB marker
                     //:02 0000 04 0000 FA
                     //:04 0000 00 C7EF02F0 54
                     //:10 0008 00 D8CF60F0E0CF61F00001626FE9CF63F0 14
@@ -143,14 +173,17 @@ int _tmain(int argc, _TCHAR* argv[])
                         iType = HexVal(szType);
                         if (iType == 0)
                         {
-                            //iBytesInLine = 0;
-                            for (int i =0; i < ilen; i++)
+                            if ((argc ==6) || ((argc ==5) && (OffsetAddon != OfsetConfig-Offset)))
                             {
-                                OutputOffset(OutputF, Offset + OffsetAddon + dwOffset + i);
-                                memset(szEachByte, 0, sizeof(szEachByte));
-                                memcpy(szEachByte,&szString[9+2*i],2);
-                                fprintf(OutputF, "%s ", szEachByte);
-                                iBytesInLine++;
+                                //iBytesInLine = 0;
+                                for (int i =0; i < ilen; i++)
+                                {
+                                    OutputOffset(OutputF, Offset + OffsetAddon + dwOffset + i);
+                                    memset(szEachByte, 0, sizeof(szEachByte));
+                                    memcpy(szEachByte,&szString[9+2*i],2);
+                                    fprintf(OutputF, "%s ", szEachByte);
+                                    iBytesInLine++;
+                                }
                             }
                         }
                         else if (iType == 4)
@@ -160,8 +193,8 @@ int _tmain(int argc, _TCHAR* argv[])
                             OffsetAddon = HexVal(szOffset);
                             
                             OffsetAddon <<=16;
-                            if (OffsetAddon == 0x300000)
-                                OffsetAddon = Offset + 0x10000; 
+                            if (OffsetAddon == AddresConfig)
+                                OffsetAddon = OfsetConfig-Offset; 
                             //FirstEntry=0;
                             //LastEntry = 0;
                             //SkipCheck = 0;
@@ -183,7 +216,11 @@ int _tmain(int argc, _TCHAR* argv[])
         fclose(InputF);
     }
     else
-        printf ("\n usage:\n      hex2download <input> <output> 0x0ffset");
+    {
+        printf ("\n usage:\n      hex2download <input> <output> 0x0ffsetInFlash 0xAddresConfig [0xOfsetConfig] ");
+        printf ("\n  PIC18F25  0xAddresConfig=0x300000 0xOfsetConfig=0x10000");
+        printf ("\n  PIC24Hb   0xAddresConfig=0x1f00000 0xOfsetConfig=0x20000");
+    }
 	return 0;
 }
 
